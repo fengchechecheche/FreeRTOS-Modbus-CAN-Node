@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/freertos_modbus_can_node/diagnostic_record.schema.json",
+  "title": "Project Five Lightweight Diagnostic Record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "record_id",
+    "recorded_at",
+    "task_id",
+    "scope",
+    "result",
+    "environment",
+    "git_commit",
+    "subject",
+    "observed",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "record_id": { "type": "string", "pattern": "^P5-S[1-7]-T[0-9]{2}-D[0-9]{3}$" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "task_id": { "type": "string", "pattern": "^P5-S[1-7]-T[0-9]{2}$" },
+    "scope": {
+      "enum": ["host", "cross_build", "hardware", "rs485", "can", "stability", "reproduction"]
+    },
+    "result": { "enum": ["FAIL", "BLOCKED", "PASS"] },
+    "environment": {
+      "enum": ["ubuntu_wsl2", "windows_native", "raspberry_pi", "linux_other"]
+    },
+    "git_commit": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{7,40}|uncommitted)$"
+    },
+    "subject": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "observed": { "type": "string", "minLength": 1 },
+    "next_action": { "type": "string", "minLength": 1 },
+    "synthetic_example": { "type": "boolean" },
+    "command_or_action": { "type": "string" },
+    "expected": { "type": "string" },
+    "error_excerpt": { "type": "string", "maxLength": 2000 },
+    "tool_versions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "firmware_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "device_id_redacted": { "type": "string" },
+    "wiring_ref": { "type": "string" },
+    "peer_config": { "type": "string" },
+    "related_files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "attachments": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "root_cause": { "type": "string" },
+    "fix": { "type": "string" },
+    "regression_result": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "additionalProperties": false
+}

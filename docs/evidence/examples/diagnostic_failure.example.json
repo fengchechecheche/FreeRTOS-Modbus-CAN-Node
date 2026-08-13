@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "record_id": "P5-S2-T03-D001",
+  "recorded_at": "2026-09-08T03:20:00Z",
+  "task_id": "P5-S2-T03",
+  "scope": "rs485",
+  "result": "BLOCKED",
+  "environment": "ubuntu_wsl2",
+  "git_commit": "0123456789abcdef0123456789abcdef01234567",
+  "subject": "RS485 对端没有收到完整响应帧",
+  "observed": "请求可以到达 MCU，但对端只收到响应前两个字节。",
+  "next_action": "核对 DE 拉低时机，并用逻辑分析记录最后一个停止位与 DE 边沿。",
+  "synthetic_example": true,
+  "expected": "对端收到完整响应帧。",
+  "device_id_redacted": "nucleo-f446re-lab-a",
+  "peer_config": "19200 8E1, slave address 4",
+  "wiring_ref": "docs/wiring/rs485_bench.md"
+}

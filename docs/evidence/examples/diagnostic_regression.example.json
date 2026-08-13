@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "record_id": "P5-S2-T03-D002",
+  "recorded_at": "2026-09-08T05:10:00Z",
+  "task_id": "P5-S2-T03",
+  "scope": "rs485",
+  "result": "PASS",
+  "environment": "ubuntu_wsl2",
+  "git_commit": "89abcdef0123456789abcdef0123456789abcdef",
+  "subject": "RS485 响应截断问题回归通过",
+  "observed": "连续 100 次请求均收到完整响应帧。",
+  "next_action": "关闭该问题，继续后续 Modbus 状态机任务。",
+  "synthetic_example": true,
+  "root_cause": "DE 在最后一个停止位发送完成前被拉低。",
+  "fix": "等待 UART TC 标志后再释放 DE。",
+  "regression_result": "100/100 次完整响应，无截断帧。",
+  "peer_config": "19200 8E1, slave address 4"
+}
