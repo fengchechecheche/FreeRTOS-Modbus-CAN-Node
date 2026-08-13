@@ -1,7 +1,8 @@
 # FreeRTOS Modbus CAN Node
 
-基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。本仓库当前已建立 P5-S2-T03 无硬件 UART
-DMA 与 RS485 半双工方向控制候选；FreeRTOS、Modbus 协议、CAN 业务与传感器业务仍未实现。
+基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。本仓库当前已建立 P5-S2-T04 无硬件
+SPI/I²C 设备探测候选；T03 UART DMA 与 RS485 半双工方向控制候选保持冻结。FreeRTOS、Modbus
+协议、CAN 业务与完整传感器驱动仍未实现。
 
 ## 当前边界
 
@@ -16,6 +17,16 @@ DMA 与 RS485 半双工方向控制候选；FreeRTOS、Modbus 协议、CAN 业�
 - 候选时钟为 HSI 16 MHz、SYSCLK/HCLK 180 MHz、PCLK1 45 MHz、PCLK2 90 MHz；HAL tick quantum 为
   1 ms，尚未板级实测。
 - USART2 保留 T01 启动标记、T02 clock 摘要和最多五次 1 秒 heartbeat；当前只通过交叉构建。
+- SPI1 使用 PA5/PA6/PA7、Mode 3、MSB first、software NSS、2.8125 Mbit/s；BME280/PB6 与
+  ADXL345/PC7 片选独立，transaction timeout 候选为 20 ms。
+- I2C2 使用 PB10/PB3、100 kHz；应用层只保存 VEML7700 7-bit address `0x10`，仅在 HAL boundary
+  左移地址。
+- 最小探测读取 BME280 `0xD0`/`0x60` 与 ADXL345 `0x00`/`0xE5`；VEML7700 只验证 address/register
+  presence，不声称 silicon ID。
+- `P5_DEVICE_PROBE_SMOKE` 默认关闭；临时启用时只探测一次并通过 USART2 输出紧凑摘要，设备缺失
+  不阻塞正常启动。
+- SPI/I²C 候选不使用 DMA、RTOS 或动态内存；timeout/bus error 最多请求一次 recovery，当前 HAL
+  adapter 不伪造未实测的 SCL pulse 或重新初始化。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 尚未到货，ST-LINK、VCP、UART loopback、RS485 physical layer 和全部板级接口均保持
   `WAITING_FOR_HARDWARE`。
@@ -29,8 +40,8 @@ DMA 与 RS485 半双工方向控制候选；FreeRTOS、Modbus 协议、CAN 业�
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 smoke、clock 和 RS485
-CTest。构建输出位于 `out/`，原始问题证据位于被忽略的 `.private/`。
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 smoke、clock、RS485
+和 device-probe CTest。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的 `.private/`。
 
 ## 固件构建
 
@@ -46,3 +57,12 @@ wiring、bus timing 或 protocol 已验收。
 
 到货后的无 Shield PA9/PA10 loopback 可临时在 configure 时设置 `P5_RS485_LOOPBACK_SMOKE=ON`；该模式只
 允许用于有限三次本地探针，不得接入外部 RS485 bus。
+
+T04 台架探测可临时配置：
+
+```bash
+cmake --preset firmware-debug -DP5_DEVICE_PROBE_SMOKE=ON
+cmake --build --preset firmware-debug
+```
+
+验证后必须恢复默认 `OFF`；该模式不是周期扫描或完整传感器驱动。

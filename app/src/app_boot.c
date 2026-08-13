@@ -2,11 +2,16 @@
 
 #include <stdbool.h>
 
+#include "app_device_probe.h"
 #include "app_rs485_smoke.h"
 #include "bsp_clock.h"
 #include "bsp_rs485.h"
 #include "stm32f4xx_hal.h"
 #include "usart.h"
+
+#ifndef P5_DEVICE_PROBE_SMOKE_ENABLE
+#define P5_DEVICE_PROBE_SMOKE_ENABLE (0)
+#endif
 
 #define APP_BOOT_MARKER_REPEAT_COUNT (5U)
 #define APP_BOOT_MARKER_INTERVAL_MS (1000U)
@@ -65,6 +70,11 @@ app_boot_status_t app_boot_initialize(void)
     return APP_BOOT_ERROR;
   }
   app_rs485_smoke_initialize();
+
+  app_device_probe_initialize();
+#if P5_DEVICE_PROBE_SMOKE_ENABLE
+  app_device_probe_run_once();
+#endif
 
   return APP_BOOT_OK;
 }

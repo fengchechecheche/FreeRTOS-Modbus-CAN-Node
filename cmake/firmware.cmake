@@ -35,6 +35,8 @@ set(P5_STM32F4_HAL_SOURCES
 
 set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_boot.c
+    app/src/app_device_probe.c
+    app/src/app_device_probe_logic.c
     app/src/app_rs485_smoke.c
     app/src/app_rs485_smoke_logic.c
     bsp/src/bsp_clock.c
@@ -66,7 +68,8 @@ target_include_directories(${P5_FIRMWARE_TARGET} PRIVATE
 target_compile_definitions(${P5_FIRMWARE_TARGET} PRIVATE
     USE_HAL_DRIVER
     STM32F446xx
-    $<$<BOOL:${P5_RS485_LOOPBACK_SMOKE}>:P5_RS485_LOOPBACK_SMOKE_ENABLE=1>)
+    $<$<BOOL:${P5_RS485_LOOPBACK_SMOKE}>:P5_RS485_LOOPBACK_SMOKE_ENABLE=1>
+    $<$<BOOL:${P5_DEVICE_PROBE_SMOKE}>:P5_DEVICE_PROBE_SMOKE_ENABLE=1>)
 
 target_compile_options(${P5_FIRMWARE_TARGET} PRIVATE
     -ffunction-sections
