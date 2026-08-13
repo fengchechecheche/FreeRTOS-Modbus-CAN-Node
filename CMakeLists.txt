@@ -49,5 +49,11 @@ else()
     target_include_directories(p5_host_task_model PRIVATE app/include)
     p5_apply_project_warnings(p5_host_task_model)
     add_test(NAME p5.host.task_model COMMAND p5_host_task_model)
+
+    add_executable(p5_host_resource_budget
+        test/host/resource_budget_main.c)
+    target_include_directories(p5_host_resource_budget PRIVATE app/include)
+    p5_apply_project_warnings(p5_host_resource_budget)
+    add_test(NAME p5.host.resource_budget COMMAND p5_host_resource_budget)
   endif()
 endif()

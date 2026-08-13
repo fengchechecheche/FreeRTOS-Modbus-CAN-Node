@@ -4,21 +4,55 @@
 
 #include "FreeRTOS.h"
 #include "app_boot.h"
+#include "app_resource_budget.h"
 #include "app_rs485_smoke.h"
 #include "app_task_model.h"
 #include "bsp_rs485.h"
 #include "stm32f4xx.h"
 #include "task.h"
 
-#define APP_RTOS_PROVISIONAL_STACK_WORDS (256U)
+_Static_assert(sizeof(StackType_t) == APP_RESOURCE_STACK_WORD_BYTES,
+               "resource budget assumes 32-bit FreeRTOS stack words");
+_Static_assert(APP_RESOURCE_PROTOCOL_STACK_WORDS >= configMINIMAL_STACK_SIZE,
+               "protocol stack is below the FreeRTOS minimum");
+_Static_assert(APP_RESOURCE_ACQUISITION_STACK_WORDS >= configMINIMAL_STACK_SIZE,
+               "acquisition stack is below the FreeRTOS minimum");
+_Static_assert(APP_RESOURCE_CAN_STACK_WORDS >= configMINIMAL_STACK_SIZE,
+               "CAN stack is below the FreeRTOS minimum");
+_Static_assert(APP_RESOURCE_HEALTH_STACK_WORDS >= configMINIMAL_STACK_SIZE,
+               "health stack is below the FreeRTOS minimum");
+_Static_assert(APP_RESOURCE_DIAGNOSTIC_STACK_WORDS >= configMINIMAL_STACK_SIZE,
+               "diagnostic stack is below the FreeRTOS minimum");
 
 typedef void (*app_rtos_service_t)(void);
 
 static StaticTask_t app_rtos_task_controls[APP_TASK_COUNT];
 static StackType_t
-    app_rtos_task_stacks[APP_TASK_COUNT][APP_RTOS_PROVISIONAL_STACK_WORDS];
+    app_rtos_protocol_stack[APP_RESOURCE_PROTOCOL_STACK_WORDS];
+static StackType_t
+    app_rtos_acquisition_stack[APP_RESOURCE_ACQUISITION_STACK_WORDS];
+static StackType_t app_rtos_can_stack[APP_RESOURCE_CAN_STACK_WORDS];
+static StackType_t app_rtos_health_stack[APP_RESOURCE_HEALTH_STACK_WORDS];
+static StackType_t
+    app_rtos_diagnostic_stack[APP_RESOURCE_DIAGNOSTIC_STACK_WORDS];
+static StackType_t *const app_rtos_task_stacks[APP_TASK_COUNT] = {
+    app_rtos_protocol_stack,
+    app_rtos_acquisition_stack,
+    app_rtos_can_stack,
+    app_rtos_health_stack,
+    app_rtos_diagnostic_stack,
+};
+static const uint32_t app_rtos_task_stack_words[APP_TASK_COUNT] = {
+    APP_RESOURCE_PROTOCOL_STACK_WORDS,
+    APP_RESOURCE_ACQUISITION_STACK_WORDS,
+    APP_RESOURCE_CAN_STACK_WORDS,
+    APP_RESOURCE_HEALTH_STACK_WORDS,
+    APP_RESOURCE_DIAGNOSTIC_STACK_WORDS,
+};
+static TaskHandle_t app_rtos_task_handles[APP_TASK_COUNT];
 static app_task_runtime_t app_rtos_task_runtime[APP_TASK_COUNT];
 static volatile app_rtos_health_snapshot_t app_rtos_health_snapshot;
+static volatile app_rtos_resource_snapshot_t app_rtos_resource_snapshot;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
 
 static uint32_t app_rtos_saturating_add(uint32_t value, uint32_t increment)
@@ -38,6 +72,38 @@ static void app_rtos_protocol_service(void)
 {
   (void)bsp_rs485_poll();
   app_rs485_smoke_poll();
+}
+
+static void app_rtos_update_resource_snapshot(void)
+{
+  app_rtos_resource_snapshot_t snapshot;
+  const bool scheduler_running =
+      xTaskGetSchedulerState() == taskSCHEDULER_RUNNING;
+
+  for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
+  {
+    snapshot.task[index].configured_words = app_rtos_task_stack_words[index];
+    snapshot.task[index].minimum_free_words = 0U;
+    snapshot.task[index].measured = false;
+
+    if (scheduler_running && (app_rtos_task_handles[index] != NULL))
+    {
+      snapshot.task[index].minimum_free_words =
+          (uint32_t)uxTaskGetStackHighWaterMark(app_rtos_task_handles[index]);
+      snapshot.task[index].measured = true;
+    }
+  }
+
+  if (scheduler_running)
+  {
+    taskENTER_CRITICAL();
+    app_rtos_resource_snapshot = snapshot;
+    taskEXIT_CRITICAL();
+  }
+  else
+  {
+    app_rtos_resource_snapshot = snapshot;
+  }
 }
 
 static void app_rtos_health_service(void)
@@ -61,6 +127,8 @@ static void app_rtos_health_service(void)
   }
   app_rtos_health_snapshot = snapshot;
   taskEXIT_CRITICAL();
+
+  app_rtos_update_resource_snapshot();
 }
 
 static void app_rtos_diagnostic_service(void)
@@ -151,18 +219,23 @@ app_rtos_status_t app_rtos_initialize(void)
     return APP_RTOS_ERROR;
   }
 
+  app_rtos_update_resource_snapshot();
+
   for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
   {
     const app_task_contract_t *contract =
         app_task_model_contract((app_task_id_t)index);
-    if ((contract == NULL) ||
-        (xTaskCreateStatic(task_entries[index],
-                           contract->name,
-                           APP_RTOS_PROVISIONAL_STACK_WORDS,
-                           NULL,
-                           (UBaseType_t)contract->priority,
-                           app_rtos_task_stacks[index],
-                           &app_rtos_task_controls[index]) == NULL))
+    if (contract == NULL)
+    {
+      app_rtos_current_fault_code = APP_RTOS_FAULT_TASK_CREATE;
+      return APP_RTOS_ERROR;
+    }
+
+    app_rtos_task_handles[index] = xTaskCreateStatic(
+        task_entries[index], contract->name, app_rtos_task_stack_words[index],
+        NULL, (UBaseType_t)contract->priority, app_rtos_task_stacks[index],
+        &app_rtos_task_controls[index]);
+    if (app_rtos_task_handles[index] == NULL)
     {
       app_rtos_current_fault_code = APP_RTOS_FAULT_TASK_CREATE;
       return APP_RTOS_ERROR;
@@ -182,6 +255,25 @@ void app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot)
   taskENTER_CRITICAL();
   *snapshot = app_rtos_health_snapshot;
   taskEXIT_CRITICAL();
+}
+
+void app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot)
+{
+  if (snapshot == NULL)
+  {
+    return;
+  }
+
+  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+  {
+    taskENTER_CRITICAL();
+    *snapshot = app_rtos_resource_snapshot;
+    taskEXIT_CRITICAL();
+  }
+  else
+  {
+    *snapshot = app_rtos_resource_snapshot;
+  }
 }
 
 uint32_t app_rtos_fault_code(void)

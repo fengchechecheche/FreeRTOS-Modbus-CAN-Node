@@ -27,15 +27,17 @@ Final cross-build size summaries are:
 
 | Build | text | data | bss |
 |---|---:|---:|---:|
-| Debug | 18360 B | 160 B | 9048 B |
-| Release | 16076 B | 156 B | 9044 B |
+| Debug | 18688 B | 160 B | 8616 B |
+| Release | 16372 B | 156 B | 8612 B |
 
-These values include five provisional 256-word stacks and are not a frozen
-resource budget.
+These values include five separately named 256-word stacks. The static-only
+contract, linker heap removal, limits and exact accounting are maintained in
+`docs/resource_budget.md` rather than duplicated here.
 
 ## Deferred
 
 No scheduler execution, task jitter, WCET, stack watermark or ISR latency has
-been measured because the board is unavailable. Hardware acceptance remains a
-separate limited smoke after the BSP hardware gate; no trace bundle is required
-for a normal pass.
+been measured because the board is unavailable. The watermark API is compiled
+in, but its snapshot reports values as unmeasured until called by a running
+task. Hardware acceptance remains a separate limited smoke after the BSP
+hardware gate; no trace bundle is required for a normal pass.

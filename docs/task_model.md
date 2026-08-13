@@ -20,9 +20,11 @@ busy-waiting or replaying every historical period. The HAL/FreeRTOS-free host
 model tests normal releases, wrap-around, late wake, single/multi-period
 overload and independent task state.
 
-All five tasks currently use provisional 256-word static stacks. Linking proves
-only that the buffers fit; P5-S3-T02 must establish actual stack and RAM budgets
-from hardware watermark evidence.
+P5-S3-T02 gives each task a separately named 256-word static stack. These are
+explicit candidate allocations rather than a shared provisional constant.
+Linked RAM/Flash limits and a read-only watermark snapshot are documented in
+`docs/resource_budget.md`. Runtime watermarks remain `NOT_MEASURED` until the
+bounded hardware smoke, and later real workloads must remeasure affected tasks.
 
 NVIC uses `NVIC_PRIORITYGROUP_4`, with all four implemented priority bits used
 as preemption priority. Existing USART1/DMA interrupt priority values remain

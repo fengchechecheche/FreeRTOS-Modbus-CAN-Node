@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "app_resource_budget.h"
+
 extern uint32_t SystemCoreClock;
 void app_rtos_assert_failed(const char *file, uint32_t line);
 
@@ -12,7 +14,7 @@ void app_rtos_assert_failed(const char *file, uint32_t line);
 #define configCPU_CLOCK_HZ (SystemCoreClock)
 #define configTICK_RATE_HZ ((TickType_t)1000U)
 #define configMAX_PRIORITIES 6
-#define configMINIMAL_STACK_SIZE ((uint16_t)128U)
+#define configMINIMAL_STACK_SIZE ((uint16_t)APP_RESOURCE_IDLE_STACK_WORDS)
 #define configMAX_TASK_NAME_LEN 20
 #define configUSE_16_BIT_TICKS 0
 #define configIDLE_SHOULD_YIELD 1
@@ -55,7 +57,7 @@ void app_rtos_assert_failed(const char *file, uint32_t line);
 #define INCLUDE_vTaskDelay 0
 #define INCLUDE_xTaskGetSchedulerState 1
 #define INCLUDE_xTaskGetCurrentTaskHandle 0
-#define INCLUDE_uxTaskGetStackHighWaterMark 0
+#define INCLUDE_uxTaskGetStackHighWaterMark 1
 #define INCLUDE_eTaskGetState 0
 
 #define configPRIO_BITS 4
