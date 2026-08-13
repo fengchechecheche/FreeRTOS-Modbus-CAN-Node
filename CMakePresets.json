@@ -1,0 +1,77 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "host-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "P5_BUILD_HOST_TESTS": "ON"
+      }
+    },
+    {
+      "name": "host-debug",
+      "inherits": "host-base",
+      "binaryDir": "${sourceDir}/out/host-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "host-release",
+      "inherits": "host-base",
+      "binaryDir": "${sourceDir}/out/host-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "firmware-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi-gcc.cmake",
+      "cacheVariables": {
+        "P5_BUILD_HOST_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "firmware-debug",
+      "inherits": "firmware-base",
+      "binaryDir": "${sourceDir}/out/firmware-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "firmware-release",
+      "inherits": "firmware-base",
+      "binaryDir": "${sourceDir}/out/firmware-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "host-debug", "configurePreset": "host-debug" },
+    { "name": "host-release", "configurePreset": "host-release" },
+    { "name": "firmware-debug", "configurePreset": "firmware-debug" },
+    { "name": "firmware-release", "configurePreset": "firmware-release" }
+  ],
+  "testPresets": [
+    {
+      "name": "host-debug",
+      "configurePreset": "host-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "host-release",
+      "configurePreset": "host-release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

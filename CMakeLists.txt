@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.22)
+
+project(freertos_modbus_can_node LANGUAGES C)
+
+option(P5_BUILD_HOST_TESTS "Build host-only infrastructure tests" ON)
+
+if(CMAKE_CROSSCOMPILING)
+  if(P5_BUILD_HOST_TESTS)
+    message(FATAL_ERROR "Host tests must not be built with the firmware toolchain")
+  endif()
+  message(STATUS "Firmware toolchain entry configured; firmware targets begin in P5-S1-T04")
+else()
+  if(P5_BUILD_HOST_TESTS)
+    include(CTest)
+    include(cmake/project_options.cmake)
+
+    add_executable(p5_host_smoke test/host/smoke_main.c)
+    p5_apply_project_warnings(p5_host_smoke)
+    add_test(NAME p5.host.smoke COMMAND p5_host_smoke)
+  endif()
+endif()

@@ -1,0 +1,5 @@
+function(p5_apply_project_warnings target_name)
+  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+endfunction()

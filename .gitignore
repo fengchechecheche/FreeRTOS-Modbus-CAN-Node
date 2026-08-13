@@ -1,0 +1,9 @@
+/out/
+/.private/
+/CMakeUserPresets.json
+/.cache/
+/.clangd/
+/.vscode/
+/.idea/
+*.swp
+*~
