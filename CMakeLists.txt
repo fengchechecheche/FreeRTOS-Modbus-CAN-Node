@@ -17,5 +17,12 @@ else()
     add_executable(p5_host_smoke test/host/smoke_main.c)
     p5_apply_project_warnings(p5_host_smoke)
     add_test(NAME p5.host.smoke COMMAND p5_host_smoke)
+
+    add_executable(p5_host_clock
+        test/host/clock_main.c
+        bsp/src/bsp_clock_math.c)
+    target_include_directories(p5_host_clock PRIVATE bsp/include)
+    p5_apply_project_warnings(p5_host_clock)
+    add_test(NAME p5.host.clock COMMAND p5_host_clock)
   endif()
 endif()

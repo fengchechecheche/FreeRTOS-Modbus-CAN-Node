@@ -35,6 +35,7 @@ set(P5_STM32F4_HAL_SOURCES
 set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_boot.c
     bsp/src/bsp_clock.c
+    bsp/src/bsp_clock_math.c
     bsp/src/bsp_spi_bus.c
     bsp/src/bsp_i2c_bus.c
     bsp/src/bsp_rs485.c
