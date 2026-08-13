@@ -2,7 +2,9 @@
 
 #include <stdbool.h>
 
+#include "app_rs485_smoke.h"
 #include "bsp_clock.h"
+#include "bsp_rs485.h"
 #include "stm32f4xx_hal.h"
 #include "usart.h"
 
@@ -58,11 +60,20 @@ app_boot_status_t app_boot_initialize(void)
   app_heartbeat_count = 0U;
   app_heartbeat_enabled = true;
 
+  if (bsp_rs485_initialize() != BSP_RS485_RESULT_OK)
+  {
+    return APP_BOOT_ERROR;
+  }
+  app_rs485_smoke_initialize();
+
   return APP_BOOT_OK;
 }
 
 void app_boot_idle(void)
 {
+  (void)bsp_rs485_poll();
+  app_rs485_smoke_poll();
+
   if (app_heartbeat_enabled)
   {
     const uint32_t now_ms = bsp_clock_tick_ms();

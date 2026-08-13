@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 project(freertos_modbus_can_node LANGUAGES C ASM)
 
 option(P5_BUILD_HOST_TESTS "Build host-only infrastructure tests" ON)
+option(P5_RS485_LOOPBACK_SMOKE "Enable the bounded PA9/PA10 loopback smoke" OFF)
 
 if(CMAKE_CROSSCOMPILING)
   if(P5_BUILD_HOST_TESTS)
@@ -24,5 +25,13 @@ else()
     target_include_directories(p5_host_clock PRIVATE bsp/include)
     p5_apply_project_warnings(p5_host_clock)
     add_test(NAME p5.host.clock COMMAND p5_host_clock)
+
+    add_executable(p5_host_rs485
+        test/host/rs485_main.c
+        bsp/src/bsp_rs485_state.c
+        app/src/app_rs485_smoke_logic.c)
+    target_include_directories(p5_host_rs485 PRIVATE app/include bsp/include)
+    p5_apply_project_warnings(p5_host_rs485)
+    add_test(NAME p5.host.rs485 COMMAND p5_host_rs485)
   endif()
 endif()

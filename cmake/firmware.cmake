@@ -35,11 +35,14 @@ set(P5_STM32F4_HAL_SOURCES
 
 set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_boot.c
+    app/src/app_rs485_smoke.c
+    app/src/app_rs485_smoke_logic.c
     bsp/src/bsp_clock.c
     bsp/src/bsp_clock_math.c
     bsp/src/bsp_spi_bus.c
     bsp/src/bsp_i2c_bus.c
     bsp/src/bsp_rs485.c
+    bsp/src/bsp_rs485_state.c
     bsp/src/bsp_can.c)
 
 add_executable(${P5_FIRMWARE_TARGET}
@@ -62,7 +65,8 @@ target_include_directories(${P5_FIRMWARE_TARGET} PRIVATE
 
 target_compile_definitions(${P5_FIRMWARE_TARGET} PRIVATE
     USE_HAL_DRIVER
-    STM32F446xx)
+    STM32F446xx
+    $<$<BOOL:${P5_RS485_LOOPBACK_SMOKE}>:P5_RS485_LOOPBACK_SMOKE_ENABLE=1>)
 
 target_compile_options(${P5_FIRMWARE_TARGET} PRIVATE
     -ffunction-sections
