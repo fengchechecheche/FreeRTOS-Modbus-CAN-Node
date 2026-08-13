@@ -53,12 +53,16 @@ CHECKS: CheckTable = {
         ("spi1 prescaler", "SPI1.BaudRatePrescaler=SPI_BAUDRATEPRESCALER_32"),
         ("can1 baud", "CAN1.CalculateBaudRate=500000"),
         ("can1 prescaler", "CAN1.Prescaler=6"),
+        ("nvic priority group", "NVIC.PriorityGroup=NVIC_PRIORITYGROUP_4"),
         ("hal timebase irq", "NVIC.TimeBase=TIM6_DAC_IRQn"),
         ("hal timebase ip", "NVIC.TimeBaseIP=TIM6"),
         ("tim6 virtual mode", "VP_SYS_VS_tim6.Mode=TIM6"),
     ],
     Path("Core/Inc/stm32f4xx_hal_conf.h"): [
         ("tim hal enabled", "#define HAL_TIM_MODULE_ENABLED"),
+    ],
+    Path("Core/Src/stm32f4xx_hal_msp.c"): [
+        ("nvic priority group", "HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);"),
     ],
     Path("Core/Inc/main.h"): [
         ("adxl cs pin", "#define ADXL345_CS_Pin GPIO_PIN_7"),
@@ -123,7 +127,6 @@ CHECKS: CheckTable = {
         ("usart1 handler", "void USART1_IRQHandler(void)"),
         ("rx dma handler", "void DMA2_Stream2_IRQHandler(void)"),
         ("tx dma handler", "void DMA2_Stream7_IRQHandler(void)"),
-        ("systick handler", "void SysTick_Handler(void)"),
         ("tim6 irq handler", "void TIM6_DAC_IRQHandler(void)"),
         ("tim6 hal dispatch", "HAL_TIM_IRQHandler(&htim6);"),
     ],
@@ -136,6 +139,8 @@ CHECKS: CheckTable = {
         ("tim6 timebase source", "Core/Src/stm32f4xx_hal_timebase_tim.c"),
         ("tim hal source", "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c"),
         ("tim ex hal source", "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c"),
+        ("freertos tasks source", "Middlewares/Third_Party/FreeRTOS/Source/tasks.c"),
+        ("cm4f port source", "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c"),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -177,6 +182,15 @@ CHECKS: CheckTable = {
         ("hardware upgrade boundary", "BSP_CONTRACT_HARDWARE_FROZEN"),
         ("hal tick owner", "HAL tick source = TIM6"),
         ("rtos tick reservation", "保留给后续原生 FreeRTOS kernel tick"),
+        ("rtos handler owner", "接管 SysTick、PendSV 与 SVC"),
+    ],
+    Path("config/FreeRTOSConfig.h"): [
+        ("static allocation", "#define configSUPPORT_STATIC_ALLOCATION 1"),
+        ("dynamic allocation off", "#define configSUPPORT_DYNAMIC_ALLOCATION 0"),
+        ("tick rate", "#define configTICK_RATE_HZ ((TickType_t)1000U)"),
+        ("systick handler alias", "#define xPortSysTickHandler SysTick_Handler"),
+        ("pendsv handler alias", "#define xPortPendSVHandler PendSV_Handler"),
+        ("svc handler alias", "#define vPortSVCHandler SVC_Handler"),
     ],
 }
 
@@ -184,9 +198,16 @@ CHECKS: CheckTable = {
 FORBIDDEN_CHECKS: CheckTable = {
     Path("freertos_modbus_can_node.ioc"): [
         ("legacy systick timebase", "VP_SYS_VS_Systick.Mode=SysTick"),
+        ("non-rtos priority group", "NVIC.PriorityGroup=NVIC_PRIORITYGROUP_0"),
     ],
     Path("Core/Src/stm32f4xx_it.c"): [
         ("hal tick in systick irq file", "HAL_IncTick();"),
+        ("duplicate systick handler", "void SysTick_Handler(void)"),
+        ("duplicate pendsv handler", "void PendSV_Handler(void)"),
+        ("duplicate svc handler", "void SVC_Handler(void)"),
+    ],
+    Path("CMakeLists.txt"): [
+        ("scheduler smoke default on", "P5_RTOS_SCHEDULER_SMOKE \"Enable the bounded scheduler-start smoke\" ON"),
     ],
 }
 
@@ -282,9 +303,33 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    invalid_priority_group = original_ioc.replace(
+        "NVIC.PriorityGroup=NVIC_PRIORITYGROUP_4",
+        "NVIC.PriorityGroup=NVIC_PRIORITYGROUP_0",
+        1,
+    )
+    if invalid_priority_group == original_ioc:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create priority-group mutant)"
+        )
+        return 2
+    priority_group_errors, _ = verify(
+        root, {ioc_path: invalid_priority_group}
+    )
+    caught_priority_group = any(
+        "priority group" in item for item in priority_group_errors
+    )
+    if not caught_priority_group:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(non-RTOS NVIC priority group was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
-        "(in-memory unsafe-option and legacy-SysTick-timebase mutants rejected)"
+        "(unsafe-option, legacy-SysTick and priority-group mutants rejected)"
     )
     return 0
 

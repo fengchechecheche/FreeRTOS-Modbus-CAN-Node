@@ -5,6 +5,7 @@ project(freertos_modbus_can_node LANGUAGES C ASM)
 option(P5_BUILD_HOST_TESTS "Build host-only infrastructure tests" ON)
 option(P5_RS485_LOOPBACK_SMOKE "Enable the bounded PA9/PA10 loopback smoke" OFF)
 option(P5_DEVICE_PROBE_SMOKE "Enable the one-shot SPI/I2C device probe" OFF)
+option(P5_RTOS_SCHEDULER_SMOKE "Enable the bounded scheduler-start smoke" OFF)
 
 if(CMAKE_CROSSCOMPILING)
   if(P5_BUILD_HOST_TESTS)
@@ -41,5 +42,12 @@ else()
     target_include_directories(p5_host_device_probe PRIVATE app/include)
     p5_apply_project_warnings(p5_host_device_probe)
     add_test(NAME p5.host.device_probe COMMAND p5_host_device_probe)
+
+    add_executable(p5_host_task_model
+        test/host/task_model_main.c
+        app/src/app_task_model.c)
+    target_include_directories(p5_host_task_model PRIVATE app/include)
+    p5_apply_project_warnings(p5_host_task_model)
+    add_test(NAME p5.host.task_model COMMAND p5_host_task_model)
   endif()
 endif()

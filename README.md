@@ -2,8 +2,9 @@
 
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
 汇总为 BSP 软件候选合同；当前状态为 `BSP_CONTRACT_CANDIDATE_FROZEN + WAITING_FOR_HARDWARE`。
-这允许后续纯软件轨道继续，但不代表板卡、Shield 或外设已经实测。FreeRTOS、Modbus 协议、CAN
-业务与完整传感器驱动仍未实现。
+这允许后续纯软件轨道继续，但不代表板卡、Shield 或外设已经实测。P5-S3-T01 已集成随包
+FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核冻结；Modbus 协议、CAN 业务与
+完整传感器驱动仍未实现。
 
 ## 当前边界
 
@@ -16,7 +17,7 @@
 - DE 只在最终 USART `TC` 对应的 `HAL_UART_TxCpltCallback()` 后拉低；start failure、timeout 和 UART
   error 均有有界恢复路径。
 - 候选时钟为 HSI 16 MHz、SYSCLK/HCLK 180 MHz、PCLK1 45 MHz、PCLK2 90 MHz；HAL 1 ms tick
-  已迁移至 TIM6，SysTick 保留给后续 FreeRTOS kernel tick，均尚未板级实测。
+  由 TIM6 提供；SysTick、PendSV 与 SVC 由 FreeRTOS ARM_CM4F port 使用，均尚未板级实测。
 - USART2 保留 T01 启动标记、T02 clock 摘要和最多五次 1 秒 heartbeat；当前只通过交叉构建。
 - SPI1 使用 PA5/PA6/PA7、Mode 3、MSB first、software NSS、2.8125 Mbit/s；BME280/PB6 与
   ADXL345/PC7 片选独立，transaction timeout 候选为 20 ms。
@@ -26,6 +27,10 @@
   presence，不声称 silicon ID。
 - `P5_DEVICE_PROBE_SMOKE` 默认关闭；临时启用时只探测一次并通过 USART2 输出紧凑摘要，设备缺失
   不阻塞正常启动。
+- FreeRTOS 任务使用静态分配，`protocol_task` 接管有限 RS485 poll，`diagnostic_task` 接管有限
+  heartbeat；其余任务在 T01 只维护调度/健康计数。
+- `P5_RTOS_SCHEDULER_SMOKE` 默认关闭；五个任务的栈均为 provisional buffer，尚未完成 T02
+  watermark 和 RAM 预算。
 - SPI/I²C 候选不使用 DMA、RTOS 或动态内存；timeout/bus error 最多请求一次 recovery，当前 HAL
   adapter 不伪造未实测的 SCL pulse 或重新初始化。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
@@ -44,8 +49,9 @@ DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 smoke、clock、RS485
-和 device-probe CTest。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的 `.private/`。
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 smoke、clock、RS485、
+device-probe 和 task-model CTest。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的
+`.private/`。
 
 BSP 静态合同检查：
 

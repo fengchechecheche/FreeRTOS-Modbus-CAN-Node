@@ -8,6 +8,6 @@ typedef enum
 } app_boot_status_t;
 
 app_boot_status_t app_boot_initialize(void);
-void app_boot_idle(void);
+void app_boot_diagnostic_service(void);
 
 #endif

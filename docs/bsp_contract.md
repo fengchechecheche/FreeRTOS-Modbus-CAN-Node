@@ -54,6 +54,11 @@ HAL tick quantum = 1 ms
 `HAL_IncTick()`，保留给后续原生 FreeRTOS kernel tick。当前仅为配置、生成代码与交叉构建候选，
 不表示 TIM6/SysTick 已在板上测量。
 
+P5-S3-T01 A2 已由原生 FreeRTOS ARM_CM4F port 接管 SysTick、PendSV 与 SVC；TIM6 继续只负责 HAL
+tick。现有 USART1/DMA ISR 不调用 FreeRTOS `FromISR` API，其优先级留到 P5-S3-T03 按实际通知
+路径审核。NVIC 使用 `NVIC_PRIORITYGROUP_4`，把 STM32F446RE 的 4 个实现位全部用于抢占优先级，
+满足 Cortex-M4 port 的 BASEPRI 模型；现有 IRQ 优先级数值保持不变。
+
 生成初始化顺序：
 
 ```text

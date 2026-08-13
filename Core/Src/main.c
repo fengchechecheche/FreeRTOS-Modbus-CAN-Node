@@ -28,6 +28,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_boot.h"
+#include "app_rtos.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 /* USER CODE END Includes */
 
@@ -103,6 +106,12 @@ int main(void)
   {
     Error_Handler();
   }
+  if (app_rtos_initialize() != APP_RTOS_OK)
+  {
+    Error_Handler();
+  }
+  vTaskStartScheduler();
+  app_rtos_fail_stop(APP_RTOS_FAULT_SCHEDULER_RETURN);
 
   /* USER CODE END 2 */
 
@@ -113,7 +122,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    app_boot_idle();
   }
   /* USER CODE END 3 */
 }

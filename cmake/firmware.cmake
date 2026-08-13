@@ -40,8 +40,11 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_boot.c
     app/src/app_device_probe.c
     app/src/app_device_probe_logic.c
+    app/src/app_rtos.c
+    app/src/app_rtos_hooks.c
     app/src/app_rs485_smoke.c
     app/src/app_rs485_smoke_logic.c
+    app/src/app_task_model.c
     bsp/src/bsp_clock.c
     bsp/src/bsp_clock_math.c
     bsp/src/bsp_spi_bus.c
@@ -50,10 +53,17 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     bsp/src/bsp_rs485_state.c
     bsp/src/bsp_can.c)
 
+set(P5_FREERTOS_KERNEL_SOURCES
+    Middlewares/Third_Party/FreeRTOS/Source/tasks.c
+    Middlewares/Third_Party/FreeRTOS/Source/list.c
+    Middlewares/Third_Party/FreeRTOS/Source/queue.c
+    Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c)
+
 add_executable(${P5_FIRMWARE_TARGET}
     ${P5_CUBEMX_APPLICATION_SOURCES}
     ${P5_STM32F4_HAL_SOURCES}
-    ${P5_PROJECT_FIRMWARE_SOURCES})
+    ${P5_PROJECT_FIRMWARE_SOURCES}
+    ${P5_FREERTOS_KERNEL_SOURCES})
 
 set_target_properties(${P5_FIRMWARE_TARGET} PROPERTIES
     OUTPUT_NAME freertos_modbus_can_node
@@ -63,6 +73,9 @@ target_include_directories(${P5_FIRMWARE_TARGET} PRIVATE
     Core/Inc
     app/include
     bsp/include
+    config
+    Middlewares/Third_Party/FreeRTOS/Source/include
+    Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F
     Drivers/STM32F4xx_HAL_Driver/Inc
     Drivers/STM32F4xx_HAL_Driver/Inc/Legacy
     Drivers/CMSIS/Device/ST/STM32F4xx/Include
@@ -71,8 +84,10 @@ target_include_directories(${P5_FIRMWARE_TARGET} PRIVATE
 target_compile_definitions(${P5_FIRMWARE_TARGET} PRIVATE
     USE_HAL_DRIVER
     STM32F446xx
+    P5_NATIVE_FREERTOS=1
     $<$<BOOL:${P5_RS485_LOOPBACK_SMOKE}>:P5_RS485_LOOPBACK_SMOKE_ENABLE=1>
-    $<$<BOOL:${P5_DEVICE_PROBE_SMOKE}>:P5_DEVICE_PROBE_SMOKE_ENABLE=1>)
+    $<$<BOOL:${P5_DEVICE_PROBE_SMOKE}>:P5_DEVICE_PROBE_SMOKE_ENABLE=1>
+    $<$<BOOL:${P5_RTOS_SCHEDULER_SMOKE}>:P5_RTOS_SCHEDULER_SMOKE_ENABLE=1>)
 
 target_compile_options(${P5_FIRMWARE_TARGET} PRIVATE
     -ffunction-sections
