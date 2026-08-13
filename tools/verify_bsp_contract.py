@@ -53,6 +53,12 @@ CHECKS: CheckTable = {
         ("spi1 prescaler", "SPI1.BaudRatePrescaler=SPI_BAUDRATEPRESCALER_32"),
         ("can1 baud", "CAN1.CalculateBaudRate=500000"),
         ("can1 prescaler", "CAN1.Prescaler=6"),
+        ("hal timebase irq", "NVIC.TimeBase=TIM6_DAC_IRQn"),
+        ("hal timebase ip", "NVIC.TimeBaseIP=TIM6"),
+        ("tim6 virtual mode", "VP_SYS_VS_tim6.Mode=TIM6"),
+    ],
+    Path("Core/Inc/stm32f4xx_hal_conf.h"): [
+        ("tim hal enabled", "#define HAL_TIM_MODULE_ENABLED"),
     ],
     Path("Core/Inc/main.h"): [
         ("adxl cs pin", "#define ADXL345_CS_Pin GPIO_PIN_7"),
@@ -117,6 +123,19 @@ CHECKS: CheckTable = {
         ("usart1 handler", "void USART1_IRQHandler(void)"),
         ("rx dma handler", "void DMA2_Stream2_IRQHandler(void)"),
         ("tx dma handler", "void DMA2_Stream7_IRQHandler(void)"),
+        ("systick handler", "void SysTick_Handler(void)"),
+        ("tim6 irq handler", "void TIM6_DAC_IRQHandler(void)"),
+        ("tim6 hal dispatch", "HAL_TIM_IRQHandler(&htim6);"),
+    ],
+    Path("Core/Src/stm32f4xx_hal_timebase_tim.c"): [
+        ("tim6 hal init tick", "HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)"),
+        ("tim6 instance", "htim6.Instance = TIM6;"),
+        ("tim6 start", "HAL_TIM_Base_Start_IT(&htim6)"),
+    ],
+    Path("cmake/firmware.cmake"): [
+        ("tim6 timebase source", "Core/Src/stm32f4xx_hal_timebase_tim.c"),
+        ("tim hal source", "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c"),
+        ("tim ex hal source", "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c"),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -156,6 +175,18 @@ CHECKS: CheckTable = {
         ("candidate boundary", "BSP_CONTRACT_CANDIDATE_FROZEN"),
         ("hardware waiting", "WAITING_FOR_HARDWARE"),
         ("hardware upgrade boundary", "BSP_CONTRACT_HARDWARE_FROZEN"),
+        ("hal tick owner", "HAL tick source = TIM6"),
+        ("rtos tick reservation", "保留给后续原生 FreeRTOS kernel tick"),
+    ],
+}
+
+
+FORBIDDEN_CHECKS: CheckTable = {
+    Path("freertos_modbus_can_node.ioc"): [
+        ("legacy systick timebase", "VP_SYS_VS_Systick.Mode=SysTick"),
+    ],
+    Path("Core/Src/stm32f4xx_it.c"): [
+        ("hal tick in systick irq file", "HAL_IncTick();"),
     ],
 }
 
@@ -182,6 +213,22 @@ def verify(
             checked += 1
             if snippet not in content:
                 errors.append(f"{relative_path}: {label}: missing {snippet!r}")
+
+    for relative_path, facts in FORBIDDEN_CHECKS.items():
+        if relative_path in override_map:
+            content = override_map[relative_path]
+        else:
+            path = root / relative_path
+            try:
+                content = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                errors.append(f"{relative_path}: cannot read: {exc}")
+                continue
+
+        for label, snippet in facts:
+            checked += 1
+            if snippet in content:
+                errors.append(f"{relative_path}: {label}: forbidden {snippet!r}")
 
     return errors, checked
 
@@ -221,9 +268,23 @@ def run_self_test(root: Path) -> int:
         print("P5 BSP CONTRACT SELF-TEST: FAIL (unsafe option was not detected)")
         return 2
 
+    ioc_path = Path("freertos_modbus_can_node.ioc")
+    original_ioc = (root / ioc_path).read_text(encoding="utf-8")
+    legacy_timebase = original_ioc + "\nVP_SYS_VS_Systick.Mode=SysTick\n"
+    timebase_errors, _ = verify(root, {ioc_path: legacy_timebase})
+    caught_timebase = any(
+        "legacy systick timebase" in item for item in timebase_errors
+    )
+    if not caught_timebase:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(legacy SysTick HAL timebase was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
-        "(in-memory device-probe-default-ON mutant rejected)"
+        "(in-memory unsafe-option and legacy-SysTick-timebase mutants rejected)"
     )
     return 0
 

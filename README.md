@@ -15,8 +15,8 @@
 - 默认 smoke 不主动发包；只有收到 ASCII `P5T03` 才异步返回 `P5T03OK`。它不是 Modbus 帧。
 - DE 只在最终 USART `TC` 对应的 `HAL_UART_TxCpltCallback()` 后拉低；start failure、timeout 和 UART
   error 均有有界恢复路径。
-- 候选时钟为 HSI 16 MHz、SYSCLK/HCLK 180 MHz、PCLK1 45 MHz、PCLK2 90 MHz；HAL tick quantum 为
-  1 ms，尚未板级实测。
+- 候选时钟为 HSI 16 MHz、SYSCLK/HCLK 180 MHz、PCLK1 45 MHz、PCLK2 90 MHz；HAL 1 ms tick
+  已迁移至 TIM6，SysTick 保留给后续 FreeRTOS kernel tick，均尚未板级实测。
 - USART2 保留 T01 启动标记、T02 clock 摘要和最多五次 1 秒 heartbeat；当前只通过交叉构建。
 - SPI1 使用 PA5/PA6/PA7、Mode 3、MSB first、software NSS、2.8125 Mbit/s；BME280/PB6 与
   ADXL345/PC7 片选独立，transaction timeout 候选为 20 ms。

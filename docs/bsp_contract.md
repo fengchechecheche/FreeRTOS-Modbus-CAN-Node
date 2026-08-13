@@ -46,8 +46,13 @@ SYSCLK = 180 MHz
 HCLK = 180 MHz
 PCLK1 = 45 MHz
 PCLK2 = 90 MHz
+HAL tick source = TIM6
 HAL tick quantum = 1 ms
 ```
+
+自 P5-S3-T01 A1 起，HAL 的 1 ms timebase 由 TIM6 独占；`SysTick` 不再调用
+`HAL_IncTick()`，保留给后续原生 FreeRTOS kernel tick。当前仅为配置、生成代码与交叉构建候选，
+不表示 TIM6/SysTick 已在板上测量。
 
 生成初始化顺序：
 
