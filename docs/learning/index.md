@@ -12,7 +12,7 @@
 | S1 | P5-S1-T03 | 仓库结构与嵌入式构建测试 | `p5_s1_t03_仓库结构与嵌入式构建测试.md` | FROZEN |
 | S1 | P5-S1-T04 | 引脚复用、时钟与接口合同 | `p5_s1_t04_引脚复用时钟与接口合同.md` | FROZEN |
 | S1 | P5-S1-T05 | 轻量验收协议与问题排查 | `p5_s1_t05_验收协议与问题排查.md` | FROZEN |
-| S2 | P5-S2-T01 | STM32 与 ST-LINK 最小启动 | `p5_s2_t01_stm32与stlink最小启动.md` | PLANNED |
+| S2 | P5-S2-T01 | STM32 与 ST-LINK 最小启动 | `p5_s2_t01_stm32与stlink最小启动.md` | READY_FOR_CONTENT_REVIEW |
 | S2 | P5-S2-T02 | 系统时钟、GPIO 与时间基准 | `p5_s2_t02_系统时钟gpio与时间基准.md` | PLANNED |
 | S2 | P5-S2-T03 | UART DMA 与 RS485 方向控制 | `p5_s2_t03_uart_dma与rs485方向控制.md` | PLANNED |
 | S2 | P5-S2-T04 | SPI、I²C 总线与设备探测 | `p5_s2_t04_spi_i2c总线与设备探测.md` | PLANNED |
