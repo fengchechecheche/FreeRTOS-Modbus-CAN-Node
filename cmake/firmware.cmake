@@ -3,6 +3,7 @@ set(P5_FIRMWARE_TARGET freertos_modbus_can_node_firmware)
 set(P5_CUBEMX_APPLICATION_SOURCES
     Core/Src/main.c
     Core/Src/gpio.c
+    Core/Src/dma.c
     Core/Src/can.c
     Core/Src/i2c.c
     Core/Src/spi.c
