@@ -16,7 +16,7 @@
 | S2 | P5-S2-T02 | 系统时钟、GPIO 与时间基准 | `p5_s2_t02_系统时钟gpio与时间基准.md` | FROZEN |
 | S2 | P5-S2-T03 | UART DMA 与 RS485 方向控制 | `p5_s2_t03_uart_dma与rs485方向控制.md` | FROZEN |
 | S2 | P5-S2-T04 | SPI、I²C 总线与设备探测 | `p5_s2_t04_spi_i2c总线与设备探测.md` | FROZEN |
-| S2 | P5-S2-T05 | BSP 冻结与板级故障排查 | `p5_s2_t05_bsp冻结与板级故障排查.md` | PLANNED |
+| S2 | P5-S2-T05 | BSP 冻结与板级故障排查 | `p5_s2_t05_bsp冻结与板级故障排查.md` | FROZEN |
 | S3 | P5-S3-T01 | FreeRTOS 调度器与任务设计 | `p5_s3_t01_freertos调度器与任务设计.md` | PLANNED |
 | S3 | P5-S3-T02 | 静态内存、栈与资源预算 | `p5_s3_t02_静态内存栈与资源预算.md` | PLANNED |
 | S3 | P5-S3-T03 | 中断、DMA 与任务通知 | `p5_s3_t03_中断dma与任务通知.md` | PLANNED |

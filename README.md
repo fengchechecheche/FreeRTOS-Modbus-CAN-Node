@@ -1,8 +1,9 @@
 # FreeRTOS Modbus CAN Node
 
-基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。本仓库当前已建立 P5-S2-T04 无硬件
-SPI/I²C 设备探测候选；T03 UART DMA 与 RS485 半双工方向控制候选保持冻结。FreeRTOS、Modbus
-协议、CAN 业务与完整传感器驱动仍未实现。
+基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
+汇总为 BSP 软件候选合同；当前状态为 `BSP_CONTRACT_CANDIDATE_FROZEN + WAITING_FOR_HARDWARE`。
+这允许后续纯软件轨道继续，但不代表板卡、Shield 或外设已经实测。FreeRTOS、Modbus 协议、CAN
+业务与完整传感器驱动仍未实现。
 
 ## 当前边界
 
@@ -34,6 +35,9 @@ SPI/I²C 设备探测候选；T03 UART DMA 与 RS485 半双工方向控制候选
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
+当前权威 BSP 软件候选见 [`docs/bsp_contract.md`](docs/bsp_contract.md)。改变已冻结 pin、clock、bus、
+DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续 API 仍允许经审核做增量扩展。
+
 ## 主机验证
 
 ```bash
@@ -42,6 +46,12 @@ SPI/I²C 设备探测候选；T03 UART DMA 与 RS485 半双工方向控制候选
 
 权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 smoke、clock、RS485
 和 device-probe CTest。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的 `.private/`。
+
+BSP 静态合同检查：
+
+```bash
+python3 tools/verify_bsp_contract.py
+```
 
 ## 固件构建
 
