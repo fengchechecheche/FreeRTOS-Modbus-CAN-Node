@@ -1,11 +1,12 @@
 # P5-S5-T01 Modbus RTU slave and register contract
 
-> Contract status: `CANDIDATE_VALIDATED`  
+> Contract status: `CANDIDATE_VALIDATED`
 > CRC/complete-ADU/timing: `CANDIDATE_VALIDATED`
 > Stream parser/handlers/runtime: `CANDIDATE_IMPLEMENTED`
 > Runtime: `CANDIDATE_IMPLEMENTED`
-> Hardware: `WAITING_FOR_HARDWARE`  
-> Register-map revision: 1  
+> HIL readiness: `PASS_SELF_TEST + PASS_DRY_RUN + SERIAL_NOT_OPENED`
+> Hardware: `WAITING_FOR_HARDWARE`
+> Register-map revision: 1
 > Machine-readable authority: [`../protocol/register_map.json`](../protocol/register_map.json)
 
 ## Scope and role
@@ -18,8 +19,8 @@ registers and `0x06` write one whitelisted holding register.
 This document and the JSON map freeze application semantics. T02 implements
 CRC/ADU/timing, T03 implements bounded stream/transport and T04 implements
 exception response, function handlers, request-local register image and
-volatile address writes. These are software candidates; PA9/PA10/PA8 hardware
-remains untested.
+volatile address writes. T05 adds a bounded HIL probe without changing firmware.
+These are software candidates; PA9/PA10/PA8 hardware remains untested.
 
 ## Link and address contract
 
@@ -156,7 +157,8 @@ Project Five uses address 4 and does not reuse those field semantics.
 
 Both projects agree on zero-based PDU addresses, `0x03/0x04/0x06`, big-endian
 register bytes and high-word-first 32-bit values. No Project Three address-4
-profile exists yet, and this task does not authorize modifying that repository.
+profile exists yet. T05 preparation does not authorize modifying that repository;
+real independent USB-RS485 must pass before a separately reviewed profile change.
 
 ## Verification and evidence boundary
 
@@ -165,9 +167,12 @@ Run:
 ```bash
 python3 tools/verify_modbus_contract.py
 python3 tools/verify_modbus_contract.py --self-test
+python3 tools/modbus_hil_probe.py --self-test
+python3 tools/modbus_hil_probe.py --dry-run
 ```
 
-The validator checks JSON structure, duplicate keys, spans, overlap, type
+The HIL self-test and dry-run never open a serial port. The validator checks
+JSON structure, duplicate keys, spans, overlap, type
 width, 122-register continuity, the exact 17-field oracle, metadata, access,
 write whitelist and scope boundaries. A pass proves only that the candidate
 contract and runtime status are internally consistent. Host tests separately
@@ -185,5 +190,7 @@ Current software result:
 | Firmware Debug | `45400/160/12560 B` text/data/bss |
 | Firmware Release | `37684/156/12560 B` text/data/bss |
 | static resource contract | PASS; linker heap 0; +912 B RAM from `[027]` |
+| HIL probe | 15-check self-test PASS; dry-run PASS; serial `NOT_OPENED` |
+| Project Three address-4 profile | `not_created`; integration `NOT_RUN` |
 
 These checks prove the software candidate only; physical UART/RS485 remains waiting for hardware.

@@ -292,11 +292,13 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
         Path("docs/modbus_contract.md"): (
             "CANDIDATE_VALIDATED",
             "Runtime: `CANDIDATE_IMPLEMENTED`",
+            "HIL readiness: `PASS_SELF_TEST + PASS_DRY_RUN + SERIAL_NOT_OPENED`",
             "Hardware: `WAITING_FOR_HARDWARE`",
             "`0x0000..0x0079`",
             "122",
             "request-local",
             "Project Three uses addresses",
+            "Project Three address-4 profile | `not_created`",
         ),
         Path("protocol/README.md"): (
             "register map contract",
@@ -307,6 +309,34 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
             "P5-S5-T01",
             "默认 Modbus slave address contract 为 `4`",
             "runtime 为 `CANDIDATE_IMPLEMENTED`",
+            "modbus_hil_probe.py --self-test",
+            "serial NOT_OPENED",
+        ),
+        Path("tools/modbus_hil_probe.py"): (
+            "P5 MODBUS HIL SELF-TEST",
+            "serial NOT_OPENED",
+            "--allow-address-write",
+            "--confirm-default-address",
+            "serial.PARITY_EVEN",
+            "never auto-scanned",
+        ),
+        Path("docs/modbus_hil_report.md"): (
+            "`WAITING_FOR_HARDWARE`",
+            "serial NOT_OPENED",
+            "249 B",
+            "H01",
+            "H11",
+            "`not_created`",
+        ),
+        Path("docs/acceptance_protocol.md"): (
+            "S5-T05",
+            "H01～H11",
+            "不要求持续抓包或大量重复",
+        ),
+        Path("docs/learning/index.md"): (
+            "P5-S5-T05",
+            "p5_s5_t05_项目三联调与主从站证据.md",
+            "READY_FOR_CONTENT_REVIEW",
         ),
     }
     for relative, markers in checks.items():

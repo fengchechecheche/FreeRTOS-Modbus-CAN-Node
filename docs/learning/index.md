@@ -34,8 +34,8 @@
 | S5 | P5-S5-T01 | Modbus 从站合同与寄存器映射 | `p5_s5_t01_modbus从站合同与寄存器映射.md` | FROZEN |
 | S5 | P5-S5-T02 | Modbus CRC、组帧与静默间隔 | `p5_s5_t02_modbus_crc组帧与静默间隔.md` | FROZEN |
 | S5 | P5-S5-T03 | RS485 接收状态机与半双工时序 | `p5_s5_t03_rs485接收状态机与半双工时序.md` | FROZEN |
-| S5 | P5-S5-T04 | 功能码、异常响应与配置写入 | `p5_s5_t04_功能码异常响应与配置写入.md` | READY_FOR_CONTENT_REVIEW |
-| S5 | P5-S5-T05 | 项目三联调与主从站证据 | `p5_s5_t05_项目三联调与主从站证据.md` | PLANNED |
+| S5 | P5-S5-T04 | 功能码、异常响应与配置写入 | `p5_s5_t04_功能码异常响应与配置写入.md` | FROZEN |
+| S5 | P5-S5-T05 | 项目三联调与主从站证据 | `p5_s5_t05_项目三联调与主从站证据.md` | READY_FOR_CONTENT_REVIEW |
 | S6 | P5-S6-T01 | CAN 物理层、仲裁与报文合同 | `p5_s6_t01_can物理层仲裁与报文合同.md` | PLANNED |
 | S6 | P5-S6-T02 | bxCAN 过滤器、中断与发送队列 | `p5_s6_t02_bxcan过滤器中断与发送队列.md` | PLANNED |
 | S6 | P5-S6-T03 | SocketCAN 与 candleLight 联调 | `p5_s6_t03_socketcan与candlelight联调.md` | PLANNED |

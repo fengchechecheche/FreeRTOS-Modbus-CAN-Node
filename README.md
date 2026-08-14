@@ -1,9 +1,9 @@
 # FreeRTOS Modbus CAN Node
 
-> P5-S5-T04 update: the default firmware now includes the bounded Modbus RTU
-> function server, 122-register request-local image and delayed address commit.
-> Physical validation remains deferred. See
-> [`docs/modbus_server.md`](docs/modbus_server.md).
+> P5-S5-T05 update: the default firmware is unchanged; a bounded HIL probe now
+> provides self-test/dry-run preparation without opening a serial port. Physical
+> USB-RS485 and Project Three integration remain deferred. See
+> [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
 
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
 汇总为 BSP 软件候选合同；当前状态为 `BSP_CONTRACT_CANDIDATE_FROZEN + WAITING_FOR_HARDWARE`。
@@ -16,7 +16,8 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 联合故障矩阵，内容已审核冻结。P5-S5-T01 已形成地址 4 的 Modbus register contract 和机器可读
 map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻辑候选；stream parser、
 RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响应、122-register image 和
-易失地址写入候选。CAN 业务仍未实现。
+易失地址写入候选。T05 无硬件路径已增加默认只读、显式解锁地址写入的 HIL 探针；串口保持
+`NOT_RUN`，项目三地址 4 profile 仍为 `not_created`。CAN 业务仍未实现。
 
 ## 当前边界
 
@@ -64,8 +65,9 @@ RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响�
   `WAITING_FOR_HARDWARE`。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
-  T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。真实 249 B response、地址迁移和 UART/RS485 总线仍为
-  `WAITING_FOR_HARDWARE`。
+  T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。
+  T05 HIL self-test/dry-run 不打开串口；真实 249 B response、地址迁移、UART/RS485 总线和项目三联调
+  仍为 `WAITING_FOR_HARDWARE` / `NOT_RUN`。
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
@@ -101,6 +103,16 @@ python3 tools/verify_modbus_contract.py --self-test
 
 该入口验证 map、类型、地址、metadata、范围和候选 runtime 状态。CRC/ADU/timing、stream
 和 function server 分别见 [`docs/modbus_codec.md`](docs/modbus_codec.md)、[`docs/modbus_transport.md`](docs/modbus_transport.md) 与 [`docs/modbus_server.md`](docs/modbus_server.md)。软件通过不代表 UART/RS485 实物已运行。
+
+无硬件 HIL 准备：
+
+```bash
+python3 tools/modbus_hil_probe.py --self-test
+python3 tools/modbus_hil_probe.py --dry-run
+```
+
+两种模式均输出 `serial NOT_OPENED`，不得打开串口。真实端口、写地址安全门和最小矩阵见
+[`docs/modbus_hil_report.md`](docs/modbus_hil_report.md)。
 
 ## 固件构建
 
