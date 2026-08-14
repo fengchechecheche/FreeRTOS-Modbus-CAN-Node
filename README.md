@@ -1,5 +1,14 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S7-T02 update: clean local-archive reproduction from
+> `[036] 15932a2ff7adecdfbe5355559926a95b0df25845` passes the Host, contract,
+> Debug/Release ARM and resource gates without prior build cache or network
+> access. Candidate hashes are recorded; a second Release build exposed
+> absolute FreeRTOS `__FILE__` path dependence, so bit-for-bit reproducibility
+> is explicitly `NOT_CLAIMED`. Flashing and physical replay remain
+> `WAITING_FOR_HARDWARE`. See
+> [`docs/reproduction_report.md`](docs/reproduction_report.md).
+
 > P5-S7-T01 update: the project-owned source scope is MIT-licensed by
 > `fengchechecheche`; STM32Cube/CMSIS/HAL/FreeRTOS remain under their original
 > terms. The software-source blocker audit is ready for clean reproduction,
@@ -112,7 +121,8 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
   `can-utils` 2023.03-1 已安装且 `candump`/`cansend` 单帧 vcan smoke 通过；candleLight/实物 HIL
   仍为 `NOT_RUN`。T04 的 D01～D08 Host 矩阵进一步验证 RS485 CRC/timeout 与 CAN busy、FIFO full、
   bus-off 同时发生时，健康链路、采集和 health task model 仍有进度；虚拟 tick 不构成物理恢复时间。
-- license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
+- 项目自有代码采用 MIT，公开 holder 为 `fengchechecheche`；CubeMX、CMSIS、HAL、FreeRTOS 和其他
+  独立通知材料仍受各自条款约束，见根 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
 当前权威 BSP 软件候选见 [`docs/bsp_contract.md`](docs/bsp_contract.md)。改变已冻结 pin、clock、bus、

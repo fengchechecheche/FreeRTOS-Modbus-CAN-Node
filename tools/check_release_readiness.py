@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import pathlib
 import re
 import sys
@@ -23,6 +24,10 @@ REQUIRED_FILES = (
     "Middlewares/Third_Party/FreeRTOS/Source/LICENSE",
     "Middlewares/Third_Party/FreeRTOS/Source/st_readme.txt",
     "docs/release_readiness.md",
+    "docs/reproduction_report.md",
+    "tools/reproduce_release_candidate.py",
+    "artifacts/release/p5_s7_t02_replay.json",
+    "artifacts/release/p5_s7_t02_candidate_manifest.sha256",
 )
 NOTICE_MARKERS = (
     "CMSIS Core | 5.9.0",
@@ -67,6 +72,83 @@ def validate_notice(text: str) -> list[str]:
         for marker in NOTICE_MARKERS
         if marker not in text
     ]
+
+
+def validate_readme(text: str) -> list[str]:
+    errors: list[str] = []
+    stale_markers = (
+        "TBD_USER_REVIEW",
+        "当前没有 `LICENSE`",
+    )
+    for marker in stale_markers:
+        if marker in text:
+            errors.append(f"README contains stale license claim: {marker}")
+    required = (
+        "P5-S7-T02 update",
+        "docs/reproduction_report.md",
+        "bit-for-bit reproducibility",
+        "WAITING_FOR_HARDWARE",
+    )
+    for marker in required:
+        if marker not in text:
+            errors.append(f"README missing reproduction marker: {marker}")
+    return errors
+
+
+def validate_replay_bundle(root: pathlib.Path) -> list[str]:
+    errors: list[str] = []
+    replay_path = root / "artifacts/release/p5_s7_t02_replay.json"
+    manifest_path = root / "artifacts/release/p5_s7_t02_candidate_manifest.sha256"
+    try:
+        replay = json.loads(read_text(replay_path))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        return [f"invalid replay JSON: {exc}"]
+
+    expected_values = (
+        ("schema", replay.get("schema"), "P5_RELEASE_REPLAY_V1"),
+        ("source commit", replay.get("source", {}).get("commit"), "15932a2ff7adecdfbe5355559926a95b0df25845"),
+        ("clean reproduction", replay.get("software", {}).get("clean_reproduction"), "PASS"),
+        ("network used", replay.get("environment", {}).get("network_used"), False),
+        ("prior build cache used", replay.get("environment", {}).get("prior_build_cache_used"), False),
+        ("hardware flash", replay.get("hardware", {}).get("flash"), "WAITING_FOR_HARDWARE"),
+    )
+    for label, actual, expected in expected_values:
+        if actual != expected:
+            errors.append(f"replay {label} mismatch: {actual!r} != {expected!r}")
+
+    entries: dict[str, str] = {}
+    for line in read_text(manifest_path).splitlines():
+        fields = line.split("  ", 1)
+        if len(fields) != 2 or not re.fullmatch(r"[0-9a-f]{64}", fields[0]):
+            errors.append(f"invalid manifest line: {line}")
+            continue
+        digest, label = fields
+        if label in entries:
+            errors.append(f"duplicate manifest label: {label}")
+        entries[label] = digest
+
+    required_labels = (
+        "source/git_archive.tar",
+        "source/CMakePresets.json",
+        "source/freertos_modbus_can_node.ioc",
+        "build/debug/freertos_modbus_can_node.bin",
+        "build/release/freertos_modbus_can_node.bin",
+        "evidence/p5_s7_t02_replay.json",
+    )
+    for label in required_labels:
+        if label not in entries:
+            errors.append(f"manifest missing label: {label}")
+
+    replay_digest = sha256_file(replay_path)
+    if entries.get("evidence/p5_s7_t02_replay.json") != replay_digest:
+        errors.append("manifest replay JSON hash mismatch")
+    for label, relative in (
+        ("source/CMakePresets.json", "CMakePresets.json"),
+        ("source/freertos_modbus_can_node.ioc", "freertos_modbus_can_node.ioc"),
+    ):
+        if entries.get(label) != sha256_file(root / relative):
+            errors.append(f"manifest source hash mismatch: {label}")
+    return errors
 
 
 def parse_ledger(text: str) -> tuple[list[dict[str, object]], list[str]]:
@@ -185,6 +267,8 @@ def check_repository(root: pathlib.Path) -> list[str]:
 
     errors.extend(validate_project_license(read_text(root / "LICENSE")))
     errors.extend(validate_notice(read_text(root / "THIRD_PARTY_NOTICES.md")))
+    errors.extend(validate_readme(read_text(root / "README.md")))
+    errors.extend(validate_replay_bundle(root))
 
     package_path = root / "LICENSES/STM32CubeF4-1.28.3-Package_license.md"
     package_hash = sha256_file(package_path)
@@ -235,6 +319,17 @@ def run_self_test() -> int:
     assert validate_notice(valid_notice.replace("FreeRTOS Kernel | 10.3.1", ""))
     checks += 1
 
+    valid_readme = (
+        "P5-S7-T02 update\n"
+        "docs/reproduction_report.md\n"
+        "bit-for-bit reproducibility\n"
+        "WAITING_FOR_HARDWARE\n"
+    )
+    assert not validate_readme(valid_readme)
+    checks += 1
+    assert validate_readme(valid_readme + "TBD_USER_REVIEW\n")
+    checks += 1
+
     assert privacy_findings([("doc.md", "C:" + "\\Users\\person\\file")])
     assert privacy_findings([("doc.md", "/home/person/project")])
     checks += 2
@@ -276,7 +371,14 @@ def main() -> int:
         for error in errors:
             print(f"P5 RELEASE READINESS: FAIL: {error}", file=sys.stderr)
         return 1
-    print("P5 RELEASE READINESS: PASS_SOFTWARE_CANDIDATE (5 closed, 5 open for later gates)")
+    ledger_text = read_text(args.root.resolve() / "docs/release_readiness.md")
+    rows, _ = parse_ledger(ledger_text)
+    closed = sum(row["status"] == "CLOSED" for row in rows)
+    opened = sum(row["status"] == "OPEN" for row in rows)
+    print(
+        "P5 RELEASE READINESS: PASS_SOFTWARE_CANDIDATE "
+        f"({closed} closed, {opened} open for later gates)"
+    )
     return 0
 
 

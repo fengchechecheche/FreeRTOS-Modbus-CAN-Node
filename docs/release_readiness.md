@@ -1,9 +1,9 @@
 # P5-S7-T01 release readiness and blocker ledger
 
 > Ledger schema: `P5_RELEASE_LEDGER_V1`
-> Baseline: `[035] 591f60516afa50511c70bd53f985ce0ccbb4a018`
+> Baseline: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`
 > Software source candidate gate: `PASS`
-> Binary reproduction gate: `OPEN_FOR_P5-S7-T02`
+> Binary reproduction gate: `PASS_CLEAN_REPRODUCTION`
 > Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `NOT_AUTHORIZED / NOT_RUN`
 
@@ -20,7 +20,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | LIC-003 | LIC | CLOSED | SOURCE,HARDWARE | Sensor code is project-authored from cited datasheet registers/formulas; no vendor reference source is vendored | `sensors/`; BME280, VEML7700, and ADXL345 reports |
 | PRIV-001 | PRIV | CLOSED | SOURCE,BINARY,HARDWARE | Tracked CubeMX problem report no longer exposes a Windows user-profile path | `docs/device_probe_report.md`; release-readiness path scan |
 | SW-001 | SW | CLOSED | SOURCE,BINARY,HARDWARE | Current Host, contracts, ARM builds, and static resource gate pass without firmware changes | P5-S7-T01 final validation summary |
-| REPRO-001 | REPRO | OPEN | BINARY,HARDWARE | Clean-directory configure/build/replay and candidate hashes are not part of T01 | Execute P5-S7-T02; do not call the current local build a clean reproduction |
+| REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
 | HW-001 | HW | OPEN | HARDWARE | NUCLEO board admission and physical BME280, VEML7700, and ADXL345 checks are not complete | Run the frozen S2/S4 hardware supplements when hardware is available |
 | HW-002 | HW | OPEN | HARDWARE | Physical USB-RS485 and Project Three interoperability are not complete | Run S5 hardware/integration supplement |
 | HW-003 | HW | OPEN | HARDWARE | Physical CAN, candleLight, bus-off, and dual-bus concurrency are not complete | Run S6 hardware supplements |
@@ -54,9 +54,18 @@ patterns as leaked credentials.
 scan. Complete device serial numbers, credentials, private network identifiers,
 and raw diagnostics remain outside the public source candidate.
 
-## Next gate
+## Clean reproduction result and next gate
 
-P5-S7-T02 may now perform clean reproduction. It must keep `REPRO-001` open
-until a separate clean directory passes the required configure, Host tests,
-ARM builds, and hash checks. The four hardware blockers remain open regardless
-of T02 software success.
+P5-S7-T02 reproduced `[036]` from a tracked-file-only local archive in a new
+temporary directory. Host Debug/Release, the release/Modbus/CAN/BSP checks,
+ARM Debug/Release and the resource gate passed without network access or prior
+build cache, so `REPRO-001` is closed for the software binary candidate.
+
+A second independent Release build produced different BIN/HEX bytes because
+linked FreeRTOS assert strings retain absolute source paths. The clean build is
+repeatable as a procedure, but bit-for-bit output across differently named
+directories is `NOT_CLAIMED`; no CMake or firmware flags were changed in T02.
+
+The four hardware blockers remain open. T03 may build the evidence matrix with
+these explicit hardware gaps; flashing, representative physical replay and the
+8-hour soak are not inferred from the software result.

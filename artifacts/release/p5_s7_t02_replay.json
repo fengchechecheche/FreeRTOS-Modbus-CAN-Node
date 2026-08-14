@@ -1,0 +1,193 @@
+{
+  "artifacts": {
+    "build/debug/freertos_modbus_can_node.bin": {
+      "bytes": 53396,
+      "sha256": "ab854d5f5189c5387f2da136e5a9977026c52c5d4158c3285117a71ca003e18b"
+    },
+    "build/debug/freertos_modbus_can_node.elf": {
+      "bytes": 1893148,
+      "sha256": "03d5c2cf8899a8867ec03882dc4d357bf617a4310df640a69adbb23719314528"
+    },
+    "build/debug/freertos_modbus_can_node.hex": {
+      "bytes": 150239,
+      "sha256": "5306061846caffc8d1cb65667d977d2aa095191b12f62bd3f27b77d6a8db25ef"
+    },
+    "build/release/freertos_modbus_can_node.bin": {
+      "bytes": 44528,
+      "sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f"
+    },
+    "build/release/freertos_modbus_can_node.elf": {
+      "bytes": 104260,
+      "sha256": "d0be86c8a78c0ac8b59c4049308a15710d356e4ecaccb9ba3ec43c47b0c22842"
+    },
+    "build/release/freertos_modbus_can_node.hex": {
+      "bytes": 125301,
+      "sha256": "9e09fc15abe6281fc6607fe339448b9596c4204fc0bc28d7d10a8e10ba6ae94c"
+    },
+    "source/CMakePresets.json": {
+      "bytes": 1978,
+      "sha256": "cc4688eb9d0df41dd12f4111fede3a53b5db1b16286494e53b542ce73e4a3d2d"
+    },
+    "source/freertos_modbus_can_node.ioc": {
+      "bytes": 9639,
+      "sha256": "802909472a1ae03cf40a8f63c6c49f854a0fadd61c59512e25d600e4fb9fd5b2"
+    },
+    "source/git_archive.tar": {
+      "bytes": 39823360,
+      "sha256": "650c213d778822ab2f6025151260b1e8d5e54cc2281d7c54b90fa0b444b71883"
+    }
+  },
+  "environment": {
+    "distribution": "Ubuntu-24.04-STM32",
+    "network_used": false,
+    "prior_build_cache_used": false,
+    "tools": {
+      "arm_gcc": "arm-none-eabi-gcc (15:13.2.rel1-2) 13.2.1 20231009",
+      "clang_format": "Ubuntu clang-format version 18.1.3 (1ubuntu1)",
+      "clang_tidy": "Ubuntu LLVM version 18.1.3",
+      "cmake": "cmake version 3.28.3",
+      "cppcheck": "Cppcheck 2.13.0",
+      "ctest": "ctest version 3.28.3",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "git": "git version 2.43.0",
+      "ninja": "1.11.1",
+      "python": "Python 3.12.3"
+    }
+  },
+  "hardware": {
+    "flash": "WAITING_FOR_HARDWARE",
+    "release_gate": "BLOCKED_WAITING_FOR_HARDWARE",
+    "representative_replay": "NOT_RUN"
+  },
+  "limitations": [
+    "Clean software reproduction does not prove hardware operation.",
+    "No firmware binary or full build log is stored in the repository.",
+    "Debug ELF hashes may include build-path-dependent debug information.",
+    "Release BIN/HEX are not claimed bit-for-bit reproducible across differently named clean directories because linked FreeRTOS assert strings retain absolute source paths."
+  ],
+  "schema": "P5_RELEASE_REPLAY_V1",
+  "software": {
+    "clean_reproduction": "PASS",
+    "commands": [
+      {
+        "duration_seconds": 0.117,
+        "exit_code": 0,
+        "name": "release_readiness",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 0.05,
+        "exit_code": 0,
+        "name": "release_readiness_self_test",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 15.58,
+        "exit_code": 0,
+        "name": "host_debug_release",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 0.055,
+        "exit_code": 0,
+        "name": "modbus_contract_self_test",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 0.046,
+        "exit_code": 0,
+        "name": "can_contract",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 0.047,
+        "exit_code": 0,
+        "name": "can_contract_self_test",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 0.053,
+        "exit_code": 0,
+        "name": "bsp_contract",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 0.21,
+        "exit_code": 0,
+        "name": "bsp_contract_self_test",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 6.343,
+        "exit_code": 0,
+        "name": "firmware_debug_configure",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 6.082,
+        "exit_code": 0,
+        "name": "firmware_debug_build",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 6.291,
+        "exit_code": 0,
+        "name": "firmware_release_configure",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 1.558,
+        "exit_code": 0,
+        "name": "firmware_release_build",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 0.128,
+        "exit_code": 0,
+        "name": "resource_budget",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 6.373,
+        "exit_code": 0,
+        "name": "repeat_release_configure",
+        "timed_out": false
+      },
+      {
+        "duration_seconds": 5.569,
+        "exit_code": 0,
+        "name": "repeat_release_build",
+        "timed_out": false
+      }
+    ],
+    "repeat_release": {
+      "bit_for_bit_claim": "NOT_CLAIMED",
+      "comparison": "PATH_DEPENDENT_DIFFERENCE",
+      "executed": true,
+      "release_bin_equal": false,
+      "release_hex_equal": false
+    },
+    "resources": {
+      "debug": {
+        "bss": 13224,
+        "data": 160,
+        "flash": 53384,
+        "linked_ram": 13384,
+        "text": 53224
+      },
+      "release": {
+        "bss": 13216,
+        "data": 156,
+        "flash": 44516,
+        "linked_ram": 13372,
+        "text": 44360
+      }
+    }
+  },
+  "source": {
+    "archive_sha256": "650c213d778822ab2f6025151260b1e8d5e54cc2281d7c54b90fa0b444b71883",
+    "commit": "15932a2ff7adecdfbe5355559926a95b0df25845",
+    "snapshot": "git archive from clean tracked files",
+    "subject": "[ 036 ] 第三十六次提交，完成 Release 阻塞审查与许可证候选"
+  }
+}
