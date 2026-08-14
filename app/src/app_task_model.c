@@ -125,3 +125,21 @@ bool app_task_runtime_record_cycle(app_task_runtime_t *runtime,
       release_tick + ((crossed_release_count + 1U) * contract->period_ms);
   return true;
 }
+
+bool app_task_runtime_release_due(const app_task_runtime_t *runtime,
+                                  uint32_t now_tick)
+{
+  return (runtime != NULL) &&
+         app_task_tick_reached(now_tick, runtime->next_release_tick);
+}
+
+uint32_t app_task_runtime_ticks_until_release(
+    const app_task_runtime_t *runtime,
+    uint32_t now_tick)
+{
+  if ((runtime == NULL) || app_task_runtime_release_due(runtime, now_tick))
+  {
+    return 0U;
+  }
+  return runtime->next_release_tick - now_tick;
+}

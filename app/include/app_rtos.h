@@ -43,9 +43,21 @@ typedef struct
   app_rtos_task_resource_t task[APP_TASK_COUNT];
 } app_rtos_resource_snapshot_t;
 
+typedef struct
+{
+  uint32_t sample_count;
+  uint32_t minimum_cycles;
+  uint32_t maximum_cycles;
+  uint32_t last_cycles;
+  bool measured;
+  bool enabled;
+} app_rtos_irq_latency_snapshot_t;
+
 app_rtos_status_t app_rtos_initialize(void);
 void app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot);
 void app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot);
+void app_rtos_get_irq_latency_snapshot(
+    app_rtos_irq_latency_snapshot_t *snapshot);
 uint32_t app_rtos_fault_code(void);
 _Noreturn void app_rtos_fail_stop(uint32_t fault_code);
 

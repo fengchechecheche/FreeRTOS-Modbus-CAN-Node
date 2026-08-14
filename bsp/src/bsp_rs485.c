@@ -13,6 +13,9 @@ static volatile size_t bsp_rs485_rx_length;
 static volatile bool bsp_rs485_rx_ready;
 static volatile uint32_t bsp_rs485_rx_completed;
 static volatile uint32_t bsp_rs485_rx_dropped;
+static volatile uint32_t bsp_rs485_last_hal_error;
+static bsp_rs485_irq_mailbox_t bsp_rs485_irq_mailbox;
+static bsp_rs485_irq_notifier_t bsp_rs485_irq_notifier;
 
 static void bsp_rs485_adapter_set_transmit(void *context, bool enabled)
 {
@@ -56,6 +59,33 @@ static bool bsp_rs485_adapter_arm_rx(void *context)
   return true;
 }
 
+static void bsp_rs485_set_receive_immediate(void)
+{
+  RS485_DE_GPIO_Port->BSRR = (uint32_t)RS485_DE_Pin << 16U;
+}
+
+static void bsp_rs485_irq_publish_from_isr(uint32_t event_mask,
+                                           uint16_t rx_length,
+                                           uint32_t uart_error)
+{
+  const uint32_t accepted = bsp_rs485_irq_mailbox_publish(
+      &bsp_rs485_irq_mailbox, event_mask, rx_length, uart_error);
+  if (accepted == 0U)
+  {
+    return;
+  }
+
+  const bsp_rs485_irq_notifier_t notifier = bsp_rs485_irq_notifier;
+  if (notifier != NULL)
+  {
+    notifier(accepted);
+  }
+  else
+  {
+    bsp_rs485_irq_mailbox_note_deferred(&bsp_rs485_irq_mailbox);
+  }
+}
+
 UART_HandleTypeDef *bsp_rs485_uart_handle(void)
 {
   return &huart1;
@@ -74,6 +104,9 @@ bsp_rs485_result_t bsp_rs485_initialize(void)
   bsp_rs485_rx_ready = false;
   bsp_rs485_rx_completed = 0U;
   bsp_rs485_rx_dropped = 0U;
+  bsp_rs485_last_hal_error = 0U;
+  bsp_rs485_irq_notifier = NULL;
+  bsp_rs485_irq_mailbox_initialize(&bsp_rs485_irq_mailbox);
 
   const bsp_rs485_state_ops_t ops = {
       .context = NULL,
@@ -97,6 +130,84 @@ bsp_rs485_result_t bsp_rs485_poll(void)
 {
   return bsp_rs485_state_poll(&bsp_rs485_controller,
                               bsp_clock_tick_ms());
+}
+
+void bsp_rs485_register_irq_notifier(bsp_rs485_irq_notifier_t notifier)
+{
+  const uint32_t previous_primask = __get_PRIMASK();
+  __disable_irq();
+  bsp_rs485_irq_notifier = notifier;
+  if (previous_primask == 0U)
+  {
+    __enable_irq();
+  }
+}
+
+uint32_t bsp_rs485_service_irq_events(void)
+{
+  bsp_rs485_irq_event_snapshot_t snapshot;
+  const uint32_t previous_primask = __get_PRIMASK();
+  __disable_irq();
+  const bool available =
+      bsp_rs485_irq_mailbox_take(&bsp_rs485_irq_mailbox, &snapshot);
+  if (previous_primask == 0U)
+  {
+    __enable_irq();
+  }
+  if (!available)
+  {
+    return 0U;
+  }
+
+  const bool direction_conflict =
+      (snapshot.event_mask &
+       (BSP_RS485_IRQ_EVENT_RX_FRAME |
+        BSP_RS485_IRQ_EVENT_TX_COMPLETE)) ==
+      (BSP_RS485_IRQ_EVENT_RX_FRAME |
+       BSP_RS485_IRQ_EVENT_TX_COMPLETE);
+  if (((snapshot.event_mask & BSP_RS485_IRQ_EVENT_UART_ERROR) != 0U) ||
+      direction_conflict)
+  {
+    if ((snapshot.event_mask & BSP_RS485_IRQ_EVENT_RX_FRAME) != 0U)
+    {
+      ++bsp_rs485_rx_dropped;
+    }
+    bsp_rs485_last_hal_error = snapshot.uart_error;
+    bsp_rs485_state_on_io_error(&bsp_rs485_controller);
+    (void)bsp_rs485_state_poll(&bsp_rs485_controller, bsp_clock_tick_ms());
+    return snapshot.event_mask;
+  }
+
+  if ((snapshot.event_mask & BSP_RS485_IRQ_EVENT_TX_COMPLETE) != 0U)
+  {
+    bsp_rs485_state_on_tx_complete(&bsp_rs485_controller);
+  }
+
+  if ((snapshot.event_mask & BSP_RS485_IRQ_EVENT_RX_FRAME) != 0U)
+  {
+    if (!bsp_rs485_rx_ready)
+    {
+      (void)memcpy(bsp_rs485_rx_frame,
+                   bsp_rs485_rx_dma_buffer,
+                   snapshot.rx_length);
+      bsp_rs485_rx_length = snapshot.rx_length;
+      bsp_rs485_rx_ready = true;
+      ++bsp_rs485_rx_completed;
+    }
+    else
+    {
+      ++bsp_rs485_rx_dropped;
+    }
+
+    if (!bsp_rs485_adapter_arm_rx(NULL))
+    {
+      bsp_rs485_state_on_io_error(&bsp_rs485_controller);
+      (void)bsp_rs485_state_poll(&bsp_rs485_controller,
+                                 bsp_clock_tick_ms());
+    }
+  }
+
+  return snapshot.event_mask;
 }
 
 bool bsp_rs485_is_busy(void)
@@ -147,6 +258,9 @@ bsp_rs485_diagnostics_t bsp_rs485_get_diagnostics(void)
   diagnostics.state_counters = bsp_rs485_controller.counters;
   diagnostics.rx_completed = bsp_rs485_rx_completed;
   diagnostics.rx_dropped = bsp_rs485_rx_dropped;
+  diagnostics.last_hal_error = bsp_rs485_last_hal_error;
+  diagnostics.irq_events =
+      bsp_rs485_irq_mailbox_counters(&bsp_rs485_irq_mailbox);
   if (previous_primask == 0U)
   {
     __enable_irq();
@@ -158,7 +272,9 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart == &huart1)
   {
-    bsp_rs485_state_on_tx_complete(&bsp_rs485_controller);
+    bsp_rs485_set_receive_immediate();
+    bsp_rs485_irq_publish_from_isr(
+        BSP_RS485_IRQ_EVENT_TX_COMPLETE, 0U, 0U);
   }
 }
 
@@ -169,31 +285,23 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
     return;
   }
 
-  if ((size > 0U) && (size <= BSP_RS485_MAX_FRAME_SIZE))
+  if (HAL_UARTEx_GetRxEventType(huart) == HAL_UART_RXEVENT_HT)
   {
-    if (!bsp_rs485_rx_ready)
-    {
-      (void)memcpy(bsp_rs485_rx_frame, bsp_rs485_rx_dma_buffer, size);
-      bsp_rs485_rx_length = size;
-      bsp_rs485_rx_ready = true;
-      ++bsp_rs485_rx_completed;
-    }
-    else
-    {
-      ++bsp_rs485_rx_dropped;
-    }
+    bsp_rs485_irq_publish_from_isr(BSP_RS485_IRQ_EVENT_RX_HALF, size, 0U);
+    return;
   }
 
-  if (!bsp_rs485_adapter_arm_rx(NULL))
-  {
-    bsp_rs485_state_on_io_error(&bsp_rs485_controller);
-  }
+  bsp_rs485_irq_publish_from_isr(
+      BSP_RS485_IRQ_EVENT_RX_FRAME, size, 0U);
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
   if (huart == &huart1)
   {
-    bsp_rs485_state_on_io_error(&bsp_rs485_controller);
+    bsp_rs485_set_receive_immediate();
+    bsp_rs485_irq_publish_from_isr(BSP_RS485_IRQ_EVENT_UART_ERROR,
+                                   0U,
+                                   HAL_UART_GetError(huart));
   }
 }

@@ -6,6 +6,7 @@ option(P5_BUILD_HOST_TESTS "Build host-only infrastructure tests" ON)
 option(P5_RS485_LOOPBACK_SMOKE "Enable the bounded PA9/PA10 loopback smoke" OFF)
 option(P5_DEVICE_PROBE_SMOKE "Enable the one-shot SPI/I2C device probe" OFF)
 option(P5_RTOS_SCHEDULER_SMOKE "Enable the bounded scheduler-start smoke" OFF)
+option(P5_IRQ_NOTIFICATION_SMOKE "Enable bounded DWT IRQ latency summaries" OFF)
 
 if(CMAKE_CROSSCOMPILING)
   if(P5_BUILD_HOST_TESTS)
@@ -55,5 +56,14 @@ else()
     target_include_directories(p5_host_resource_budget PRIVATE app/include)
     p5_apply_project_warnings(p5_host_resource_budget)
     add_test(NAME p5.host.resource_budget COMMAND p5_host_resource_budget)
+
+    add_executable(p5_host_irq_notification
+        test/host/irq_notification_main.c
+        bsp/src/bsp_rs485_irq_event.c
+        app/src/app_task_model.c)
+    target_include_directories(p5_host_irq_notification PRIVATE
+        app/include bsp/include)
+    p5_apply_project_warnings(p5_host_irq_notification)
+    add_test(NAME p5.host.irq_notification COMMAND p5_host_irq_notification)
   endif()
 endif()

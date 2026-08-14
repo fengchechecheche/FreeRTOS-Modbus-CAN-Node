@@ -11,6 +11,10 @@
 #include "stm32f4xx.h"
 #include "task.h"
 
+#ifndef P5_IRQ_NOTIFICATION_SMOKE_ENABLE
+#define P5_IRQ_NOTIFICATION_SMOKE_ENABLE (0)
+#endif
+
 _Static_assert(sizeof(StackType_t) == APP_RESOURCE_STACK_WORD_BYTES,
                "resource budget assumes 32-bit FreeRTOS stack words");
 _Static_assert(APP_RESOURCE_PROTOCOL_STACK_WORDS >= configMINIMAL_STACK_SIZE,
@@ -54,6 +58,11 @@ static app_task_runtime_t app_rtos_task_runtime[APP_TASK_COUNT];
 static volatile app_rtos_health_snapshot_t app_rtos_health_snapshot;
 static volatile app_rtos_resource_snapshot_t app_rtos_resource_snapshot;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
+static bsp_rs485_irq_latency_summary_t app_rtos_irq_latency_summary;
+#if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
+static volatile uint32_t app_rtos_irq_first_cycles;
+static volatile bool app_rtos_irq_first_cycles_valid;
+#endif
 
 static uint32_t app_rtos_saturating_add(uint32_t value, uint32_t increment)
 {
@@ -72,6 +81,64 @@ static void app_rtos_protocol_service(void)
 {
   (void)bsp_rs485_poll();
   app_rs485_smoke_poll();
+}
+
+static void app_rtos_protocol_event_service(void)
+{
+  if (bsp_rs485_service_irq_events() != 0U)
+  {
+    app_rs485_smoke_poll();
+  }
+}
+
+static void app_rtos_rs485_notify_from_isr(uint32_t event_mask)
+{
+  TaskHandle_t protocol_handle = app_rtos_task_handles[APP_TASK_PROTOCOL];
+  if (protocol_handle == NULL)
+  {
+    return;
+  }
+
+#if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
+  if (!app_rtos_irq_first_cycles_valid)
+  {
+    app_rtos_irq_first_cycles = DWT->CYCCNT;
+    app_rtos_irq_first_cycles_valid = true;
+  }
+#endif
+
+  BaseType_t higher_priority_task_woken = pdFALSE;
+  (void)xTaskNotifyFromISR(protocol_handle,
+                           event_mask,
+                           eSetBits,
+                           &higher_priority_task_woken);
+  portYIELD_FROM_ISR(higher_priority_task_woken);
+}
+
+static void app_rtos_record_irq_latency(void)
+{
+#if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
+  uint32_t isr_cycles = 0U;
+  uint32_t task_cycles = 0U;
+  bool available = false;
+
+  taskENTER_CRITICAL();
+  if (app_rtos_irq_first_cycles_valid)
+  {
+    isr_cycles = app_rtos_irq_first_cycles;
+    task_cycles = DWT->CYCCNT;
+    app_rtos_irq_first_cycles_valid = false;
+    available = true;
+  }
+  taskEXIT_CRITICAL();
+
+  if (available)
+  {
+    bsp_rs485_irq_latency_record(&app_rtos_irq_latency_summary,
+                                 isr_cycles,
+                                 task_cycles);
+  }
+#endif
 }
 
 static void app_rtos_update_resource_snapshot(void)
@@ -174,10 +241,56 @@ static _Noreturn void app_rtos_run_periodic(app_task_id_t id,
   }
 }
 
+static _Noreturn void app_rtos_run_protocol(void)
+{
+  const app_task_contract_t *contract =
+      app_task_model_contract(APP_TASK_PROTOCOL);
+  if (contract == NULL)
+  {
+    app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
+  }
+
+  app_task_runtime_t *runtime = &app_rtos_task_runtime[APP_TASK_PROTOCOL];
+  app_task_runtime_initialize(runtime, (uint32_t)xTaskGetTickCount());
+
+  for (;;)
+  {
+    app_rtos_protocol_event_service();
+
+    TickType_t now_tick = xTaskGetTickCount();
+    if (app_task_runtime_release_due(runtime, (uint32_t)now_tick))
+    {
+      const TickType_t actual_start_tick = now_tick;
+      app_rtos_protocol_service();
+      const TickType_t actual_finish_tick = xTaskGetTickCount();
+      if (!app_task_runtime_record_cycle(runtime,
+                                         contract,
+                                         (uint32_t)actual_start_tick,
+                                         (uint32_t)actual_finish_tick))
+      {
+        app_rtos_fail_stop(APP_RTOS_FAULT_CYCLE);
+      }
+      continue;
+    }
+
+    const TickType_t wait_ticks = (TickType_t)
+        app_task_runtime_ticks_until_release(runtime, (uint32_t)now_tick);
+    uint32_t notification_value = 0U;
+    if (xTaskNotifyWait(0U,
+                        UINT32_MAX,
+                        &notification_value,
+                        wait_ticks) == pdTRUE)
+    {
+      (void)notification_value;
+      app_rtos_record_irq_latency();
+    }
+  }
+}
+
 static void app_rtos_protocol_task(void *context)
 {
   (void)context;
-  app_rtos_run_periodic(APP_TASK_PROTOCOL, app_rtos_protocol_service);
+  app_rtos_run_protocol();
 }
 
 static void app_rtos_acquisition_task(void *context)
@@ -220,6 +333,14 @@ app_rtos_status_t app_rtos_initialize(void)
   }
 
   app_rtos_update_resource_snapshot();
+  bsp_rs485_irq_latency_reset(&app_rtos_irq_latency_summary);
+#if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+  DWT->CYCCNT = 0U;
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+  app_rtos_irq_first_cycles = 0U;
+  app_rtos_irq_first_cycles_valid = false;
+#endif
 
   for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
   {
@@ -241,6 +362,8 @@ app_rtos_status_t app_rtos_initialize(void)
       return APP_RTOS_ERROR;
     }
   }
+
+  bsp_rs485_register_irq_notifier(app_rtos_rs485_notify_from_isr);
 
   return APP_RTOS_OK;
 }
@@ -274,6 +397,24 @@ void app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot)
   {
     *snapshot = app_rtos_resource_snapshot;
   }
+}
+
+void app_rtos_get_irq_latency_snapshot(
+    app_rtos_irq_latency_snapshot_t *snapshot)
+{
+  if (snapshot == NULL)
+  {
+    return;
+  }
+
+  taskENTER_CRITICAL();
+  snapshot->sample_count = app_rtos_irq_latency_summary.sample_count;
+  snapshot->minimum_cycles = app_rtos_irq_latency_summary.minimum_cycles;
+  snapshot->maximum_cycles = app_rtos_irq_latency_summary.maximum_cycles;
+  snapshot->last_cycles = app_rtos_irq_latency_summary.last_cycles;
+  snapshot->measured = app_rtos_irq_latency_summary.measured;
+  snapshot->enabled = P5_IRQ_NOTIFICATION_SMOKE_ENABLE != 0;
+  taskEXIT_CRITICAL();
 }
 
 uint32_t app_rtos_fault_code(void)

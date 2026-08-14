@@ -50,6 +50,7 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     bsp/src/bsp_spi_bus.c
     bsp/src/bsp_i2c_bus.c
     bsp/src/bsp_rs485.c
+    bsp/src/bsp_rs485_irq_event.c
     bsp/src/bsp_rs485_state.c
     bsp/src/bsp_can.c)
 
@@ -87,7 +88,8 @@ target_compile_definitions(${P5_FIRMWARE_TARGET} PRIVATE
     P5_NATIVE_FREERTOS=1
     $<$<BOOL:${P5_RS485_LOOPBACK_SMOKE}>:P5_RS485_LOOPBACK_SMOKE_ENABLE=1>
     $<$<BOOL:${P5_DEVICE_PROBE_SMOKE}>:P5_DEVICE_PROBE_SMOKE_ENABLE=1>
-    $<$<BOOL:${P5_RTOS_SCHEDULER_SMOKE}>:P5_RTOS_SCHEDULER_SMOKE_ENABLE=1>)
+    $<$<BOOL:${P5_RTOS_SCHEDULER_SMOKE}>:P5_RTOS_SCHEDULER_SMOKE_ENABLE=1>
+    $<$<BOOL:${P5_IRQ_NOTIFICATION_SMOKE}>:P5_IRQ_NOTIFICATION_SMOKE_ENABLE=1>)
 
 target_compile_options(${P5_FIRMWARE_TARGET} PRIVATE
     -ffunction-sections

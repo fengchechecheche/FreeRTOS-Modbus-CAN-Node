@@ -27,5 +27,12 @@ Linked RAM/Flash limits and a read-only watermark snapshot are documented in
 bounded hardware smoke, and later real workloads must remeasure affected tasks.
 
 NVIC uses `NVIC_PRIORITYGROUP_4`, with all four implemented priority bits used
-as preemption priority. Existing USART1/DMA interrupt priority values remain
-unchanged and those ISRs do not call FreeRTOS APIs in T01.
+as preemption priority. P5-S3-T03 sets USART1, DMA2 Stream2 and DMA2 Stream7 to
+priority 6/subpriority 0 and lets their callbacks wake `protocol_task` with a
+direct task notification. The notification only wakes the task; frame copy,
+DMA rearm, state transitions and error recovery stay in task context.
+
+`protocol_task` now waits for either a notification or the next absolute 5 ms
+release. Every event drain is followed by another absolute-release check, so a
+notification storm cannot move the timeout/poll deadline. The other four tasks
+retain the original `vTaskDelayUntil()` loop.

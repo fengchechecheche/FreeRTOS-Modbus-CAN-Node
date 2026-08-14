@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 from typing import Mapping
 
@@ -45,6 +46,9 @@ CHECKS: CheckTable = {
         ("usart1 parity", "USART1.Parity=PARITY_EVEN"),
         ("usart1 word length", "USART1.WordLength=WORDLENGTH_9B"),
         ("usart1 irq", "NVIC.USART1_IRQn=true"),
+        ("usart1 rtos irq priority", "NVIC.USART1_IRQn=true\\:6\\:0"),
+        ("usart1 rx rtos irq priority", "NVIC.DMA2_Stream2_IRQn=true\\:6\\:0"),
+        ("usart1 tx rtos irq priority", "NVIC.DMA2_Stream7_IRQn=true\\:6\\:0"),
         ("usart1 rx dma", "Dma.USART1_RX.0.Instance=DMA2_Stream2"),
         ("usart1 tx dma", "Dma.USART1_TX.1.Instance=DMA2_Stream7"),
         ("spi1 mode", "SPI1.Mode=SPI_MODE_MASTER"),
@@ -106,6 +110,11 @@ CHECKS: CheckTable = {
         ("tx dma generated", "hdma_usart1_tx.Instance = DMA2_Stream7;"),
         ("tx dma channel", "hdma_usart1_tx.Init.Channel = DMA_CHANNEL_4;"),
         ("usart1 irq generated", "HAL_NVIC_EnableIRQ(USART1_IRQn);"),
+        ("usart1 irq priority", "HAL_NVIC_SetPriority(USART1_IRQn, 6, 0);"),
+    ],
+    Path("Core/Src/dma.c"): [
+        ("usart1 rx dma irq priority", "HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 6, 0);"),
+        ("usart1 tx dma irq priority", "HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 6, 0);"),
     ],
     Path("Core/Src/spi.c"): [
         ("spi mode generated", "hspi1.Init.Mode = SPI_MODE_MASTER;"),
@@ -141,6 +150,7 @@ CHECKS: CheckTable = {
         ("tim ex hal source", "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c"),
         ("freertos tasks source", "Middlewares/Third_Party/FreeRTOS/Source/tasks.c"),
         ("cm4f port source", "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c"),
+        ("rs485 irq event source", "bsp/src/bsp_rs485_irq_event.c"),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -175,6 +185,10 @@ CHECKS: CheckTable = {
             "device probe smoke default off",
             'option(P5_DEVICE_PROBE_SMOKE "Enable the one-shot SPI/I2C device probe" OFF)',
         ),
+        (
+            "irq notification smoke default off",
+            'option(P5_IRQ_NOTIFICATION_SMOKE "Enable bounded DWT IRQ latency summaries" OFF)',
+        ),
     ],
     Path("docs/bsp_contract.md"): [
         ("candidate boundary", "BSP_CONTRACT_CANDIDATE_FROZEN"),
@@ -191,6 +205,21 @@ CHECKS: CheckTable = {
         ("systick handler alias", "#define xPortSysTickHandler SysTick_Handler"),
         ("pendsv handler alias", "#define xPortPendSVHandler PendSV_Handler"),
         ("svc handler alias", "#define vPortSVCHandler SVC_Handler"),
+        ("task notifications enabled", "#define configUSE_TASK_NOTIFICATIONS 1"),
+        (
+            "max syscall irq priority",
+            "#define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY 5",
+        ),
+    ],
+    Path("app/src/app_rtos.c"): [
+        ("from-isr task notification", "xTaskNotifyFromISR("),
+        ("task notification wait", "xTaskNotifyWait("),
+        ("from-isr yield", "portYIELD_FROM_ISR("),
+        ("absolute release check", "app_task_runtime_release_due("),
+    ],
+    Path("bsp/src/bsp_rs485.c"): [
+        ("irq event publish", "bsp_rs485_irq_publish_from_isr("),
+        ("task-context event service", "bsp_rs485_service_irq_events(void)"),
     ],
 }
 
@@ -208,8 +237,50 @@ FORBIDDEN_CHECKS: CheckTable = {
     ],
     Path("CMakeLists.txt"): [
         ("scheduler smoke default on", "P5_RTOS_SCHEDULER_SMOKE \"Enable the bounded scheduler-start smoke\" ON"),
+        ("irq notification smoke default on", "P5_IRQ_NOTIFICATION_SMOKE \"Enable bounded DWT IRQ latency summaries\" ON"),
+    ],
+    Path("config/FreeRTOSConfig.h"): [
+        ("task notifications disabled", "#define configUSE_TASK_NOTIFICATIONS 0"),
     ],
 }
+
+
+CALLBACKS = (
+    "HAL_UART_TxCpltCallback",
+    "HAL_UARTEx_RxEventCallback",
+    "HAL_UART_ErrorCallback",
+)
+
+CALLBACK_FORBIDDEN = (
+    "memcpy(",
+    "HAL_UARTEx_ReceiveToIdle_DMA(",
+    "bsp_rs485_state_on_",
+    "bsp_rs485_state_poll(",
+    "HAL_UART_Abort",
+    "xTaskNotify(",
+    "xQueue",
+)
+
+
+def function_body(content: str, function_name: str) -> str | None:
+    match = re.search(
+        rf"\bvoid\s+{re.escape(function_name)}\s*\([^)]*\)\s*\{{",
+        content,
+        re.DOTALL,
+    )
+    if match is None:
+        return None
+
+    start = match.end() - 1
+    depth = 0
+    for index in range(start, len(content)):
+        if content[index] == "{":
+            depth += 1
+        elif content[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return content[start : index + 1]
+    return None
 
 
 def verify(
@@ -250,6 +321,32 @@ def verify(
             checked += 1
             if snippet in content:
                 errors.append(f"{relative_path}: {label}: forbidden {snippet!r}")
+
+    callback_path = Path("bsp/src/bsp_rs485.c")
+    if callback_path in override_map:
+        callback_source = override_map[callback_path]
+    else:
+        try:
+            callback_source = (root / callback_path).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            errors.append(f"{callback_path}: cannot read callbacks: {exc}")
+            callback_source = ""
+
+    for callback in CALLBACKS:
+        body = function_body(callback_source, callback)
+        checked += 1
+        if body is None:
+            errors.append(f"{callback_path}: callback body missing: {callback}")
+            continue
+        checked += 1
+        if "bsp_rs485_irq_publish_from_isr(" not in body:
+            errors.append(f"{callback_path}: {callback}: event publish missing")
+        for forbidden in CALLBACK_FORBIDDEN:
+            checked += 1
+            if forbidden in body:
+                errors.append(
+                    f"{callback_path}: {callback}: forbidden {forbidden!r}"
+                )
 
     return errors, checked
 
@@ -327,9 +424,60 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    irq_priority_mutant = original_ioc.replace(
+        "NVIC.USART1_IRQn=true\\:6\\:0",
+        "NVIC.USART1_IRQn=true\\:0\\:0",
+        1,
+    )
+    if irq_priority_mutant == original_ioc:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create RTOS IRQ priority mutant)"
+        )
+        return 2
+    irq_priority_errors, _ = verify(root, {ioc_path: irq_priority_mutant})
+    caught_irq_priority = any(
+        "usart1 rtos irq priority" in item for item in irq_priority_errors
+    )
+    if not caught_irq_priority:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(unsafe RTOS IRQ priority was not detected)"
+        )
+        return 2
+
+    callback_path = Path("bsp/src/bsp_rs485.c")
+    original_callbacks = (root / callback_path).read_text(encoding="utf-8")
+    callback_marker = (
+        "void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)\n{\n"
+    )
+    callback_mutant = original_callbacks.replace(
+        callback_marker,
+        callback_marker + "  memcpy(0, 0, 0);\n",
+        1,
+    )
+    if callback_mutant == original_callbacks:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create callback-work mutant)"
+        )
+        return 2
+    callback_errors, _ = verify(root, {callback_path: callback_mutant})
+    caught_callback_work = any(
+        "HAL_UART_TxCpltCallback" in item and "memcpy" in item
+        for item in callback_errors
+    )
+    if not caught_callback_work:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(forbidden callback work was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
-        "(unsafe-option, legacy-SysTick and priority-group mutants rejected)"
+        "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
+        "callback-work mutants rejected)"
     )
     return 0
 

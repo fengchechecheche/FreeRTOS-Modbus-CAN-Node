@@ -11,15 +11,17 @@
 - TIM6 for HAL timebase and SysTick/PendSV/SVC for the kernel;
 - five static skeleton tasks with absolute releases;
 - RS485 poll moved to `protocol_task`;
+- USART1/DMA direct notification wake with an absolute 5 ms timeout;
 - finite heartbeat moved to `diagnostic_task`;
 - scheduler smoke defaults to `OFF`.
 
 ## Software verification
 
 - BSP stable-fact checker and negative self-test;
-- Host Debug/Release: 5/5 tests;
+- Host Debug/Release: 7/7 tests, including notification/mailbox injection;
 - Firmware Debug/Release: build and link;
-- ELF symbol checks for scheduler start, kernel handlers and five task entries;
+- ELF symbol checks for scheduler start, kernel handlers, five task entries,
+  `xTaskGenericNotifyFromISR()` and `xTaskNotifyWait()`;
 - source-boundary checks for no heap, CMSIS task API, project-task
   `HAL_Delay()` or enabled-by-default scheduler smoke.
 
@@ -27,8 +29,8 @@ Final cross-build size summaries are:
 
 | Build | text | data | bss |
 |---|---:|---:|---:|
-| Debug | 18688 B | 160 B | 8616 B |
-| Release | 16372 B | 156 B | 8612 B |
+| Debug | 20136 B | 160 B | 8728 B |
+| Release | 17608 B | 156 B | 8724 B |
 
 These values include five separately named 256-word stacks. The static-only
 contract, linker heap removal, limits and exact accounting are maintained in

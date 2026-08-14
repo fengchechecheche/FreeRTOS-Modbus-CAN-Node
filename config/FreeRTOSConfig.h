@@ -34,7 +34,7 @@ void app_rtos_assert_failed(const char *file, uint32_t line);
 #define configUSE_COUNTING_SEMAPHORES 0
 #define configUSE_QUEUE_SETS 0
 #define configQUEUE_REGISTRY_SIZE 0
-#define configUSE_TASK_NOTIFICATIONS 0
+#define configUSE_TASK_NOTIFICATIONS 1
 
 #define configUSE_TRACE_FACILITY 0
 #define configUSE_STATS_FORMATTING_FUNCTIONS 0

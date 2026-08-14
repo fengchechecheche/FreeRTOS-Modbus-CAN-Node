@@ -55,9 +55,9 @@ HAL tick quantum = 1 ms
 不表示 TIM6/SysTick 已在板上测量。
 
 P5-S3-T01 A2 已由原生 FreeRTOS ARM_CM4F port 接管 SysTick、PendSV 与 SVC；TIM6 继续只负责 HAL
-tick。现有 USART1/DMA ISR 不调用 FreeRTOS `FromISR` API，其优先级留到 P5-S3-T03 按实际通知
-路径审核。NVIC 使用 `NVIC_PRIORITYGROUP_4`，把 STM32F446RE 的 4 个实现位全部用于抢占优先级，
-满足 Cortex-M4 port 的 BASEPRI 模型；现有 IRQ 优先级数值保持不变。
+tick。P5-S3-T03 将 USART1、DMA2 Stream2 和 DMA2 Stream7 固定为 priority 6/subpriority 0，并使用
+`xTaskNotifyFromISR(eSetBits)` 唤醒 `protocol_task`。NVIC 使用 `NVIC_PRIORITYGROUP_4`，FreeRTOS
+`configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY=5`；数值 6 满足 Cortex-M4 port 的 BASEPRI 边界。
 
 生成初始化顺序：
 
@@ -84,8 +84,12 @@ HAL_Init
 - RX：DMA2 Stream2 / Channel4，peripheral-to-memory，normal mode；
 - TX：DMA2 Stream7 / Channel4，memory-to-peripheral，normal mode；
 - DMA2 Stream2、DMA2 Stream7 和 USART1 IRQ 已启用；
+- 三个 IRQ 均为 priority 6/subpriority 0，可调用批准的 FreeRTOS `FromISR` API；
 - 固定最大 frame 为 64 bytes；
 - DE 只在最终 USART transmission complete 后回到 low；
+- callback 只捕获事件、必要时常数时间拉低 DE 并通知；frame copy、DMA rearm、状态推进和错误恢复在
+  `protocol_task`；
+- RX half transfer 默认关闭，若意外出现只计入诊断事件；
 - `P5_RS485_LOOPBACK_SMOKE` 默认 `OFF`。
 
 ### 4.2 SPI1
@@ -124,6 +128,7 @@ HAL_Init
 
 - `bsp_rs485_uart_handle()` / `bsp_rs485_set_transmit()`；
 - `bsp_rs485_initialize()` / `bsp_rs485_send()` / `bsp_rs485_poll()`；
+- `bsp_rs485_register_irq_notifier()` / `bsp_rs485_service_irq_events()`；
 - `bsp_rs485_is_busy()` / `bsp_rs485_take_received()`；
 - `bsp_rs485_get_diagnostics()`。
 

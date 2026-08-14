@@ -43,5 +43,10 @@ bool app_task_runtime_record_cycle(app_task_runtime_t *runtime,
                                    const app_task_contract_t *contract,
                                    uint32_t actual_start_tick,
                                    uint32_t actual_finish_tick);
+bool app_task_runtime_release_due(const app_task_runtime_t *runtime,
+                                  uint32_t now_tick);
+uint32_t app_task_runtime_ticks_until_release(
+    const app_task_runtime_t *runtime,
+    uint32_t now_tick);
 
 #endif

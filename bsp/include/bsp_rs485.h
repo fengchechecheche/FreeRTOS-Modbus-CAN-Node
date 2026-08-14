@@ -5,8 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "bsp_rs485_irq_event.h"
 #include "bsp_rs485_state.h"
 #include "stm32f4xx_hal.h"
+
+typedef void (*bsp_rs485_irq_notifier_t)(uint32_t event_mask);
 
 typedef struct
 {
@@ -15,6 +18,8 @@ typedef struct
   bsp_rs485_state_counters_t state_counters;
   uint32_t rx_completed;
   uint32_t rx_dropped;
+  uint32_t last_hal_error;
+  bsp_rs485_irq_event_counters_t irq_events;
 } bsp_rs485_diagnostics_t;
 
 UART_HandleTypeDef *bsp_rs485_uart_handle(void);
@@ -22,6 +27,8 @@ void bsp_rs485_set_transmit(bool enabled);
 bsp_rs485_result_t bsp_rs485_initialize(void);
 bsp_rs485_result_t bsp_rs485_send(const uint8_t *data, size_t length);
 bsp_rs485_result_t bsp_rs485_poll(void);
+void bsp_rs485_register_irq_notifier(bsp_rs485_irq_notifier_t notifier);
+uint32_t bsp_rs485_service_irq_events(void);
 bool bsp_rs485_is_busy(void);
 bool bsp_rs485_take_received(uint8_t *destination,
                              size_t capacity,
