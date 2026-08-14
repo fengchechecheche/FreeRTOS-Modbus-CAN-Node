@@ -1,7 +1,7 @@
 # P5-S4-T03 ADXL345 中断采样与振动特征报告
 
 > Software: `PASS_HOST + PASS_CROSS_BUILD + PASS_EXTI_CONTRACT`  
-> Content: `READY_FOR_CONTENT_REVIEW`  
+> Content: `FROZEN` (approved 2026-08-14)
 > Hardware: `WAITING_FOR_HARDWARE`  
 > Identity / DATA_READY / axis direction / vibration response: `NOT_RUN`
 
@@ -109,4 +109,3 @@ ELF/MAP 是忽略的构建产物；正常验收不生成 raw trace 或证据包�
 5. 记录一次 task watermark 与紧凑摘要。
 
 若方向、比例、频响或 FIFO 不便验证，可保持 `NOT_RUN`，不阻塞软件内容审核。
-

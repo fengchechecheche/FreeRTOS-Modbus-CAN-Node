@@ -101,5 +101,13 @@ else()
     target_include_directories(p5_host_adxl345 PRIVATE sensors/include)
     p5_apply_project_warnings(p5_host_adxl345)
     add_test(NAME p5.host.adxl345 COMMAND p5_host_adxl345)
+
+    add_executable(p5_host_measurement
+        test/host/app_measurement_main.c
+        app/src/app_measurement.c)
+    target_include_directories(p5_host_measurement PRIVATE
+        app/include sensors/include)
+    p5_apply_project_warnings(p5_host_measurement)
+    add_test(NAME p5.host.measurement COMMAND p5_host_measurement)
   endif()
 endif()

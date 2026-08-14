@@ -223,7 +223,7 @@ CHECKS: CheckTable = {
         ("event linked boundary", "`LINKED_NOT_WORKLOAD_EXECUTED`"),
         ("runtime stress not run", "Runtime queue/mutex stress: `NOT_RUN`"),
         ("hardware waiting", "Hardware status: `WAITING_FOR_HARDWARE`"),
-        ("measurement deferred", "measurement schema deferred to S4"),
+        ("measurement candidate implemented", "system and S4 measurement candidate implemented"),
         ("command deferred", "schema and instance deferred to S5"),
     ],
     Path("docs/health_recovery_report.md"): [
@@ -282,6 +282,36 @@ CHECKS: CheckTable = {
         ("adxl periodic service", "app_adxl345_service(now_ms, 0U);"),
         ("adxl initialized before scheduler", "app_adxl345_initialize();"),
         ("adxl notifier registered", "bsp_adxl345_register_irq_notifier("),
+        ("measurement model initialized", "app_measurement_model_initialize("),
+        ("measurement owner publication", "app_rtos_update_measurement_snapshot(now_ms);"),
+        ("measurement complete copy", "app_rtos_measurement_snapshot"),
+        ("measurement task getter", "app_rtos_get_measurement_snapshot("),
+    ],
+    Path("app/include/app_measurement.h"): [
+        ("measurement schema revision", "#define APP_MEASUREMENT_SCHEMA_REVISION UINT32_C(1)"),
+        ("bme freshness", "#define APP_MEASUREMENT_BME280_FRESH_MS UINT32_C(2500)"),
+        ("veml freshness", "#define APP_MEASUREMENT_VEML7700_FRESH_MS UINT32_C(3000)"),
+        ("adxl sample freshness", "#define APP_MEASUREMENT_ADXL345_SAMPLE_FRESH_MS UINT32_C(200)"),
+        ("adxl feature freshness", "#define APP_MEASUREMENT_ADXL345_FEATURE_FRESH_MS UINT32_C(2500)"),
+        ("fresh state", "APP_MEASUREMENT_STATE_FRESH"),
+        ("stale state", "APP_MEASUREMENT_STATE_STALE"),
+        ("offline state", "APP_MEASUREMENT_STATE_OFFLINE"),
+        ("invalid state", "APP_MEASUREMENT_STATE_INVALID"),
+        ("sample monotonic time", "uint32_t sample_monotonic_ms;"),
+        ("sample age", "uint32_t age_ms;"),
+        ("value presence", "bool value_present;"),
+        ("retained marker", "bool value_is_retained;"),
+        ("logical field start", "APP_MEASUREMENT_FIELD_BME280_TEMPERATURE = 0x0101"),
+        ("logical field end", "APP_MEASUREMENT_FIELD_ADXL345_RESULTANT_RMS = 0x0341"),
+    ],
+    Path("app/src/app_measurement.c"): [
+        ("fixed field count", "#define APP_MEASUREMENT_FIELD_COUNT (17U)"),
+        ("wrap-safe sample age", "now_ms - metadata->sample_monotonic_ms"),
+        ("sequence change admission", "model->observed_sequence[index] != sequence"),
+        ("fresh inclusive boundary", "metadata->age_ms <= app_measurement_fresh_limit(source)"),
+        ("invalid field unavailable", "if (!source_metadata->value_present)"),
+        ("bme full valid admission", "bme_source->valid_mask == BME280_SAMPLE_VALID_ALL"),
+        ("feature independent admission", "APP_MEASUREMENT_SOURCE_ADXL345_FEATURE"),
     ],
     Path("app/include/app_transport_policy.h"): [
         ("event queue depth", "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (8U)"),
@@ -335,7 +365,7 @@ CHECKS: CheckTable = {
     ],
     Path("app/include/app_bme280.h"): [
         ("bme spi timeout", "#define APP_BME280_SPI_TIMEOUT_MS UINT32_C(5)"),
-        ("owner-context snapshot", "Owner-context only until P5-S4-T04"),
+        ("owner-context snapshot", "Owner-context diagnostic snapshot; cross-task users read app_measurement."),
     ],
     Path("app/src/app_bme280.c"): [
         ("bme block read adapter", "bsp_spi_bus_read_registers("),
@@ -363,7 +393,7 @@ CHECKS: CheckTable = {
     ],
     Path("app/include/app_veml7700.h"): [
         ("veml i2c timeout", "#define APP_VEML7700_I2C_TIMEOUT_MS UINT32_C(5)"),
-        ("veml owner-context snapshot", "Owner-context only until P5-S4-T04"),
+        ("veml owner-context snapshot", "Owner-context diagnostic snapshot; cross-task users read app_measurement."),
     ],
     Path("app/src/app_veml7700.c"): [
         ("veml block read adapter", "bsp_i2c_bus_read_register("),
@@ -388,7 +418,7 @@ CHECKS: CheckTable = {
     ],
     Path("app/include/app_adxl345.h"): [
         ("adxl spi timeout", "#define APP_ADXL345_SPI_TIMEOUT_MS UINT32_C(5)"),
-        ("adxl owner context snapshot", "Owner-context only until P5-S4-T04"),
+        ("adxl owner context snapshot", "Owner-context diagnostic snapshot; cross-task users read app_measurement."),
     ],
     Path("app/src/app_adxl345.c"): [
         ("adxl block read adapter", "bsp_spi_bus_read_registers("),
@@ -512,6 +542,20 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("adxl adapter dynamic allocation", "malloc("),
         ("adxl adapter unbounded loop", "for (;;)"),
     ],
+    Path("app/src/app_measurement.c"): [
+        ("measurement hal dependency", "HAL_"),
+        ("measurement freertos task dependency", "vTask"),
+        ("measurement freertos task read", "xTask"),
+        ("measurement semaphore dependency", "xSemaphore"),
+        ("measurement queue dependency", "xQueue"),
+        ("measurement dynamic allocation", "malloc("),
+        ("measurement unbounded for loop", "for (;;)"),
+        ("measurement unbounded true loop", "while (true)"),
+        ("measurement unbounded one loop", "while (1)"),
+        ("measurement periodic print", "printf("),
+        ("measurement modbus mapping", "MODBUS_"),
+        ("measurement can mapping", "CAN_ID"),
+    ],
 }
 
 
@@ -601,6 +645,47 @@ def verify(
             checked += 1
             if snippet in content:
                 errors.append(f"{relative_path}: {label}: forbidden {snippet!r}")
+
+    measurement_header_path = Path("app/include/app_measurement.h")
+    if measurement_header_path in override_map:
+        measurement_header = override_map[measurement_header_path]
+    else:
+        try:
+            measurement_header = (root / measurement_header_path).read_text(
+                encoding="utf-8"
+            )
+        except (OSError, UnicodeError) as exc:
+            errors.append(
+                f"{measurement_header_path}: cannot read field IDs: {exc}"
+            )
+            measurement_header = ""
+
+    field_ids = re.findall(
+        r"APP_MEASUREMENT_FIELD_[A-Z0-9_]+\s*=\s*(0x[0-9a-fA-F]+)",
+        measurement_header,
+    )
+    checked += 1
+    if (len(field_ids) != 17) or (len(set(field_ids)) != 17):
+        errors.append(
+            f"{measurement_header_path}: measurement field ids unique: "
+            f"expected 17 unique IDs, got {len(set(field_ids))}"
+        )
+
+    rtos_path = Path("app/src/app_rtos.c")
+    if rtos_path in override_map:
+        rtos_source = override_map[rtos_path]
+    else:
+        try:
+            rtos_source = (root / rtos_path).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            errors.append(f"{rtos_path}: cannot read mutex count: {exc}")
+            rtos_source = ""
+    checked += 1
+    if rtos_source.count("xSemaphoreCreateMutexStatic(") != 1:
+        errors.append(
+            f"{rtos_path}: single snapshot mutex: expected exactly one "
+            "xSemaphoreCreateMutexStatic call"
+        )
 
     callback_path = Path("bsp/src/bsp_rs485.c")
     if callback_path in override_map:
@@ -1207,6 +1292,75 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    measurement_header_path = Path("app/include/app_measurement.h")
+    original_measurement_header = (root / measurement_header_path).read_text(
+        encoding="utf-8"
+    )
+    duplicate_field_mutant = original_measurement_header.replace(
+        "APP_MEASUREMENT_FIELD_BME280_PRESSURE = 0x0102",
+        "APP_MEASUREMENT_FIELD_BME280_PRESSURE = 0x0101",
+        1,
+    )
+    if duplicate_field_mutant == original_measurement_header:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create measurement field-ID mutant)"
+        )
+        return 2
+    duplicate_field_errors, _ = verify(
+        root, {measurement_header_path: duplicate_field_mutant}
+    )
+    if not any(
+        "measurement field ids unique" in item
+        for item in duplicate_field_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(duplicate measurement field ID was not detected)"
+        )
+        return 2
+
+    measurement_source_path = Path("app/src/app_measurement.c")
+    original_measurement_source = (root / measurement_source_path).read_text(
+        encoding="utf-8"
+    )
+    invalid_value_mutant = original_measurement_source.replace(
+        "if (!source_metadata->value_present)",
+        "if (source_metadata->value_present)",
+        1,
+    )
+    if invalid_value_mutant == original_measurement_source:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create invalid-value mutant)"
+        )
+        return 2
+    invalid_value_errors, _ = verify(
+        root, {measurement_source_path: invalid_value_mutant}
+    )
+    if not any(
+        "invalid field unavailable" in item for item in invalid_value_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(invalid measurement value leak was not detected)"
+        )
+        return 2
+
+    measurement_loop_errors, _ = verify(
+        root,
+        {measurement_source_path: original_measurement_source + "\nfor (;;) {}\n"},
+    )
+    if not any(
+        "measurement unbounded for loop" in item
+        for item in measurement_loop_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(measurement unbounded loop was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
@@ -1215,7 +1369,8 @@ def run_self_test(root: Path) -> int:
         "task-delete, default-IWDG, second-feed, BME-HAL-delay, BME-loop, "
         "second-SPI-owner, BME-mutex, VEML-HAL-delay, VEML-loop, "
         "second-I2C-owner, VEML-mutex, ADXL-priority, ADXL-recovery, "
-        "ADXL-loop, ADXL-multibyte and ADXL-callback mutants rejected)"
+        "ADXL-loop, ADXL-multibyte, ADXL-callback, measurement-field-ID, "
+        "measurement-invalid-value and measurement-loop mutants rejected)"
     )
     return 0
 

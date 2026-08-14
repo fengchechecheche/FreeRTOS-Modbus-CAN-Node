@@ -12,7 +12,7 @@
 |---|---|---|
 | USART1/DMA ISR event | T03 notification plus fixed mailbox | unchanged; ISR does not use the new queue |
 | task diagnostic event | one static FreeRTOS queue | 8 items, 12 B by-value records |
-| system/measurement state | latest snapshot plus short mutex copy | system snapshots implemented; measurement schema deferred to S4 |
+| system/measurement state | latest snapshot plus short mutex copy | system and S4 measurement candidate implemented |
 | future Modbus command | separate static command queue | reject-new policy frozen; schema and instance deferred to S5 |
 | SPI1 and I²C2 | single runtime owner | `acquisition_task`; no bus mutex |
 
@@ -83,9 +83,24 @@ rate, latency or slow-consumer behavior under the real task workload.
 P5-S3-T05 adds current/maximum pending depth and drop/contention counts to the
 compact health input, and its Host model covers the resulting pressure policy.
 Real board queue watermark, contention and recovery behavior remain `NOT_RUN`.
-S4 defines measurement fields, units, quality and freshness before
-instantiating the measurement snapshot. S5 defines command IDs and Modbus write
-semantics before instantiating the command queue.
+S4-T04 now instantiates one four-source measurement snapshot with sequence,
+software-admission monotonic time, normalized quality and freshness. It reuses
+the same zero-wait mutex and does not create a measurement queue. S5 defines
+command IDs and Modbus write semantics before instantiating the command queue.
 
 No raw queue trace, per-item CSV/JSON, mutex timeline or evidence bundle is
 required for a normal pass.
+
+## S4-T04 measurement projection
+
+`acquisition_task` updates an owner-only pure measurement model after bounded
+sensor service, then copies one complete base snapshot under the existing
+mutex. A task getter copies that object, unlocks, and evaluates age/state in the
+local copy. Writer contention skips one publication; reader contention returns
+unavailable. No HAL, SPI/I²C, protocol encoding, retry or logging occurs while
+the mutex is held.
+
+BME280, VEML7700, ADXL345 sample and ADXL345 feature retain independent
+sequence/time metadata. Future tasks use the checked unified field accessor;
+the three driver snapshots remain acquisition-owner diagnostics. Runtime
+contention rate and real timestamp behavior remain `NOT_RUN`.

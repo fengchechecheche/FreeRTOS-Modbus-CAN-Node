@@ -5,8 +5,9 @@
 这允许后续纯软件轨道继续，但不代表板卡、Shield 或外设已经实测。P5-S3-T01 已集成随包
 FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核冻结。P5-S4-T01 BME280 内容
 已经审核冻结；P5-S4-T02 VEML7700 整数照度、有限自动量程与 acquisition task 软件候选也已完成
-内容审核，等待硬件补验。P5-S4-T03 已形成 ADXL345 DATA_READY 中断采样、整数工程量和
-100 样本振动趋势特征的软件候选；Modbus 协议与 CAN 业务仍未实现。
+内容审核，等待硬件补验。P5-S4-T03 ADXL345 DATA_READY 中断采样、整数工程量和
+100 样本振动趋势特征已经完成内容审核。P5-S4-T04 已形成统一 sequence、单调时间、
+质量和新鲜度的软件候选；Modbus 协议与 CAN 业务仍未实现。
 
 ## 当前边界
 
@@ -42,6 +43,9 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 - ADXL345 候选为 100 Hz、full-resolution、±4 g、FIFO bypass，DATA_READY 映射到 PB4/EXTI4
   priority 6/0；六字节 coherent read 使用 `0xF2` wire command。100 样本窗口只保存
   sum/sum-square/min/max，输出去直流 RMS/peak 和三轴合成 RMS，不构成故障诊断或校准结论。
+- 统一 measurement schema 将 BME、VEML、ADXL sample 和 ADXL feature 作为四个独立 source；
+  使用 17 个逻辑 field ID、固定整数单位和 `fresh/stale/offline/invalid` 状态。field ID 不是
+  Modbus register 或 CAN ID，invalid 不输出伪造工程量，stale/offline last-good 显式 retained。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 尚未到货，ST-LINK、VCP、UART loopback、RS485 physical layer 和全部板级接口均保持
   `WAITING_FOR_HARDWARE`。
@@ -58,9 +62,10 @@ DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 12 项 CTest，包括
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 13 项 CTest，包括
 BME280 calibration/compensation、VEML7700 word/range/state-machine 和 ADXL345
-parse/config/feature/recovery 回归。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的
+parse/config/feature/recovery，以及统一 sample schema/quality/freshness 回归。构建输出位于
+`out/`，问题排查证据只在需要时写入被忽略的
 `.private/`。
 
 BSP 静态合同检查：

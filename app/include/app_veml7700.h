@@ -24,7 +24,7 @@ typedef struct
 
 void app_veml7700_initialize(void);
 void app_veml7700_service(uint32_t now_ms);
-/* Owner-context only until P5-S4-T04 defines the shared sample schema. */
+/* Owner-context diagnostic snapshot; cross-task users read app_measurement. */
 bool app_veml7700_get_snapshot(app_veml7700_snapshot_t *snapshot);
 
 #endif

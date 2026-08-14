@@ -7,6 +7,7 @@
 #include "app_bme280.h"
 #include "app_boot.h"
 #include "app_health_policy.h"
+#include "app_measurement.h"
 #include "app_reset_reason.h"
 #include "app_resource_budget.h"
 #include "app_rs485_smoke.h"
@@ -76,6 +77,9 @@ static TaskHandle_t app_rtos_task_handles[APP_TASK_COUNT];
 static app_task_runtime_t app_rtos_task_runtime[APP_TASK_COUNT];
 static app_rtos_health_snapshot_t app_rtos_health_snapshot;
 static app_rtos_resource_snapshot_t app_rtos_resource_snapshot;
+static app_measurement_model_t app_rtos_measurement_model;
+static app_measurement_inputs_t app_rtos_measurement_inputs;
+static app_measurement_snapshot_t app_rtos_measurement_snapshot;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
 static bsp_rs485_irq_latency_summary_t app_rtos_irq_latency_summary;
 static StaticQueue_t app_rtos_event_queue_control;
@@ -210,19 +214,43 @@ static void app_rtos_noop_service(void)
 {
 }
 
+static void app_rtos_update_measurement_snapshot(uint32_t now_ms)
+{
+  if (!app_bme280_get_snapshot(&app_rtos_measurement_inputs.bme280) ||
+      !app_veml7700_get_snapshot(&app_rtos_measurement_inputs.veml7700) ||
+      !app_adxl345_get_snapshot(&app_rtos_measurement_inputs.adxl345) ||
+      !app_measurement_update(&app_rtos_measurement_model,
+                              &app_rtos_measurement_inputs,
+                              now_ms))
+  {
+    return;
+  }
+
+  if (app_rtos_snapshot_take(true))
+  {
+    (void)app_measurement_get_snapshot(&app_rtos_measurement_model,
+                                       now_ms,
+                                       &app_rtos_measurement_snapshot);
+    app_rtos_snapshot_give();
+  }
+}
+
 static void app_rtos_acquisition_periodic_service(void)
 {
   const uint32_t now_ms = (uint32_t)xTaskGetTickCount();
   app_adxl345_service(now_ms, 0U);
   app_bme280_service(now_ms);
   app_veml7700_service(now_ms);
+  app_rtos_update_measurement_snapshot(now_ms);
 }
 
 static void app_rtos_acquisition_event_service(uint32_t event_count)
 {
   if (event_count != 0U)
   {
-    app_adxl345_service((uint32_t)xTaskGetTickCount(), event_count);
+    const uint32_t now_ms = (uint32_t)xTaskGetTickCount();
+    app_adxl345_service(now_ms, event_count);
+    app_rtos_update_measurement_snapshot(now_ms);
   }
 }
 
@@ -614,10 +642,12 @@ app_rtos_status_t app_rtos_initialize(void)
   app_transport_counters_initialize(&app_rtos_transport_counters);
   app_rtos_event_queue_maximum_pending = 0U;
   app_health_policy_initialize(&app_rtos_health_policy);
+  app_measurement_model_initialize(&app_rtos_measurement_model);
   bsp_adxl345_irq_initialize();
   app_adxl345_initialize();
   app_bme280_initialize();
   app_veml7700_initialize();
+  app_rtos_update_measurement_snapshot(0U);
   app_rtos_capture_reset_reason();
   app_rtos_event_queue = xQueueCreateStatic(
       APP_TRANSPORT_EVENT_QUEUE_DEPTH,
@@ -746,6 +776,24 @@ bool app_rtos_get_irq_latency_snapshot(
   snapshot->enabled = P5_IRQ_NOTIFICATION_SMOKE_ENABLE != 0;
   app_rtos_snapshot_give();
   return true;
+}
+
+bool app_rtos_get_measurement_snapshot(
+    app_measurement_snapshot_t *snapshot)
+{
+  if (snapshot == NULL)
+  {
+    return false;
+  }
+
+  if (!app_rtos_snapshot_take(false))
+  {
+    return false;
+  }
+  *snapshot = app_rtos_measurement_snapshot;
+  app_rtos_snapshot_give();
+  return app_measurement_refresh_snapshot(
+      snapshot, (uint32_t)xTaskGetTickCount());
 }
 
 bool app_rtos_get_transport_counters(app_transport_counters_t *counters)

@@ -28,7 +28,7 @@ typedef struct
 void app_adxl345_initialize(void);
 void app_adxl345_service(uint32_t now_ms,
                          uint32_t data_ready_event_count);
-/* Owner-context only until P5-S4-T04 defines the shared sample schema. */
+/* Owner-context diagnostic snapshot; cross-task users read app_measurement. */
 bool app_adxl345_get_snapshot(app_adxl345_snapshot_t *snapshot);
 
 #endif

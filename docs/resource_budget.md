@@ -188,3 +188,20 @@ latest feature and compact IRQ counters. Both builds remain far below the
 unchanged 384 KiB Flash and 96 KiB linked-RAM gates. All five application
 stacks remain 256 words and linker heap remains zero. Runtime stack watermark,
 IRQ latency and combined bus WCET remain `NOT_MEASURED`.
+
+## S4-T04 unified measurement regression
+
+T04 adds one owner model, one shared base snapshot, fixed owner inputs and a
+17-field descriptor table. It reuses the existing zero-wait snapshot mutex and
+adds no task, stack, queue, mutex, semaphore, DMA, heap or history buffer.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from `[022]` |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 39304 B | 160 B | 10632 B | 39464 B | 10792 B | Flash +1280 B, RAM +600 B |
+| Release | 32992 B | 156 B | 10632 B | 33148 B | 10788 B | Flash +1032 B, RAM +600 B |
+
+The 600 B RAM increment remains below the T04 1 KiB review threshold. Owner
+inputs are static so the three driver snapshots are not simultaneously placed
+on the 256-word acquisition stack. The five application stacks, queue depth 8,
+linker heap 0 and 384 KiB/96 KiB stage gates remain unchanged. Runtime stack
+watermark, snapshot contention and real timestamp jitter remain `NOT_MEASURED`.

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "app_health_policy.h"
+#include "app_measurement.h"
 #include "app_reset_reason.h"
 #include "app_task_model.h"
 #include "app_transport_policy.h"
@@ -84,6 +85,8 @@ bool app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot);
 bool app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot);
 bool app_rtos_get_irq_latency_snapshot(
     app_rtos_irq_latency_snapshot_t *snapshot);
+bool app_rtos_get_measurement_snapshot(
+    app_measurement_snapshot_t *snapshot);
 bool app_rtos_get_transport_counters(app_transport_counters_t *counters);
 bool app_rtos_get_transport_snapshot(app_rtos_transport_snapshot_t *snapshot);
 bool app_rtos_get_reset_reason(app_reset_decoded_t *decoded);

@@ -53,10 +53,12 @@ and checks the ADXL stall deadline. A DATA_READY notification batch performs
 at most one 5 ms ADXL SPI read and records `count-1` as a drop lower bound.
 When an event and periodic release coincide, the candidate upper bound is one
 ADXL SPI read plus at most one BME SPI and one VEML I²C transaction. This is not
-measured WCET; final arbitration remains for P5-S4-T05. Owner-local samples are
-not yet the cross-sensor freshness schema; protocol, CAN and health tasks must
-not call sensor or bus APIs directly. The scheduler-before boot probe remains
-the only current exception.
+measured WCET; final arbitration remains for P5-S4-T05. After service, T04
+projects owner-local snapshots into one four-source latest-value snapshot under
+the existing zero-wait mutex. Protocol, CAN and health tasks may copy this
+unified snapshot but must not call sensor or bus APIs directly. Age/state are
+evaluated after the local copy. The scheduler-before boot probe remains the
+only current bus-owner exception.
 
 P5-S3-T05 makes `health_task` the sole owner of the health-policy decision. It
 checks progress from `protocol_task`, `acquisition_task`, `can_task` and
