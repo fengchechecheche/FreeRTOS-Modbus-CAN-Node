@@ -26,12 +26,12 @@ server 与 register image。Host 与 ARM 编译结果只证明软件候选。
 
 默认路径支持地址 4、广播/外站静默、`0x03/0x04/0x06`、exception `01/02/03/04`、249 B
 最大应答和 TX-complete 后地址提交。CRC/parser/handler 均已接入候选 runtime；DE 波形、DMA
-丢失、真实主站请求和项目三联调保持 `WAITING_FOR_HARDWARE / NOT_RUN`。CAN
-filter/message/encoder 仍为 `NOT_IMPLEMENTED`。
+丢失、真实主站请求和项目三联调保持 `WAITING_FOR_HARDWARE / NOT_RUN`。
 
 `CRC/parser/handler` 的 `CANDIDATE_IMPLEMENTED` 不等于物理总线通过；硬件状态必须单独解释。
 
-P5-S6-T01 已新增 [`can_message_map.json`](can_message_map.json) 和 HAL/RTOS-free CAN codec。
+P5-S6-T01 已新增 [`can_message_map.json`](can_message_map.json) 和 HAL/RTOS-free CAN codec，
 七个 11-bit standard ID、DLC 8、500 kbit/s、little-endian、sequence、sentinel 和静态负载预算
-达到 `CANDIDATE_VALIDATED + READY_FOR_BXCAN_IMPLEMENTATION`。CAN runtime、filter、IRQ、queue、
-SocketCAN 和硬件帧仍为 `NOT_IMPLEMENTED / WAITING_FOR_HARDWARE`。
+达到 `CANDIDATE_VALIDATED`。P5-S6-T02 的 exact filter、固定 IRQ/RX mailbox、有界 TX scheduler、
+task notification 与 bus-off recovery 为 `CANDIDATE_IMPLEMENTED`；SocketCAN 和硬件帧仍为
+`NOT_RUN / WAITING_FOR_HARDWARE`。

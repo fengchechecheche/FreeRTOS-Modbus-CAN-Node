@@ -39,6 +39,7 @@ set(P5_STM32F4_HAL_SOURCES
 set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_adxl345.c
     app/src/app_bme280.c
+    app/src/app_can_runtime.c
     app/src/app_veml7700.c
     app/src/app_boot.c
     app/src/app_device_probe.c
@@ -64,6 +65,7 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     bsp/src/bsp_rs485_irq_event.c
     bsp/src/bsp_rs485_state.c
     bsp/src/bsp_can.c
+    bsp/src/bsp_can_irq_event.c
     sensors/src/adxl345.c
     sensors/src/bme280.c
     sensors/src/veml7700.c

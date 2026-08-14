@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the bounded P5-S6-T01 Classical CAN contract."""
+"""Validate the bounded P5-S6-T01 wire and P5-S6-T02 runtime contract."""
 
 from __future__ import annotations
 
@@ -33,31 +33,61 @@ CAN_TO_MODBUS_UNITS = {
 
 DOCUMENT_MARKERS = {
     Path("README.md"): [
-        "P5-S6-T01",
+        "P5-S6-T02",
         "CAN_CONTRACT_CANDIDATE_VALIDATED",
-        "CAN runtime remains `NOT_IMPLEMENTED`",
+        "CAN_RUNTIME_CANDIDATE_IMPLEMENTED",
     ],
     Path("protocol/README.md"): [
         "can_message_map.json",
         "CANDIDATE_VALIDATED",
-        "READY_FOR_BXCAN_IMPLEMENTATION",
+        "CANDIDATE_IMPLEMENTED",
     ],
     Path("docs/can_contract.md"): [
         "Contract status: `CANDIDATE_VALIDATED`",
-        "Runtime status: `NOT_IMPLEMENTED`",
+        "Runtime status: `CANDIDATE_IMPLEMENTED`",
         "Hardware status: `WAITING_FOR_HARDWARE`",
         "0x140",
         "0x440",
         "0.48%",
     ],
     Path("docs/learning/index.md"): [
-        "p5_s6_t01_can物理层仲裁与报文合同.md",
+        "p5_s6_t02_bxcan过滤器中断与发送队列.md",
         "READY_FOR_CONTENT_REVIEW",
     ],
-    Path("docs/learning/p5_s6_t01_can物理层仲裁与报文合同.md"): [
-        "P5-S6-T01",
+    Path("docs/learning/p5_s6_t02_bxcan过滤器中断与发送队列.md"): [
+        "P5-S6-T02",
         "实际问题与修复",
         "WAITING_FOR_HARDWARE",
+    ],
+    Path("docs/can_runtime.md"): [
+        "CAN_RUNTIME_CANDIDATE_IMPLEMENTED",
+        "RECOVERY_LATCHED",
+        "WAITING_FOR_HARDWARE",
+    ],
+}
+
+RUNTIME_SOURCE_MARKERS = {
+    Path("freertos_modbus_can_node.ioc"): [
+        "NVIC.CAN1_TX_IRQn=true\\:6\\:0",
+        "NVIC.CAN1_RX0_IRQn=true\\:6\\:0",
+        "NVIC.CAN1_SCE_IRQn=true\\:6\\:0",
+    ],
+    Path("Core/Src/stm32f4xx_it.c"): [
+        "void CAN1_TX_IRQHandler(void)",
+        "void CAN1_RX0_IRQHandler(void)",
+        "void CAN1_SCE_IRQHandler(void)",
+    ],
+    Path("app/include/app_can_runtime.h"): [
+        "APP_CAN_TX_DRAIN_BUDGET",
+        "APP_CAN_RECOVERY_ATTEMPT_LIMIT",
+    ],
+    Path("app/src/app_rtos.c"): [
+        "app_rtos_run_can",
+        "app_rtos_can_notify_from_isr",
+    ],
+    Path("bsp/src/bsp_can.c"): [
+        "HAL_CAN_RxFifo0MsgPendingCallback",
+        "HAL_CAN_ErrorCallback",
     ],
 }
 
@@ -86,6 +116,7 @@ def verify_document(document: dict[str, Any]) -> tuple[list[str], int]:
     wire = document.get("wire", {})
     codes = document.get("wire_codes", {})
     scheduling = document.get("scheduling", {})
+    runtime = document.get("runtime", {})
     traceability = document.get("traceability", {})
     frames = document.get("frames", [])
     named = frame_by_name(document)
@@ -106,7 +137,12 @@ def verify_document(document: dict[str, Any]) -> tuple[list[str], int]:
         errors,
     )
     checked += add_check(
-        metadata.get("runtime_status") == "not_implemented",
+        metadata.get("runtime_task_id") == "P5-S6-T02",
+        "wrong runtime task id",
+        errors,
+    )
+    checked += add_check(
+        metadata.get("runtime_status") == "candidate_implemented",
         "runtime boundary changed",
         errors,
     )
@@ -246,6 +282,24 @@ def verify_document(document: dict[str, Any]) -> tuple[list[str], int]:
         "bus load exceeds contract limit",
         errors,
     )
+    expected_runtime = {
+        "task": "can_task",
+        "task_period_ms": 100,
+        "notification_wait_ms_max": 100,
+        "tx_drain_budget": 3,
+        "rx_drain_budget": 2,
+        "event_fifo_depth": 8,
+        "rx_ring_depth": 4,
+        "recovery_delay_ms": 1000,
+        "recovery_attempt_limit": 3,
+        "dynamic_allocation": False,
+        "hardware_validation": "not_run",
+    }
+    checked += add_check(
+        runtime == expected_runtime,
+        "bounded runtime policy changed",
+        errors,
+    )
     checked += add_check(
         traceability.get("state_codes_match_unified_measurement") is True,
         "measurement state traceability missing",
@@ -337,6 +391,19 @@ def verify_repository(root: Path) -> tuple[list[str], int]:
                 f"{relative_path}: missing marker: {marker}",
                 errors,
             )
+    for relative_path, markers in RUNTIME_SOURCE_MARKERS.items():
+        path = root / relative_path
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"{relative_path}: cannot read: {exc}")
+            continue
+        for marker in markers:
+            checked += add_check(
+                marker in content,
+                f"{relative_path}: missing runtime marker: {marker}",
+                errors,
+            )
     return errors, checked
 
 
@@ -360,7 +427,7 @@ def run_self_test(document: dict[str, Any]) -> int:
     mutants.append(("budget overflow", budget))
 
     runtime = copy.deepcopy(document)
-    runtime["document"]["runtime_status"] = "implemented"
+    runtime["document"]["runtime_status"] = "not_implemented"
     mutants.append(("runtime promotion", runtime))
 
     for label, mutant in mutants:
@@ -396,7 +463,7 @@ def main() -> int:
 
     print(
         "P5 CAN CONTRACT: PASS "
-        f"({checked} facts, 7 standard IDs, 500 kbit/s, runtime not implemented, hardware waiting)"
+        f"({checked} facts, 7 standard IDs, 500 kbit/s, runtime candidate implemented, hardware waiting)"
     )
     return 0
 

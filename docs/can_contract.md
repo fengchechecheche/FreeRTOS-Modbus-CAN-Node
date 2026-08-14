@@ -2,15 +2,16 @@
 
 > Contract status: `CANDIDATE_VALIDATED`
 > Codec status: `CANDIDATE_VALIDATED`
-> Runtime status: `NOT_IMPLEMENTED`
+> Runtime status: `CANDIDATE_IMPLEMENTED`
 > Hardware status: `WAITING_FOR_HARDWARE`
 
 ## Scope
 
 This is the project-specific Classical CAN 2.0A telemetry contract. It is not
 CANopen, J1939 or UDS. The contract freezes wire meaning and a HAL/RTOS-free
-codec; bxCAN filters, interrupts, mailboxes, queues and bus-off recovery belong
-to P5-S6-T02. A Host vector or ARM build is not physical CAN evidence.
+codec. P5-S6-T02 implements bxCAN filters, interrupts, fixed mailboxes, bounded
+queues and bus-off recovery as a software candidate. A Host vector or ARM build
+is not physical CAN evidence.
 
 The machine-readable authority is
 [`../protocol/can_message_map.json`](../protocol/can_message_map.json).
@@ -111,9 +112,11 @@ envelope, not a measurement of arbitration, retransmission or error frames.
 field coverage, reserved bits, schedule and scope markers. The pure C Host test
 checks known frames, signed and uint24 encoding, sentinels, age saturation,
 sequence wrap, BME pair rejection and invalid inputs. Debug/Release Host and
-ARM builds establish only `CANDIDATE_VALIDATED + READY_FOR_BXCAN_IMPLEMENTATION`.
+ARM builds establish `CANDIDATE_VALIDATED + CANDIDATE_IMPLEMENTED` only for the
+software path. Runtime architecture and troubleshooting are recorded in
+[`can_runtime.md`](can_runtime.md).
 
 Hardware follow-up requires the S2 admission gate, known transceiver/jumpers,
 CANH/CANL/GND, exactly two end terminators for a two-node bench, matching
 bitrate, candleLight/SocketCAN and representative decoded frames. That work is
-not part of T01.
+not part of T01/T02.

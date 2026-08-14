@@ -29,6 +29,16 @@ else()
     p5_apply_project_warnings(p5_host_can_contract)
     add_test(NAME p5.host.can_contract COMMAND p5_host_can_contract)
 
+    add_executable(p5_host_can_runtime
+        test/host/can_runtime_main.c
+        bsp/src/bsp_can_irq_event.c
+        app/src/app_can_runtime.c
+        protocol/src/p5_can_contract.c)
+    target_include_directories(p5_host_can_runtime PRIVATE
+        app/include bsp/include protocol/include sensors/include)
+    p5_apply_project_warnings(p5_host_can_runtime)
+    add_test(NAME p5.host.can_runtime COMMAND p5_host_can_runtime)
+
     add_executable(p5_host_clock
         test/host/clock_main.c
         bsp/src/bsp_clock_math.c)
@@ -96,7 +106,8 @@ else()
 
     add_executable(p5_host_resource_budget
         test/host/resource_budget_main.c)
-    target_include_directories(p5_host_resource_budget PRIVATE app/include)
+    target_include_directories(p5_host_resource_budget PRIVATE
+        app/include bsp/include protocol/include sensors/include)
     p5_apply_project_warnings(p5_host_resource_budget)
     add_test(NAME p5.host.resource_budget COMMAND p5_host_resource_budget)
 

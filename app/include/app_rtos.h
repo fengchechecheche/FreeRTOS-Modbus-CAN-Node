@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "app_can_runtime.h"
 #include "app_health_policy.h"
 #include "app_measurement.h"
 #include "app_modbus_register_image.h"
@@ -84,6 +85,7 @@ app_rtos_status_t app_rtos_initialize(void);
 /* The queue and snapshot APIs below are task-context only. */
 bool app_rtos_publish_diagnostic_event(const app_transport_event_t *event);
 bool app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot);
+bool app_rtos_get_can_snapshot(app_can_runtime_snapshot_t *snapshot);
 bool app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot);
 bool app_rtos_get_irq_latency_snapshot(
     app_rtos_irq_latency_snapshot_t *snapshot);

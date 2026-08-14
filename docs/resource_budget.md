@@ -256,3 +256,21 @@ queue depth 8, one snapshot mutex and linker heap 0 are unchanged. The legacy
 RS485 loopback smoke also links with the function-server path excluded from its
 call graph, then the build option is restored to default `OFF`. Runtime stack
 watermark, 249 B response timing, address migration on a real master and
+Project Three integration remain `NOT_MEASURED`.
+
+## S6-T02 bxCAN runtime regression
+
+T02 reuses the existing 256-word `can_task` stack and adds no task, RTOS queue,
+mutex, semaphore, DMA or dynamic heap. Fixed CAN storage is 660 B: 160 B for the
+IRQ mailbox/notifier and 500 B for the TX scheduler, controller, read-only
+snapshot and control words. The scheduler holds eight coalescing event slots and
+five latest-wins telemetry groups; the RX ring holds four frames.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from A1 `[031]` |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 53272 B | 160 B | 13224 B | 53432 B | 13384 B | Flash +7152 B, RAM +664 B |
+| Release | 44404 B | 156 B | 13216 B | 44560 B | 13372 B | Flash +6112 B, RAM +656 B |
+
+The unchanged gates remain 384 KiB Flash and 96 KiB linked RAM. Physical CAN
+load, ISR-to-task latency, task stack watermark and recovery timing remain
+`NOT_MEASURED` until hardware is available.

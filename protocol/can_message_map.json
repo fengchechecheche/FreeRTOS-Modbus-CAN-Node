@@ -4,7 +4,8 @@
     "project": "freertos_modbus_can_node",
     "task_id": "P5-S6-T01",
     "status": "candidate_validated",
-    "runtime_status": "not_implemented",
+    "runtime_task_id": "P5-S6-T02",
+    "runtime_status": "candidate_implemented",
     "hardware_status": "waiting_for_hardware"
   },
   "physical_layer": {
@@ -201,6 +202,19 @@
     "calculated_bus_load_percent": 0.48,
     "contract_bus_load_limit_percent": 1.0
   },
+  "runtime": {
+    "task": "can_task",
+    "task_period_ms": 100,
+    "notification_wait_ms_max": 100,
+    "tx_drain_budget": 3,
+    "rx_drain_budget": 2,
+    "event_fifo_depth": 8,
+    "rx_ring_depth": 4,
+    "recovery_delay_ms": 1000,
+    "recovery_attempt_limit": 3,
+    "dynamic_allocation": false,
+    "hardware_validation": "not_run"
+  },
   "traceability": {
     "upstream_schema_revision": 1,
     "data_sources": ["bme280", "veml7700", "adxl345_feature"],
@@ -209,11 +223,11 @@
     "modbus_wire_layout_may_differ": true
   },
   "scope_exclusions": [
-    "bxcan_filter_irq_mailbox_queue_runtime",
     "canopen_j1939_uds_claim",
     "can_fd_extended_remote_frames",
     "control_or_configuration_write",
     "raw_100hz_acceleration_stream",
-    "hardware_socketcan_candlelight_evidence"
+    "hardware_socketcan_candlelight_evidence",
+    "physical_bus_acceptance"
   ]
 }

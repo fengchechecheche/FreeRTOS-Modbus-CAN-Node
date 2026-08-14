@@ -6,6 +6,7 @@
 #include "app_adxl345.h"
 #include "app_bme280.h"
 #include "app_boot.h"
+#include "app_can_runtime.h"
 #include "app_health_policy.h"
 #include "app_measurement.h"
 #include "app_modbus_transport.h"
@@ -17,6 +18,7 @@
 #include "app_transport_policy.h"
 #include "app_veml7700.h"
 #include "bsp_adxl345_irq.h"
+#include "bsp_can.h"
 #include "bsp_clock.h"
 #include "bsp_rs485.h"
 #include "queue.h"
@@ -32,6 +34,13 @@
 #ifndef P5_RS485_LOOPBACK_SMOKE_ENABLE
 #define P5_RS485_LOOPBACK_SMOKE_ENABLE (0)
 #endif
+
+#define APP_CAN_TELEMETRY_PERIOD_MS UINT32_C(1000)
+#define APP_CAN_RX_DRAIN_BUDGET UINT32_C(2)
+#define APP_CAN_EVENT_SOURCE UINT8_C(5)
+#define APP_CAN_EVENT_START_FAILED UINT16_C(0x0301)
+#define APP_CAN_EVENT_BUS_OFF UINT16_C(0x0302)
+#define APP_CAN_EVENT_RECOVERED UINT16_C(0x0303)
 
 _Static_assert(sizeof(StackType_t) == APP_RESOURCE_STACK_WORD_BYTES,
                "resource budget assumes 32-bit FreeRTOS stack words");
@@ -102,6 +111,13 @@ static app_transport_counters_t app_rtos_transport_counters;
 static uint32_t app_rtos_event_queue_maximum_pending;
 static app_health_policy_t app_rtos_health_policy;
 static app_reset_decoded_t app_rtos_reset_reason;
+static app_can_tx_scheduler_t app_rtos_can_scheduler;
+static app_can_controller_t app_rtos_can_controller;
+static app_can_runtime_snapshot_t app_rtos_can_snapshot;
+static uint32_t app_rtos_can_next_telemetry_ms;
+static uint8_t app_rtos_can_sequence;
+static bool app_rtos_can_telemetry_initialized;
+static bool app_rtos_can_hardware_started;
 #if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
 static volatile uint32_t app_rtos_irq_first_cycles;
 static volatile bool app_rtos_irq_first_cycles_valid;
@@ -224,10 +240,6 @@ static void app_rtos_snapshot_give(void)
   }
 }
 
-static void app_rtos_noop_service(void)
-{
-}
-
 static void app_rtos_update_measurement_snapshot(uint32_t now_ms)
 {
   if (!app_bme280_get_snapshot(&app_rtos_measurement_inputs.bme280) ||
@@ -346,6 +358,289 @@ static void app_rtos_adxl345_notify_from_isr(void)
   BaseType_t higher_priority_task_woken = pdFALSE;
   vTaskNotifyGiveFromISR(acquisition_handle, &higher_priority_task_woken);
   portYIELD_FROM_ISR(higher_priority_task_woken);
+}
+
+static void app_rtos_can_notify_from_isr(uint32_t event_mask)
+{
+  TaskHandle_t can_handle = app_rtos_task_handles[APP_TASK_CAN];
+  if (can_handle == NULL)
+  {
+    return;
+  }
+
+  BaseType_t higher_priority_task_woken = pdFALSE;
+  (void)xTaskNotifyFromISR(can_handle,
+                           event_mask,
+                           eSetBits,
+                           &higher_priority_task_woken);
+  portYIELD_FROM_ISR(higher_priority_task_woken);
+}
+
+static bool app_rtos_time_reached(uint32_t now_ms, uint32_t deadline_ms)
+{
+  return (int32_t)(now_ms - deadline_ms) >= 0;
+}
+
+static uint32_t app_rtos_can_error_bits(uint32_t hal_error)
+{
+  uint32_t error_bits = 0U;
+  if ((hal_error & HAL_CAN_ERROR_EWG) != 0U)
+  {
+    error_bits |= APP_CAN_ERROR_WARNING;
+  }
+  if ((hal_error & HAL_CAN_ERROR_EPV) != 0U)
+  {
+    error_bits |= APP_CAN_ERROR_PASSIVE;
+  }
+  if ((hal_error & HAL_CAN_ERROR_BOF) != 0U)
+  {
+    error_bits |= APP_CAN_ERROR_BUS_OFF;
+  }
+  if ((hal_error & (HAL_CAN_ERROR_TX_ALST0 |
+                    HAL_CAN_ERROR_TX_ALST1 |
+                    HAL_CAN_ERROR_TX_ALST2)) != 0U)
+  {
+    error_bits |= APP_CAN_ERROR_ARBITRATION_LOST;
+  }
+  if ((hal_error & HAL_CAN_ERROR_ACK) != 0U)
+  {
+    error_bits |= APP_CAN_ERROR_ACK;
+  }
+  if ((hal_error & (HAL_CAN_ERROR_STF |
+                    HAL_CAN_ERROR_FOR |
+                    HAL_CAN_ERROR_BR |
+                    HAL_CAN_ERROR_BD |
+                    HAL_CAN_ERROR_CRC |
+                    HAL_CAN_ERROR_TX_TERR0 |
+                    HAL_CAN_ERROR_TX_TERR1 |
+                    HAL_CAN_ERROR_TX_TERR2 |
+                    HAL_CAN_ERROR_TIMEOUT |
+                    HAL_CAN_ERROR_NOT_INITIALIZED |
+                    HAL_CAN_ERROR_NOT_READY |
+                    HAL_CAN_ERROR_NOT_STARTED |
+                    HAL_CAN_ERROR_PARAM |
+                    HAL_CAN_ERROR_INTERNAL)) != 0U)
+  {
+    error_bits |= APP_CAN_ERROR_TX;
+  }
+  if ((hal_error & (HAL_CAN_ERROR_RX_FOV0 | HAL_CAN_ERROR_RX_FOV1)) != 0U)
+  {
+    error_bits |= APP_CAN_ERROR_RX_OVERRUN;
+  }
+  return error_bits;
+}
+
+static void app_rtos_can_enqueue_event(uint16_t event_code,
+                                       uint8_t severity,
+                                       uint16_t detail)
+{
+  const p5_can_status_event_t payload = {
+      .sequence = app_rtos_can_sequence++,
+      .event_code = event_code,
+      .severity = severity,
+      .source = APP_CAN_EVENT_SOURCE,
+      .detail = detail,
+  };
+  p5_can_frame_t frame;
+  if (p5_can_encode_status_event(&payload, &frame) == P5_CAN_RESULT_OK)
+  {
+    (void)app_can_tx_enqueue_event(&app_rtos_can_scheduler,
+                                   event_code,
+                                   APP_CAN_EVENT_SOURCE,
+                                   &frame);
+  }
+}
+
+static void app_rtos_can_update_snapshot(uint32_t last_hal_error)
+{
+  const bsp_can_irq_event_counters_t irq = bsp_can_irq_counters();
+  app_can_runtime_snapshot_t snapshot = {
+      .controller_state = app_rtos_can_controller.state,
+      .controller_counters = app_rtos_can_controller.counters,
+      .tx_counters = app_can_tx_counters(&app_rtos_can_scheduler),
+      .pending_frames = app_can_tx_pending(&app_rtos_can_scheduler),
+      .last_hal_error = last_hal_error,
+      .recovery_attempts_in_episode =
+          app_rtos_can_controller.recovery_attempts_in_episode,
+      .rx_accepted = irq.rx_accepted,
+      .rx_dropped = irq.rx_dropped,
+      .rx_invalid = irq.invalid_headers,
+      .tx_completed = irq.tx_completed,
+      .tx_aborted = irq.tx_aborted,
+      .deferred_notifications = irq.deferred_notifications,
+      .hardware_started = app_rtos_can_hardware_started,
+  };
+  if (app_rtos_snapshot_take(true))
+  {
+    app_rtos_can_snapshot = snapshot;
+    app_rtos_snapshot_give();
+  }
+}
+
+static void app_rtos_can_publish_periodic(uint32_t now_ms)
+{
+  if (!app_rtos_can_telemetry_initialized)
+  {
+    app_rtos_can_next_telemetry_ms = now_ms + APP_CAN_TELEMETRY_PERIOD_MS;
+    app_rtos_can_telemetry_initialized = true;
+    return;
+  }
+  if (!app_rtos_time_reached(now_ms, app_rtos_can_next_telemetry_ms))
+  {
+    return;
+  }
+  app_rtos_can_next_telemetry_ms = now_ms + APP_CAN_TELEMETRY_PERIOD_MS;
+
+  app_measurement_snapshot_t measurement;
+  app_health_decision_t health;
+  uint32_t image_generation = 0U;
+  if (!app_rtos_snapshot_take(false))
+  {
+    return;
+  }
+  measurement = app_rtos_measurement_snapshot;
+  health = app_rtos_health_snapshot.decision;
+  image_generation = app_rtos_modbus_image_generation;
+  app_rtos_snapshot_give();
+  if (!app_measurement_refresh_snapshot(&measurement, now_ms))
+  {
+    return;
+  }
+
+  p5_can_frame_t frames[APP_CAN_PERIODIC_FRAME_COUNT];
+  const uint8_t sequence = app_rtos_can_sequence++;
+  if (!app_can_build_periodic_frames(&measurement,
+                                     &health,
+                                     image_generation,
+                                     now_ms / UINT32_C(1000),
+                                     sequence,
+                                     frames))
+  {
+    return;
+  }
+  (void)app_can_tx_publish_telemetry(
+      &app_rtos_can_scheduler,
+      APP_CAN_TELEMETRY_HEARTBEAT,
+      &frames[APP_CAN_PERIODIC_HEARTBEAT]);
+  (void)app_can_tx_publish_telemetry(
+      &app_rtos_can_scheduler,
+      APP_CAN_TELEMETRY_HEALTH,
+      &frames[APP_CAN_PERIODIC_HEALTH]);
+  (void)app_can_tx_publish_climate_pair(
+      &app_rtos_can_scheduler,
+      &frames[APP_CAN_PERIODIC_CLIMATE_PRIMARY],
+      &frames[APP_CAN_PERIODIC_CLIMATE_SECONDARY]);
+  (void)app_can_tx_publish_telemetry(
+      &app_rtos_can_scheduler,
+      APP_CAN_TELEMETRY_ILLUMINANCE,
+      &frames[APP_CAN_PERIODIC_ILLUMINANCE]);
+  (void)app_can_tx_publish_telemetry(
+      &app_rtos_can_scheduler,
+      APP_CAN_TELEMETRY_VIBRATION,
+      &frames[APP_CAN_PERIODIC_VIBRATION]);
+}
+
+static void app_rtos_can_drain_tx(uint32_t now_ms)
+{
+  for (uint32_t sent = 0U; sent < APP_CAN_TX_DRAIN_BUDGET; ++sent)
+  {
+    if (bsp_can_tx_free_level() == 0U)
+    {
+      app_can_tx_note_hal_busy(&app_rtos_can_scheduler);
+      break;
+    }
+    p5_can_frame_t frame;
+    app_can_tx_token_t token;
+    if (!app_can_tx_peek(&app_rtos_can_scheduler, &frame, &token))
+    {
+      break;
+    }
+    const bsp_can_send_result_t result = bsp_can_send(&frame);
+    if (result == BSP_CAN_SEND_OK)
+    {
+      (void)app_can_tx_commit(&app_rtos_can_scheduler, token);
+      continue;
+    }
+    if (result == BSP_CAN_SEND_BUSY)
+    {
+      app_can_tx_note_hal_busy(&app_rtos_can_scheduler);
+    }
+    else
+    {
+      (void)app_can_controller_on_error(
+          &app_rtos_can_controller, APP_CAN_ERROR_TX, now_ms);
+    }
+    break;
+  }
+}
+
+static void app_rtos_can_service(uint32_t now_ms)
+{
+  static uint32_t last_hal_error;
+  bsp_can_irq_event_snapshot_t irq;
+  if (bsp_can_take_irq_snapshot(&irq))
+  {
+    if ((irq.event_mask & BSP_CAN_IRQ_EVENT_RX_READY) != 0U)
+    {
+      bsp_can_rx_frame_t frame;
+      for (uint32_t received = 0U;
+           (received < APP_CAN_RX_DRAIN_BUDGET) &&
+           bsp_can_take_received(&frame);
+           ++received)
+      {
+        (void)frame;
+      }
+    }
+    uint32_t error_bits = 0U;
+    if ((irq.event_mask & BSP_CAN_IRQ_EVENT_ERROR) != 0U)
+    {
+      last_hal_error = irq.latest_hal_error;
+      error_bits |= app_rtos_can_error_bits(irq.latest_hal_error);
+    }
+    if ((irq.event_mask & BSP_CAN_IRQ_EVENT_TX_ABORT) != 0U)
+    {
+      error_bits |= APP_CAN_ERROR_TX;
+    }
+    if (error_bits != 0U)
+    {
+      const bool state_changed = app_can_controller_on_error(
+          &app_rtos_can_controller, error_bits, now_ms);
+      if ((error_bits & APP_CAN_ERROR_BUS_OFF) != 0U)
+      {
+        app_rtos_can_hardware_started = false;
+        if (state_changed)
+        {
+          app_rtos_can_enqueue_event(
+              APP_CAN_EVENT_BUS_OFF, UINT8_C(2), (uint16_t)last_hal_error);
+        }
+      }
+    }
+  }
+
+  if (app_can_controller_recovery_due(&app_rtos_can_controller, now_ms))
+  {
+    (void)bsp_can_stop();
+    if (app_can_controller_begin_recovery(&app_rtos_can_controller, now_ms))
+    {
+      const bool started = bsp_can_start();
+      app_rtos_can_hardware_started = started;
+      (void)app_can_controller_complete_start(
+          &app_rtos_can_controller, started, now_ms);
+      app_rtos_can_enqueue_event(
+          started ? APP_CAN_EVENT_RECOVERED : APP_CAN_EVENT_START_FAILED,
+          started ? UINT8_C(1) : UINT8_C(2),
+          (uint16_t)HAL_CAN_GetError(bsp_can_handle()));
+    }
+  }
+
+  app_rtos_can_publish_periodic(now_ms);
+  if ((app_rtos_can_controller.state == APP_CAN_CONTROLLER_ACTIVE) ||
+      (app_rtos_can_controller.state == APP_CAN_CONTROLLER_WARNING) ||
+      (app_rtos_can_controller.state == APP_CAN_CONTROLLER_PASSIVE))
+  {
+    app_rtos_can_drain_tx(now_ms);
+  }
+  app_rtos_can_update_snapshot(last_hal_error);
 }
 
 static void app_rtos_record_irq_latency(void)
@@ -652,6 +947,66 @@ static _Noreturn void app_rtos_run_acquisition(void)
   }
 }
 
+static _Noreturn void app_rtos_run_can(void)
+{
+  const app_task_contract_t *contract =
+      app_task_model_contract(APP_TASK_CAN);
+  if (contract == NULL)
+  {
+    app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
+  }
+
+  app_task_runtime_t *runtime = &app_rtos_task_runtime[APP_TASK_CAN];
+  uint32_t now_ms = (uint32_t)xTaskGetTickCount();
+  app_task_runtime_initialize(runtime, now_ms);
+  if (!app_can_controller_begin_initial_start(&app_rtos_can_controller))
+  {
+    app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
+  }
+  const bool started = bsp_can_start();
+  app_rtos_can_hardware_started = started;
+  (void)app_can_controller_complete_start(
+      &app_rtos_can_controller, started, now_ms);
+  if (!started)
+  {
+    app_rtos_can_enqueue_event(
+        APP_CAN_EVENT_START_FAILED,
+        UINT8_C(2),
+        (uint16_t)HAL_CAN_GetError(bsp_can_handle()));
+  }
+
+  for (;;)
+  {
+    now_ms = (uint32_t)xTaskGetTickCount();
+    if (app_task_runtime_release_due(runtime, now_ms))
+    {
+      const TickType_t actual_start_tick = (TickType_t)now_ms;
+      app_rtos_can_service(now_ms);
+      const TickType_t actual_finish_tick = xTaskGetTickCount();
+      if (!app_task_runtime_record_cycle(runtime,
+                                         contract,
+                                         (uint32_t)actual_start_tick,
+                                         (uint32_t)actual_finish_tick))
+      {
+        app_rtos_fail_stop(APP_RTOS_FAULT_CYCLE);
+      }
+      continue;
+    }
+
+    const TickType_t wait_ticks = (TickType_t)
+        app_task_runtime_ticks_until_release(runtime, now_ms);
+    uint32_t notification_value = 0U;
+    if (xTaskNotifyWait(0U,
+                        UINT32_MAX,
+                        &notification_value,
+                        wait_ticks) == pdTRUE)
+    {
+      (void)notification_value;
+      app_rtos_can_service((uint32_t)xTaskGetTickCount());
+    }
+  }
+}
+
 static void app_rtos_protocol_task(void *context)
 {
   (void)context;
@@ -667,7 +1022,7 @@ static void app_rtos_acquisition_task(void *context)
 static void app_rtos_can_task(void *context)
 {
   (void)context;
-  app_rtos_run_periodic(APP_TASK_CAN, app_rtos_noop_service);
+  app_rtos_run_can();
 }
 
 static void app_rtos_health_task(void *context)
@@ -703,6 +1058,14 @@ app_rtos_status_t app_rtos_initialize(void)
   app_health_policy_initialize(&app_rtos_health_policy);
   app_measurement_model_initialize(&app_rtos_measurement_model);
   app_sensor_monitor_initialize(&app_rtos_sensor_monitor);
+  app_can_tx_scheduler_initialize(&app_rtos_can_scheduler);
+  app_can_controller_initialize(&app_rtos_can_controller);
+  app_rtos_can_snapshot = (app_can_runtime_snapshot_t){0};
+  app_rtos_can_next_telemetry_ms = 0U;
+  app_rtos_can_sequence = 0U;
+  app_rtos_can_telemetry_initialized = false;
+  app_rtos_can_hardware_started = false;
+  bsp_can_irq_initialize();
   bsp_adxl345_irq_initialize();
   app_adxl345_initialize();
   app_bme280_initialize();
@@ -758,6 +1121,7 @@ app_rtos_status_t app_rtos_initialize(void)
 
   bsp_rs485_register_irq_notifier(app_rtos_rs485_notify_from_isr);
   bsp_adxl345_register_irq_notifier(app_rtos_adxl345_notify_from_isr);
+  bsp_can_register_irq_notifier(app_rtos_can_notify_from_isr);
 
   return APP_RTOS_OK;
 }
@@ -793,6 +1157,21 @@ bool app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot)
     return false;
   }
   *snapshot = app_rtos_health_snapshot;
+  app_rtos_snapshot_give();
+  return true;
+}
+
+bool app_rtos_get_can_snapshot(app_can_runtime_snapshot_t *snapshot)
+{
+  if (snapshot == NULL)
+  {
+    return false;
+  }
+  if (!app_rtos_snapshot_take(false))
+  {
+    return false;
+  }
+  *snapshot = app_rtos_can_snapshot;
   app_rtos_snapshot_give();
   return true;
 }

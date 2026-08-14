@@ -1,9 +1,9 @@
 # FreeRTOS Modbus CAN Node
 
-> P5-S6-T01 update: `CAN_CONTRACT_CANDIDATE_VALIDATED`; seven standard 11-bit
-> IDs and a HAL/RTOS-free codec now define the 500 kbit/s custom telemetry wire.
-> CAN runtime remains `NOT_IMPLEMENTED`; hardware remains `WAITING_FOR_HARDWARE`.
-> See [`docs/can_contract.md`](docs/can_contract.md).
+> P5-S6-T02 update: `CAN_CONTRACT_CANDIDATE_VALIDATED +
+> CAN_RUNTIME_CANDIDATE_IMPLEMENTED`. Exact filters, bounded IRQ mailboxes,
+> task-owned TX scheduling and bus-off recovery are integrated; hardware remains
+> `WAITING_FOR_HARDWARE`. See [`docs/can_runtime.md`](docs/can_runtime.md).
 
 > P5-S5-T05 update: the default firmware is unchanged; a bounded HIL probe now
 > provides self-test/dry-run preparation without opening a serial port. Physical
@@ -23,8 +23,9 @@ map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻
 RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响应、122-register image 和
 易失地址写入候选。T05 无硬件路径已增加默认只读、显式解锁地址写入的 HIL 探针；串口保持
 `NOT_RUN`，项目三地址 4 profile 仍为 `not_created`。P5-S6-T01 已冻结七个 11 位标准 CAN ID、
-8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；CAN runtime
-仍为 `NOT_IMPLEMENTED`，硬件保持 `WAITING_FOR_HARDWARE`。
+8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；P5-S6-T02
+已接入 filter、IRQ、固定队列、task notification 与 bus-off 恢复软件候选，硬件保持
+`WAITING_FOR_HARDWARE`。
 
 ## 当前边界
 
@@ -76,8 +77,9 @@ RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响�
   T05 HIL self-test/dry-run 不打开串口；真实 249 B response、地址迁移、UART/RS485 总线和项目三联调
   仍为 `WAITING_FOR_HARDWARE` / `NOT_RUN`。
 - CAN 合同使用节点 4 的 `0x140/0x240/0x241/0x340/0x341/0x342/0x440`、500 kbit/s、
-  standard data frame、DLC 8 和 little-endian。纯 codec 已通过 Host/ARM 候选验证，但 filter、IRQ、
-  queue、mailbox、bus-off、SocketCAN 和物理帧均未实现或未运行。
+  standard data frame、DLC 8 和 little-endian。纯 codec、精确 filter、固定 IRQ/RX mailbox、
+  latest-wins 周期发送、事件合并及 1 s/3 次 bus-off 恢复均达到软件候选；SocketCAN、收发器和
+  物理帧仍为 `NOT_RUN`。
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
@@ -111,7 +113,8 @@ python3 tools/verify_can_contract.py
 python3 tools/verify_can_contract.py --self-test
 ```
 
-CAN map/codec 为 `CANDIDATE_VALIDATED`；CAN runtime、SocketCAN 和硬件仍未实现或未运行。
+CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；SocketCAN
+和硬件仍为 `NOT_RUN / WAITING_FOR_HARDWARE`。
 
 Modbus register contract 检查：
 
