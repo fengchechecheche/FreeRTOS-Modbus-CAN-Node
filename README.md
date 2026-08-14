@@ -1,5 +1,11 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S6-T03 update: the standard-library SocketCAN probe, dry-run and bounded
+> `vcan` matrix are `PASS_HOST`; candleLight/physical CAN remain
+> `WAITING_FOR_HARDWARE`. `can-utils` 2023.03-1 and a one-frame
+> `candump`/`cansend` vcan smoke are also verified. See
+> [`docs/can_hil_report.md`](docs/can_hil_report.md).
+
 > P5-S6-T02 update: `CAN_CONTRACT_CANDIDATE_VALIDATED +
 > CAN_RUNTIME_CANDIDATE_IMPLEMENTED`. Exact filters, bounded IRQ mailboxes,
 > task-owned TX scheduling and bus-off recovery are integrated; hardware remains
@@ -78,8 +84,10 @@ RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响�
   仍为 `WAITING_FOR_HARDWARE` / `NOT_RUN`。
 - CAN 合同使用节点 4 的 `0x140/0x240/0x241/0x340/0x341/0x342/0x440`、500 kbit/s、
   standard data frame、DLC 8 和 little-endian。纯 codec、精确 filter、固定 IRQ/RX mailbox、
-  latest-wins 周期发送、事件合并及 1 s/3 次 bus-off 恢复均达到软件候选；SocketCAN、收发器和
-  物理帧仍为 `NOT_RUN`。
+  latest-wins 周期发送、事件合并及 1 s/3 次 bus-off 恢复均达到软件候选；candleLight、收发器和
+  物理帧仍为 `NOT_RUN`。P5-S6-T03 已用 raw SocketCAN/`vcan` 完成 12 帧有界软件矩阵；
+  `can-utils` 2023.03-1 已安装且 `candump`/`cansend` 单帧 vcan smoke 通过；candleLight/实物 HIL
+  仍为 `NOT_RUN`。
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
@@ -113,8 +121,18 @@ python3 tools/verify_can_contract.py
 python3 tools/verify_can_contract.py --self-test
 ```
 
-CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；SocketCAN
-和硬件仍为 `NOT_RUN / WAITING_FOR_HARDWARE`。
+CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；raw
+SocketCAN/`vcan` 为 `PASS_HOST`，candleLight 和物理 CAN 仍为 `NOT_RUN / WAITING_FOR_HARDWARE`。
+
+CAN HIL 软件预检：
+
+```bash
+python3 tools/can_hil_probe.py --self-test
+python3 tools/can_hil_probe.py --dry-run
+```
+
+`can-utils` 的 `candump`/`cansend` 单帧 vcan smoke 已通过。`vcan` 的显式发送矩阵和到货后的接线/接口步骤见
+[`docs/can_hil_report.md`](docs/can_hil_report.md)。`PASS_HOST` 不代表 candleLight、ACK 或物理总线通过。
 
 Modbus register contract 检查：
 

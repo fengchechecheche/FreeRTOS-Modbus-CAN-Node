@@ -2,7 +2,7 @@
 
 > Software status: `CAN_RUNTIME_CANDIDATE_IMPLEMENTED`
 > Hardware status: `WAITING_FOR_HARDWARE`
-> Review gate: `READY_FOR_CONTENT_REVIEW`
+> Review gate: `CONTENT_REVIEW_PASSED`
 
 ## Runtime boundary
 
@@ -36,6 +36,21 @@ and recovery stay in task context.
 counters, queue counters, last HAL error and IRQ RX/TX/drop counters. It is a
 read-only troubleshooting view, not physical acceptance evidence.
 
+## SocketCAN preflight
+
+P5-S6-T03 adds no firmware caller or protocol command. The host-only
+`tools/can_hil_probe.py` checks the frozen map, decodes bounded SocketCAN frames,
+counts duplicates without failing normal periodic repetition, and pairs
+`0x340/0x341` only when their sequence matches. Its self-test, dry-run and
+12-frame `vcan` matrix are `PASS_HOST`; see
+[`can_hil_report.md`](can_hil_report.md).
+
+The current environment has `vcan` and `gs_usb` kernel modules. `can-utils`
+2023.03-1 is installed, and a one-frame `candump`/`cansend` smoke on temporary
+`vcan0` is `PASS_HOST`. candleLight and physical CAN remain `NOT_RUN`. A local
+SocketCAN loopback or adapter TX echo is not an ACK or MCU application-acceptance
+result.
+
 ## Troubleshooting order
 
 1. If state is `RECOVERY_LATCHED`, inspect `last_hal_error`, `bus_off_transitions`,
@@ -51,4 +66,4 @@ read-only troubleshooting view, not physical acceptance evidence.
 
 Until NUCLEO-F446RE, transceiver, CANH/CANL/GND, two end terminators and a known
 500 kbit/s peer are available, waveform, ACK, arbitration, real bus-off recovery
-and SocketCAN/candump remain `NOT_RUN`.
+and candleLight/candump remain `NOT_RUN`.
