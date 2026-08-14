@@ -67,6 +67,7 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     sensors/src/adxl345.c
     sensors/src/bme280.c
     sensors/src/veml7700.c
+    protocol/src/p5_can_contract.c
     protocol/src/p5_modbus_crc16.c
     protocol/src/p5_modbus_rtu_adu.c
     protocol/src/p5_modbus_server.c

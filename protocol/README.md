@@ -30,3 +30,8 @@ server 与 register image。Host 与 ARM 编译结果只证明软件候选。
 filter/message/encoder 仍为 `NOT_IMPLEMENTED`。
 
 `CRC/parser/handler` 的 `CANDIDATE_IMPLEMENTED` 不等于物理总线通过；硬件状态必须单独解释。
+
+P5-S6-T01 已新增 [`can_message_map.json`](can_message_map.json) 和 HAL/RTOS-free CAN codec。
+七个 11-bit standard ID、DLC 8、500 kbit/s、little-endian、sequence、sentinel 和静态负载预算
+达到 `CANDIDATE_VALIDATED + READY_FOR_BXCAN_IMPLEMENTATION`。CAN runtime、filter、IRQ、queue、
+SocketCAN 和硬件帧仍为 `NOT_IMPLEMENTED / WAITING_FOR_HARDWARE`。

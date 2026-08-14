@@ -1,0 +1,119 @@
+# P5-S6-T01 CAN contract
+
+> Contract status: `CANDIDATE_VALIDATED`
+> Codec status: `CANDIDATE_VALIDATED`
+> Runtime status: `NOT_IMPLEMENTED`
+> Hardware status: `WAITING_FOR_HARDWARE`
+
+## Scope
+
+This is the project-specific Classical CAN 2.0A telemetry contract. It is not
+CANopen, J1939 or UDS. The contract freezes wire meaning and a HAL/RTOS-free
+codec; bxCAN filters, interrupts, mailboxes, queues and bus-off recovery belong
+to P5-S6-T02. A Host vector or ARM build is not physical CAN evidence.
+
+The machine-readable authority is
+[`../protocol/can_message_map.json`](../protocol/can_message_map.json).
+
+## Physical and arbitration profile
+
+The candidate uses 11-bit standard data frames, 500 kbit/s, DLC 8 and no CAN
+FD, extended or remote frames. The current CubeMX candidate has a 45 MHz APB1
+clock, prescaler 6 and 15 time quanta (`1 + 12 + 2`), giving 500 kbit/s and an
+86.67% sample point. Pins are PB8/CAN1_RX and PB9/CAN1_TX. These configuration
+facts are cross-build candidates; transceiver, termination and waveform remain
+`NOT_RUN`.
+
+The node ID is 4. IDs use `class_base + (node_id << 4) + subtype`; this happens
+to reuse the numeric Modbus default address but the two address spaces are
+independent. Lower identifiers win arbitration:
+
+| ID | Name | Schedule | Meaning |
+|---:|---|---|---|
+| `0x140` | `status_event` | change only, rate limited | boot, health, sensor and CAN transitions |
+| `0x240` | `heartbeat` | 1000 ms | uptime and image generation |
+| `0x241` | `health_summary` | 1000 ms or state change | health, four source states and warnings |
+| `0x340` | `climate_primary` | 1000 ms | BME temperature, pressure and flags |
+| `0x341` | `climate_secondary` | 1000 ms | BME humidity and age |
+| `0x342` | `illuminance` | 1000 ms | VEML value, flags and age |
+| `0x440` | `vibration_summary` | 1000 ms | ADXL feature resultant RMS, flags and age |
+
+Events have the highest priority but are not periodic. Repeated code/source
+pairs must be coalesced or rate limited by the T02 queue policy.
+
+## Common wire rules
+
+All multi-byte integers are little-endian. Byte 0 is schema revision 1 and
+byte 1 is an 8-bit sequence. Data frame sequences are the low byte of the
+corresponding S4 source sequence; event, heartbeat and health use independent
+publication sequences. `255 -> 0` is normal modulo-256 wrap.
+
+`data_flags` uses bits 0..1 for invalid/fresh/stale/offline, bit 2 for retained
+last-good and bit 3 for any S4 quality warning. Bits 4..7 transmit as zero.
+The summary bit does not replace the full quality mask available through the
+diagnostic/Modbus path.
+
+The codec writes fields explicitly. C enum, bool, structure padding and
+pointers are never copied to the wire.
+
+## Payloads
+
+### `0x140 status_event`
+
+`revision:u8, sequence:u8, event_code:u16, severity:u8, source:u8, detail:u16`.
+Severity is info/warning/error/critical = 0/1/2/3. Source is system/BME/VEML/
+ADXL/RS485/CAN = 0..5. Revision 1 reserves boot `0x0001`, health transition
+`0x0100`, sensor offline/recovery `0x0200/0x0201` and CAN state change `0x0300`.
+
+### `0x240 heartbeat`
+
+`revision:u8, sequence:u8, uptime_s:u32, image_generation_low16:u16`.
+
+### `0x241 health_summary`
+
+`revision:u8, sequence:u8, health_state:u8, source_state_pack:u8,
+warning_mask:u32`. The four two-bit source states are BME, VEML, ADXL sample
+and ADXL feature from least to most significant. Health states 0..5 match the
+explicit S3/S5 wire codes.
+
+### `0x340/0x341 climate pair`
+
+Primary is `revision:u8, sequence:u8, temperature:i16 centi_deg_c,
+pressure:u24 Pa, data_flags:u8`. `INT16_MIN` and `0xFFFFFF` are invalid.
+
+Secondary is `revision:u8, sequence:u8, humidity:u32 milli_percent_rh,
+age_100ms:u16`. Humidity `0xFFFFFFFF` and age `0xFFFF` are unknown; valid age
+saturates at `0xFFFE`. A consumer combines the two frames only when revision
+and sequence match, so a dropped half cannot create a mixed-age sample.
+
+### `0x342 illuminance`
+
+`revision:u8, sequence:u8, illuminance:u32 millilux, data_flags:u8,
+age_100ms:u8`. Value `0xFFFFFFFF` and age `0xFF` are unknown; valid age
+saturates at `0xFE`.
+
+### `0x440 vibration_summary`
+
+`revision:u8, sequence:u8, resultant_rms:u32 millig, data_flags:u8,
+age_100ms:u8`, with the same unknown and age rules as illuminance. Revision 1
+does not stream 100 Hz X/Y/Z samples or claim diagnosis/prognosis.
+
+## Load budget
+
+Six periodic frames per second plus at most ten event frames per second are
+budgeted. Using a conservative 150 bits per 8-byte standard frame gives
+`16 * 150 / 500000 = 0.48%`, below the 1% contract limit. This is a static
+envelope, not a measurement of arbitration, retransmission or error frames.
+
+## Validation and boundaries
+
+`tools/verify_can_contract.py` checks the JSON/document relationship, ID/DLC,
+field coverage, reserved bits, schedule and scope markers. The pure C Host test
+checks known frames, signed and uint24 encoding, sentinels, age saturation,
+sequence wrap, BME pair rejection and invalid inputs. Debug/Release Host and
+ARM builds establish only `CANDIDATE_VALIDATED + READY_FOR_BXCAN_IMPLEMENTATION`.
+
+Hardware follow-up requires the S2 admission gate, known transceiver/jumpers,
+CANH/CANL/GND, exactly two end terminators for a two-node bench, matching
+bitrate, candleLight/SocketCAN and representative decoded frames. That work is
+not part of T01.

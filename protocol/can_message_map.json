@@ -1,0 +1,219 @@
+{
+  "schema_version": "1.0.0",
+  "document": {
+    "project": "freertos_modbus_can_node",
+    "task_id": "P5-S6-T01",
+    "status": "candidate_validated",
+    "runtime_status": "not_implemented",
+    "hardware_status": "waiting_for_hardware"
+  },
+  "physical_layer": {
+    "protocol": "classical_can_2_0a",
+    "identifier_format": "standard_11_bit",
+    "frame_kind": "data_only",
+    "nominal_bitrate_bit_s": 500000,
+    "dlc": 8,
+    "can_fd": false,
+    "extended_frames": false,
+    "remote_frames": false,
+    "configured_time_quanta": 15,
+    "configured_sample_point_percent": 86.67,
+    "hardware_validation": "not_run"
+  },
+  "addressing": {
+    "node_id": 4,
+    "node_id_min": 1,
+    "node_id_max": 15,
+    "formula": "class_base + (node_id << 4) + subtype",
+    "modbus_address_space": "independent",
+    "protocol_claim": "project_specific_not_canopen_j1939_uds"
+  },
+  "wire": {
+    "schema_revision": 1,
+    "byte_order": "little_endian",
+    "sequence_bits": 8,
+    "sequence_wrap": "modulo_256",
+    "reserved_bits_transmit": 0,
+    "reserved_bits_receive": "reject_in_revision_1",
+    "structure_copy_allowed": false
+  },
+  "wire_codes": {
+    "measurement_state": {
+      "invalid": 0,
+      "fresh": 1,
+      "stale": 2,
+      "offline": 3
+    },
+    "data_flags": {
+      "state_bits": [0, 1],
+      "value_retained_bit": 2,
+      "any_quality_warning_bit": 3,
+      "reserved_mask": 240
+    },
+    "health_state": {
+      "bootstrap": 0,
+      "serviceable": 1,
+      "degraded": 2,
+      "recovery_required": 3,
+      "reset_required": 4,
+      "reset_loop_latched": 5
+    },
+    "severity": {
+      "info": 0,
+      "warning": 1,
+      "error": 2,
+      "critical": 3
+    },
+    "event_source": {
+      "system": 0,
+      "bme280": 1,
+      "veml7700": 2,
+      "adxl345": 3,
+      "rs485": 4,
+      "can": 5
+    },
+    "event_code": {
+      "boot": 1,
+      "health_transition": 256,
+      "sensor_offline": 512,
+      "sensor_recovery": 513,
+      "can_state_change": 768
+    }
+  },
+  "frames": [
+    {
+      "name": "status_event",
+      "identifier": 320,
+      "identifier_hex": "0x140",
+      "class": "event",
+      "subtype": 0,
+      "trigger": "state_change_rate_limited",
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "event_code", "offset": 2, "width": 2, "type": "uint16"},
+        {"name": "severity", "offset": 4, "width": 1, "type": "uint8"},
+        {"name": "source", "offset": 5, "width": 1, "type": "uint8"},
+        {"name": "detail", "offset": 6, "width": 2, "type": "uint16"}
+      ]
+    },
+    {
+      "name": "heartbeat",
+      "identifier": 576,
+      "identifier_hex": "0x240",
+      "class": "status",
+      "subtype": 0,
+      "period_ms": 1000,
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "uptime_s", "offset": 2, "width": 4, "type": "uint32", "unit": "s"},
+        {"name": "image_generation_low16", "offset": 6, "width": 2, "type": "uint16"}
+      ]
+    },
+    {
+      "name": "health_summary",
+      "identifier": 577,
+      "identifier_hex": "0x241",
+      "class": "status",
+      "subtype": 1,
+      "period_ms": 1000,
+      "also_on": "health_state_change",
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "health_state", "offset": 2, "width": 1, "type": "uint8"},
+        {"name": "source_state_pack", "offset": 3, "width": 1, "type": "uint8", "order": ["bme280", "veml7700", "adxl345_sample", "adxl345_feature"]},
+        {"name": "warning_mask", "offset": 4, "width": 4, "type": "uint32"}
+      ]
+    },
+    {
+      "name": "climate_primary",
+      "identifier": 832,
+      "identifier_hex": "0x340",
+      "class": "environment",
+      "subtype": 0,
+      "period_ms": 1000,
+      "source": "bme280",
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "temperature", "offset": 2, "width": 2, "type": "int16", "unit": "centi_deg_c", "invalid": -32768},
+        {"name": "pressure", "offset": 4, "width": 3, "type": "uint24", "unit": "Pa", "invalid": 16777215},
+        {"name": "data_flags", "offset": 7, "width": 1, "type": "uint8"}
+      ]
+    },
+    {
+      "name": "climate_secondary",
+      "identifier": 833,
+      "identifier_hex": "0x341",
+      "class": "environment",
+      "subtype": 1,
+      "period_ms": 1000,
+      "source": "bme280",
+      "pair_with": "climate_primary",
+      "pair_rule": "same_schema_revision_and_sequence",
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "humidity", "offset": 2, "width": 4, "type": "uint32", "unit": "milli_percent_rh", "valid_max": 100000, "invalid": 4294967295},
+        {"name": "age_100ms", "offset": 6, "width": 2, "type": "uint16", "unit": "100_ms", "valid_max": 65534, "unknown": 65535}
+      ]
+    },
+    {
+      "name": "illuminance",
+      "identifier": 834,
+      "identifier_hex": "0x342",
+      "class": "environment",
+      "subtype": 2,
+      "period_ms": 1000,
+      "source": "veml7700",
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "illuminance", "offset": 2, "width": 4, "type": "uint32", "unit": "millilux", "invalid": 4294967295},
+        {"name": "data_flags", "offset": 6, "width": 1, "type": "uint8"},
+        {"name": "age_100ms", "offset": 7, "width": 1, "type": "uint8", "unit": "100_ms", "valid_max": 254, "unknown": 255}
+      ]
+    },
+    {
+      "name": "vibration_summary",
+      "identifier": 1088,
+      "identifier_hex": "0x440",
+      "class": "vibration",
+      "subtype": 0,
+      "period_ms": 1000,
+      "source": "adxl345_feature",
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "resultant_rms", "offset": 2, "width": 4, "type": "uint32", "unit": "millig", "invalid": 4294967295},
+        {"name": "data_flags", "offset": 6, "width": 1, "type": "uint8"},
+        {"name": "age_100ms", "offset": 7, "width": 1, "type": "uint8", "unit": "100_ms", "valid_max": 254, "unknown": 255}
+      ]
+    }
+  ],
+  "scheduling": {
+    "periodic_frames_per_second": 6,
+    "event_budget_frames_per_second": 10,
+    "event_policy": "change_only_repeat_coalesce_or_rate_limit",
+    "conservative_bits_per_frame": 150,
+    "calculated_bus_load_percent": 0.48,
+    "contract_bus_load_limit_percent": 1.0
+  },
+  "traceability": {
+    "upstream_schema_revision": 1,
+    "data_sources": ["bme280", "veml7700", "adxl345_feature"],
+    "state_codes_match_unified_measurement": true,
+    "units_decode_to_same_engineering_meaning": true,
+    "modbus_wire_layout_may_differ": true
+  },
+  "scope_exclusions": [
+    "bxcan_filter_irq_mailbox_queue_runtime",
+    "canopen_j1939_uds_claim",
+    "can_fd_extended_remote_frames",
+    "control_or_configuration_write",
+    "raw_100hz_acceleration_stream",
+    "hardware_socketcan_candlelight_evidence"
+  ]
+}

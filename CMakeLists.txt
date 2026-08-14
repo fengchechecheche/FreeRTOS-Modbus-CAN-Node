@@ -22,6 +22,13 @@ else()
     p5_apply_project_warnings(p5_host_smoke)
     add_test(NAME p5.host.smoke COMMAND p5_host_smoke)
 
+    add_executable(p5_host_can_contract
+        test/host/can_contract_main.c
+        protocol/src/p5_can_contract.c)
+    target_include_directories(p5_host_can_contract PRIVATE protocol/include)
+    p5_apply_project_warnings(p5_host_can_contract)
+    add_test(NAME p5.host.can_contract COMMAND p5_host_can_contract)
+
     add_executable(p5_host_clock
         test/host/clock_main.c
         bsp/src/bsp_clock_math.c)

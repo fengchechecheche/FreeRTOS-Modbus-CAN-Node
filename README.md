@@ -1,5 +1,10 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S6-T01 update: `CAN_CONTRACT_CANDIDATE_VALIDATED`; seven standard 11-bit
+> IDs and a HAL/RTOS-free codec now define the 500 kbit/s custom telemetry wire.
+> CAN runtime remains `NOT_IMPLEMENTED`; hardware remains `WAITING_FOR_HARDWARE`.
+> See [`docs/can_contract.md`](docs/can_contract.md).
+
 > P5-S5-T05 update: the default firmware is unchanged; a bounded HIL probe now
 > provides self-test/dry-run preparation without opening a serial port. Physical
 > USB-RS485 and Project Three integration remain deferred. See
@@ -17,7 +22,9 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻辑候选；stream parser、
 RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响应、122-register image 和
 易失地址写入候选。T05 无硬件路径已增加默认只读、显式解锁地址写入的 HIL 探针；串口保持
-`NOT_RUN`，项目三地址 4 profile 仍为 `not_created`。CAN 业务仍未实现。
+`NOT_RUN`，项目三地址 4 profile 仍为 `not_created`。P5-S6-T01 已冻结七个 11 位标准 CAN ID、
+8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；CAN runtime
+仍为 `NOT_IMPLEMENTED`，硬件保持 `WAITING_FOR_HARDWARE`。
 
 ## 当前边界
 
@@ -68,6 +75,9 @@ RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响�
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。
   T05 HIL self-test/dry-run 不打开串口；真实 249 B response、地址迁移、UART/RS485 总线和项目三联调
   仍为 `WAITING_FOR_HARDWARE` / `NOT_RUN`。
+- CAN 合同使用节点 4 的 `0x140/0x240/0x241/0x340/0x341/0x342/0x440`、500 kbit/s、
+  standard data frame、DLC 8 和 little-endian。纯 codec 已通过 Host/ARM 候选验证，但 filter、IRQ、
+  queue、mailbox、bus-off、SocketCAN 和物理帧均未实现或未运行。
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
@@ -80,10 +90,10 @@ DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 18 项 CTest，包括
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 19 项 CTest，包括
 BME280 calibration/compensation、VEML7700 word/range/state-machine 和 ADXL345
-parse/config/feature/recovery、统一 sample schema/quality/freshness、三驱动联合故障矩阵，以及
-Modbus CRC/完整 ADU/8E1 timing 回归。
+parse/config/feature/recovery、统一 sample schema/quality/freshness、三驱动联合故障矩阵、CAN
+known-good payload/边界，以及 Modbus CRC/完整 ADU/8E1 timing 回归。
 S4 软件验收边界见 [`docs/s4_validation.md`](docs/s4_validation.md)。构建输出位于
 `out/`，问题排查证据只在需要时写入被忽略的
 `.private/`。
@@ -93,6 +103,15 @@ BSP 静态合同检查：
 ```bash
 python3 tools/verify_bsp_contract.py
 ```
+
+CAN contract 检查：
+
+```bash
+python3 tools/verify_can_contract.py
+python3 tools/verify_can_contract.py --self-test
+```
+
+CAN map/codec 为 `CANDIDATE_VALIDATED`；CAN runtime、SocketCAN 和硬件仍未实现或未运行。
 
 Modbus register contract 检查：
 
