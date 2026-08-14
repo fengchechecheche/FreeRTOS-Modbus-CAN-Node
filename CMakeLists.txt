@@ -109,5 +109,20 @@ else()
         app/include sensors/include)
     p5_apply_project_warnings(p5_host_measurement)
     add_test(NAME p5.host.measurement COMMAND p5_host_measurement)
+
+    add_executable(p5_host_sensor_matrix
+        test/host/sensor_matrix_main.c
+        app/src/app_sensor_monitor.c
+        app/src/app_measurement.c
+        app/src/app_health_policy.c
+        app/src/app_task_model.c
+        app/src/app_transport_policy.c
+        sensors/src/adxl345.c
+        sensors/src/bme280.c
+        sensors/src/veml7700.c)
+    target_include_directories(p5_host_sensor_matrix PRIVATE
+        app/include sensors/include)
+    p5_apply_project_warnings(p5_host_sensor_matrix)
+    add_test(NAME p5.host.sensor_matrix COMMAND p5_host_sensor_matrix)
   endif()
 endif()

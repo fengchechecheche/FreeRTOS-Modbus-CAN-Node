@@ -68,3 +68,19 @@ consecutive no-progress epochs enter `RESET_REQUIRED` and withhold feed.
 Warning counters alone do not request reset. Recovery is bounded to three
 attempts per episode and never deletes a task. The current firmware only
 computes this decision: no IWDG is configured, armed or refreshed.
+
+## S4-T05 combined sensor service contract
+
+The 20 ms periodic path remains fixed and bounded: ADXL345 periodic advance,
+BME280 service, VEML7700 service, unified measurement update, then sensor
+monitor update/publication. The event path aggregates the notification count
+into one ADXL345 service call and then refreshes measurement/monitor state; it
+does not loop once per IRQ. No sixth task, software timer, bus queue or second
+bus owner was added.
+
+The monitor records four source interval envelopes and three device fault
+episodes. It is observational only. Sensor unavailable/stale/recovery masks
+can make health `DEGRADED`, but by themselves cannot request global recovery,
+withhold feed or enter `RESET_REQUIRED`. Host virtual time proves bounded
+software ordering and fault isolation; 20 ms deadline, 2 ms budget, bus WCET
+and jitter remain `NOT_MEASURED` on hardware.

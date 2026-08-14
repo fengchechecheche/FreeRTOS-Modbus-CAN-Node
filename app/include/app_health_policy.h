@@ -24,6 +24,9 @@
 #define APP_HEALTH_WARNING_COUNTER_SATURATED (UINT32_C(1) << 6)
 #define APP_HEALTH_WARNING_RECOVERY_ACTIVE (UINT32_C(1) << 7)
 #define APP_HEALTH_WARNING_RECOVERY_EXHAUSTED (UINT32_C(1) << 8)
+#define APP_HEALTH_WARNING_SENSOR_UNAVAILABLE (UINT32_C(1) << 9)
+#define APP_HEALTH_WARNING_SENSOR_STALE (UINT32_C(1) << 10)
+#define APP_HEALTH_WARNING_SENSOR_RECOVERY (UINT32_C(1) << 11)
 
 typedef enum
 {
@@ -60,6 +63,9 @@ typedef struct
   uint32_t queue_depth;
   uint32_t snapshot_contention_count;
   uint32_t rs485_error_count;
+  uint32_t sensor_unavailable_mask;
+  uint32_t sensor_stale_mask;
+  uint32_t sensor_recovery_mask;
   app_health_recovery_result_t recovery_result;
   bool reset_loop_latched;
 } app_health_input_t;

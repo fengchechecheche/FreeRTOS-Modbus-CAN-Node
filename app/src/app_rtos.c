@@ -11,6 +11,7 @@
 #include "app_reset_reason.h"
 #include "app_resource_budget.h"
 #include "app_rs485_smoke.h"
+#include "app_sensor_monitor.h"
 #include "app_task_model.h"
 #include "app_transport_policy.h"
 #include "app_veml7700.h"
@@ -80,6 +81,8 @@ static app_rtos_resource_snapshot_t app_rtos_resource_snapshot;
 static app_measurement_model_t app_rtos_measurement_model;
 static app_measurement_inputs_t app_rtos_measurement_inputs;
 static app_measurement_snapshot_t app_rtos_measurement_snapshot;
+static app_sensor_monitor_t app_rtos_sensor_monitor;
+static app_sensor_monitor_snapshot_t app_rtos_sensor_monitor_snapshot;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
 static bsp_rs485_irq_latency_summary_t app_rtos_irq_latency_summary;
 static StaticQueue_t app_rtos_event_queue_control;
@@ -221,7 +224,12 @@ static void app_rtos_update_measurement_snapshot(uint32_t now_ms)
       !app_adxl345_get_snapshot(&app_rtos_measurement_inputs.adxl345) ||
       !app_measurement_update(&app_rtos_measurement_model,
                               &app_rtos_measurement_inputs,
-                              now_ms))
+                              now_ms) ||
+      !app_sensor_monitor_update(
+          &app_rtos_sensor_monitor,
+          &app_rtos_measurement_inputs,
+          &app_rtos_measurement_model.snapshot,
+          now_ms))
   {
     return;
   }
@@ -231,6 +239,8 @@ static void app_rtos_update_measurement_snapshot(uint32_t now_ms)
     (void)app_measurement_get_snapshot(&app_rtos_measurement_model,
                                        now_ms,
                                        &app_rtos_measurement_snapshot);
+    (void)app_sensor_monitor_get_snapshot(
+        &app_rtos_sensor_monitor, &app_rtos_sensor_monitor_snapshot);
     app_rtos_snapshot_give();
   }
 }
@@ -417,6 +427,14 @@ static void app_rtos_health_service(void)
   const bsp_rs485_diagnostics_t rs485_diagnostics =
       bsp_rs485_get_diagnostics();
   input.rs485_error_count = app_rtos_rs485_error_count(&rs485_diagnostics);
+  app_sensor_monitor_snapshot_t sensor_monitor;
+  if (app_rtos_get_sensor_monitor_snapshot(&sensor_monitor))
+  {
+    input.sensor_unavailable_mask =
+        sensor_monitor.unavailable_device_mask;
+    input.sensor_stale_mask = sensor_monitor.stale_source_mask;
+    input.sensor_recovery_mask = sensor_monitor.recovery_device_mask;
+  }
   input.recovery_result = APP_HEALTH_RECOVERY_NONE;
   input.reset_loop_latched = false;
 
@@ -643,6 +661,7 @@ app_rtos_status_t app_rtos_initialize(void)
   app_rtos_event_queue_maximum_pending = 0U;
   app_health_policy_initialize(&app_rtos_health_policy);
   app_measurement_model_initialize(&app_rtos_measurement_model);
+  app_sensor_monitor_initialize(&app_rtos_sensor_monitor);
   bsp_adxl345_irq_initialize();
   app_adxl345_initialize();
   app_bme280_initialize();
@@ -794,6 +813,23 @@ bool app_rtos_get_measurement_snapshot(
   app_rtos_snapshot_give();
   return app_measurement_refresh_snapshot(
       snapshot, (uint32_t)xTaskGetTickCount());
+}
+
+bool app_rtos_get_sensor_monitor_snapshot(
+    app_sensor_monitor_snapshot_t *snapshot)
+{
+  if (snapshot == NULL)
+  {
+    return false;
+  }
+
+  if (!app_rtos_snapshot_take(false))
+  {
+    return false;
+  }
+  *snapshot = app_rtos_sensor_monitor_snapshot;
+  app_rtos_snapshot_give();
+  return snapshot->schema_revision == APP_SENSOR_MONITOR_SCHEMA_REVISION;
 }
 
 bool app_rtos_get_transport_counters(app_transport_counters_t *counters)

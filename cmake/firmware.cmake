@@ -48,6 +48,7 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_reset_reason.c
     app/src/app_rtos.c
     app/src/app_rtos_hooks.c
+    app/src/app_sensor_monitor.c
     app/src/app_rs485_smoke.c
     app/src/app_rs485_smoke_logic.c
     app/src/app_task_model.c

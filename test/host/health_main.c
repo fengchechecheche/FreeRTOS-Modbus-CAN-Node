@@ -146,6 +146,45 @@ static int test_recovery_is_bounded(void)
   return EXIT_SUCCESS;
 }
 
+static int test_sensor_fault_is_locally_degraded(void)
+{
+  app_health_policy_t policy;
+  app_health_input_t input = {0};
+  app_health_decision_t decision;
+  input.queue_depth = 8U;
+  app_health_policy_initialize(&policy);
+  CHECK(app_health_policy_evaluate(&policy, &input, &decision));
+  advance_monitored_tasks(&input);
+  CHECK(app_health_policy_evaluate(&policy, &input, &decision));
+
+  input.sensor_unavailable_mask = UINT32_C(1) << 1U;
+  input.sensor_stale_mask = UINT32_C(1) << 2U;
+  input.sensor_recovery_mask = UINT32_C(1) << 1U;
+  for (uint32_t epoch = 0U; epoch < 4U; ++epoch)
+  {
+    advance_monitored_tasks(&input);
+    CHECK(app_health_policy_evaluate(&policy, &input, &decision));
+    CHECK(decision.state == APP_HEALTH_DEGRADED);
+    CHECK(decision.feed_decision == APP_WATCHDOG_FEED_ALLOWED);
+    CHECK(decision.recovery_attempts == 0U);
+    CHECK(decision.stalled_task_mask == 0U);
+    CHECK((decision.warning_mask &
+           APP_HEALTH_WARNING_SENSOR_UNAVAILABLE) != 0U);
+    CHECK((decision.warning_mask & APP_HEALTH_WARNING_SENSOR_STALE) != 0U);
+    CHECK((decision.warning_mask &
+           APP_HEALTH_WARNING_SENSOR_RECOVERY) != 0U);
+  }
+
+  input.sensor_unavailable_mask = 0U;
+  input.sensor_stale_mask = 0U;
+  input.sensor_recovery_mask = 0U;
+  advance_monitored_tasks(&input);
+  CHECK(app_health_policy_evaluate(&policy, &input, &decision));
+  CHECK(decision.state == APP_HEALTH_SERVICEABLE);
+  CHECK(decision.feed_decision == APP_WATCHDOG_FEED_ALLOWED);
+  return EXIT_SUCCESS;
+}
+
 static int test_saturated_progress_counter_is_not_false_stall(void)
 {
   app_health_policy_t policy;
@@ -232,6 +271,7 @@ int main(void)
   CHECK(test_stall_requires_two_epochs() == EXIT_SUCCESS);
   CHECK(test_warning_storm_does_not_force_reset() == EXIT_SUCCESS);
   CHECK(test_recovery_is_bounded() == EXIT_SUCCESS);
+  CHECK(test_sensor_fault_is_locally_degraded() == EXIT_SUCCESS);
   CHECK(test_saturated_progress_counter_is_not_false_stall() == EXIT_SUCCESS);
   CHECK(test_reset_reason_and_loop_record() == EXIT_SUCCESS);
   CHECK(test_invalid_inputs_and_loop_latch() == EXIT_SUCCESS);

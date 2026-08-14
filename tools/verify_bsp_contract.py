@@ -165,6 +165,7 @@ CHECKS: CheckTable = {
         ("adxl driver source", "sensors/src/adxl345.c"),
         ("adxl adapter source", "app/src/app_adxl345.c"),
         ("adxl irq source", "bsp/src/bsp_adxl345_irq.c"),
+        ("sensor monitor source", "app/src/app_sensor_monitor.c"),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -208,6 +209,7 @@ CHECKS: CheckTable = {
         ("bme280 host test", "add_test(NAME p5.host.bme280"),
         ("veml7700 host test", "add_test(NAME p5.host.veml7700"),
         ("adxl345 host test", "add_test(NAME p5.host.adxl345"),
+        ("sensor matrix host test", "add_test(NAME p5.host.sensor_matrix"),
     ],
     Path("docs/bsp_contract.md"): [
         ("candidate boundary", "BSP_CONTRACT_CANDIDATE_FROZEN"),
@@ -238,6 +240,21 @@ CHECKS: CheckTable = {
         ),
         ("health hardware waiting", "Hardware status: `WAITING_FOR_HARDWARE`"),
         ("single feed owner", "the only owner of the watchdog feed decision"),
+    ],
+    Path("docs/s4_validation.md"): [
+        (
+            "s4 software review boundary",
+            "Software status: `READY_FOR_CONTENT_REVIEW + READY_FOR_HARDWARE`",
+        ),
+        (
+            "s5 software planning handoff",
+            "S4 software handoff: `READY_FOR_S5_SOFTWARE_PLAN`",
+        ),
+        ("physical fault injection not run", "Physical sensor fault injection: `NOT_RUN`"),
+        ("physical 60-minute run not run", "60-minute physical run: `NOT_RUN`"),
+        ("virtual matrix not physical", "not evidence of board wiring"),
+        ("local fault feed allowed", "feed remains allowed"),
+        ("protocol remains absent", "Modbus registers and CAN"),
     ],
     Path("config/FreeRTOSConfig.h"): [
         ("static allocation", "#define configSUPPORT_STATIC_ALLOCATION 1"),
@@ -286,6 +303,13 @@ CHECKS: CheckTable = {
         ("measurement owner publication", "app_rtos_update_measurement_snapshot(now_ms);"),
         ("measurement complete copy", "app_rtos_measurement_snapshot"),
         ("measurement task getter", "app_rtos_get_measurement_snapshot("),
+        ("sensor monitor initialized", "app_sensor_monitor_initialize("),
+        ("sensor monitor owner update", "app_sensor_monitor_update("),
+        ("sensor monitor complete copy", "app_rtos_sensor_monitor_snapshot"),
+        ("sensor monitor task getter", "app_rtos_get_sensor_monitor_snapshot("),
+        ("health sensor unavailable input", "input.sensor_unavailable_mask ="),
+        ("health sensor stale input", "input.sensor_stale_mask ="),
+        ("health sensor recovery input", "input.sensor_recovery_mask ="),
     ],
     Path("app/include/app_measurement.h"): [
         ("measurement schema revision", "#define APP_MEASUREMENT_SCHEMA_REVISION UINT32_C(1)"),
@@ -313,6 +337,25 @@ CHECKS: CheckTable = {
         ("bme full valid admission", "bme_source->valid_mask == BME280_SAMPLE_VALID_ALL"),
         ("feature independent admission", "APP_MEASUREMENT_SOURCE_ADXL345_FEATURE"),
     ],
+    Path("app/include/app_sensor_monitor.h"): [
+        ("sensor monitor schema revision", "#define APP_SENSOR_MONITOR_SCHEMA_REVISION UINT32_C(1)"),
+        ("three monitored devices", "APP_SENSOR_DEVICE_COUNT"),
+        ("four source sample stats", "app_sensor_sample_stats_t sample[APP_MEASUREMENT_SOURCE_COUNT];"),
+        ("device fault stats", "app_sensor_device_stats_t device[APP_SENSOR_DEVICE_COUNT];"),
+        ("unavailable device mask", "uint32_t unavailable_device_mask;"),
+        ("stale source mask", "uint32_t stale_source_mask;"),
+        ("recovery device mask", "uint32_t recovery_device_mask;"),
+        ("monitor update api", "bool app_sensor_monitor_update("),
+        ("monitor snapshot api", "bool app_sensor_monitor_get_snapshot("),
+    ],
+    Path("app/src/app_sensor_monitor.c"): [
+        ("wrap-safe sample interval", "metadata->sample_monotonic_ms - stats->last_sample_ms"),
+        ("sequence change admission", "stats->last_sequence == metadata->sequence"),
+        ("fault episode transition", "fault_active && !stats->fault_active"),
+        ("wrap-safe recovery duration", "now_ms - monitor->recovery_started_ms[index]"),
+        ("no false physical recovery", "monitor->recovery_started_valid[index] && !offline"),
+        ("adxl dropped summary", "adxl345_dropped_sample_lower_bound"),
+    ],
     Path("app/include/app_transport_policy.h"): [
         ("event queue depth", "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (8U)"),
         ("event drain budget", "#define APP_TRANSPORT_EVENT_DRAIN_BUDGET (2U)"),
@@ -326,6 +369,12 @@ CHECKS: CheckTable = {
         ("three-attempt recovery gate", "#define APP_HEALTH_RECOVERY_ATTEMPT_LIMIT (3U)"),
         ("feed withheld decision", "APP_WATCHDOG_FEED_WITHHELD"),
         ("feed allowed decision", "APP_WATCHDOG_FEED_ALLOWED"),
+        ("sensor unavailable warning", "APP_HEALTH_WARNING_SENSOR_UNAVAILABLE"),
+        ("sensor stale warning", "APP_HEALTH_WARNING_SENSOR_STALE"),
+        ("sensor recovery warning", "APP_HEALTH_WARNING_SENSOR_RECOVERY"),
+        ("sensor unavailable health input", "uint32_t sensor_unavailable_mask;"),
+        ("sensor stale health input", "uint32_t sensor_stale_mask;"),
+        ("sensor recovery health input", "uint32_t sensor_recovery_mask;"),
     ],
     Path("app/src/app_health_policy.c"): [
         (
@@ -337,6 +386,9 @@ CHECKS: CheckTable = {
         ),
         ("health excludes self progress", "index != (size_t)APP_TASK_HEALTH"),
         ("bounded recovery saturation", "APP_HEALTH_RECOVERY_ATTEMPT_LIMIT"),
+        ("sensor unavailable degrades", "warning_mask |= APP_HEALTH_WARNING_SENSOR_UNAVAILABLE;"),
+        ("sensor stale degrades", "warning_mask |= APP_HEALTH_WARNING_SENSOR_STALE;"),
+        ("sensor recovery degrades", "warning_mask |= APP_HEALTH_WARNING_SENSOR_RECOVERY;"),
     ],
     Path("app/include/app_reset_reason.h"): [
         ("reset record magic", "#define APP_RESET_RECORD_MAGIC UINT32_C(0x50355252)"),
@@ -457,6 +509,7 @@ FORBIDDEN_CHECKS: CheckTable = {
     Path("CMakeLists.txt"): [
         ("scheduler smoke default on", "P5_RTOS_SCHEDULER_SMOKE \"Enable the bounded scheduler-start smoke\" ON"),
         ("irq notification smoke default on", "P5_IRQ_NOTIFICATION_SMOKE \"Enable bounded DWT IRQ latency summaries\" ON"),
+        ("production fault injection option", "P5_FAULT_INJECTION"),
     ],
     Path("config/FreeRTOSConfig.h"): [
         ("task notifications disabled", "#define configUSE_TASK_NOTIFICATIONS 0"),
@@ -555,6 +608,20 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("measurement periodic print", "printf("),
         ("measurement modbus mapping", "MODBUS_"),
         ("measurement can mapping", "CAN_ID"),
+    ],
+    Path("app/src/app_sensor_monitor.c"): [
+        ("sensor monitor hal dependency", "HAL_"),
+        ("sensor monitor freertos task dependency", "vTask"),
+        ("sensor monitor freertos task read", "xTask"),
+        ("sensor monitor semaphore dependency", "xSemaphore"),
+        ("sensor monitor queue dependency", "xQueue"),
+        ("sensor monitor dynamic allocation", "malloc("),
+        ("sensor monitor unbounded for loop", "for (;;)"),
+        ("sensor monitor unbounded true loop", "while (true)"),
+        ("sensor monitor unbounded one loop", "while (1)"),
+        ("sensor monitor periodic print", "printf("),
+        ("sensor monitor modbus mapping", "MODBUS_"),
+        ("sensor monitor can mapping", "CAN_ID"),
     ],
 }
 
@@ -686,6 +753,90 @@ def verify(
             f"{rtos_path}: single snapshot mutex: expected exactly one "
             "xSemaphoreCreateMutexStatic call"
         )
+
+    periodic_body = function_body(
+        rtos_source, "app_rtos_acquisition_periodic_service"
+    )
+    periodic_tokens = (
+        "app_adxl345_service(now_ms, 0U);",
+        "app_bme280_service(now_ms);",
+        "app_veml7700_service(now_ms);",
+        "app_rtos_update_measurement_snapshot(now_ms);",
+    )
+    checked += 1
+    if periodic_body is None:
+        errors.append(f"{rtos_path}: acquisition periodic body missing")
+    else:
+        positions: list[int] = []
+        for token in periodic_tokens:
+            checked += 1
+            if periodic_body.count(token) != 1:
+                errors.append(
+                    f"{rtos_path}: acquisition periodic single-call order: "
+                    f"expected one {token!r}"
+                )
+            positions.append(periodic_body.find(token))
+        checked += 1
+        if any(position < 0 for position in positions) or positions != sorted(
+            positions
+        ):
+            errors.append(
+                f"{rtos_path}: acquisition periodic order: expected "
+                "ADXL -> BME -> VEML -> snapshot"
+            )
+
+    event_body = function_body(
+        rtos_source, "app_rtos_acquisition_event_service"
+    )
+    checked += 1
+    if event_body is None:
+        errors.append(f"{rtos_path}: acquisition event body missing")
+    else:
+        checked += 1
+        if event_body.count("app_adxl345_service(now_ms, event_count);") != 1:
+            errors.append(
+                f"{rtos_path}: acquisition event coalescing: expected one "
+                "aggregated ADXL service call"
+            )
+
+    health_path = Path("app/src/app_health_policy.c")
+    if health_path in override_map:
+        health_source = override_map[health_path]
+    else:
+        try:
+            health_source = (root / health_path).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            errors.append(f"{health_path}: cannot read sensor warning blocks: {exc}")
+            health_source = ""
+    sensor_blocks = (
+        (
+            "sensor unavailable local-degrade",
+            "if (input->sensor_unavailable_mask != 0U)",
+            "if (input->sensor_stale_mask != 0U)",
+        ),
+        (
+            "sensor stale local-degrade",
+            "if (input->sensor_stale_mask != 0U)",
+            "if (input->sensor_recovery_mask != 0U)",
+        ),
+        (
+            "sensor recovery local-degrade",
+            "if (input->sensor_recovery_mask != 0U)",
+            "switch (input->recovery_result)",
+        ),
+    )
+    for label, marker, next_marker in sensor_blocks:
+        checked += 1
+        start = health_source.find(marker)
+        end = health_source.find(next_marker, start + len(marker))
+        if start < 0 or end < 0:
+            errors.append(f"{health_path}: {label}: warning block missing")
+            continue
+        checked += 1
+        if "reset_required" in health_source[start:end]:
+            errors.append(
+                f"{health_path}: {label}: sensor warning must not request reset"
+            )
 
     callback_path = Path("bsp/src/bsp_rs485.c")
     if callback_path in override_map:
@@ -1361,6 +1512,62 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    fault_injection_errors, _ = verify(
+        root, {cmake_path: original + "\nP5_FAULT_INJECTION\n"}
+    )
+    if not any(
+        "production fault injection option" in item
+        for item in fault_injection_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(production fault-injection mutant was not detected)"
+        )
+        return 2
+
+    sensor_monitor_path = Path("app/src/app_sensor_monitor.c")
+    original_sensor_monitor = (root / sensor_monitor_path).read_text(
+        encoding="utf-8"
+    )
+    sensor_monitor_loop_errors, _ = verify(
+        root,
+        {sensor_monitor_path: original_sensor_monitor + "\nfor (;;) {}\n"},
+    )
+    if not any(
+        "sensor monitor unbounded for loop" in item
+        for item in sensor_monitor_loop_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(sensor monitor loop mutant was not detected)"
+        )
+        return 2
+
+    sensor_reset_mutant = original_health_source.replace(
+        "warning_mask |= APP_HEALTH_WARNING_SENSOR_UNAVAILABLE;",
+        "warning_mask |= APP_HEALTH_WARNING_SENSOR_UNAVAILABLE;\n"
+        "    reset_required = true;",
+        1,
+    )
+    if sensor_reset_mutant == original_health_source:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create sensor-reset mutant)"
+        )
+        return 2
+    sensor_reset_errors, _ = verify(
+        root, {health_source_path: sensor_reset_mutant}
+    )
+    if not any(
+        "sensor unavailable local-degrade" in item
+        for item in sensor_reset_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(sensor reset-escalation mutant was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
@@ -1370,7 +1577,8 @@ def run_self_test(root: Path) -> int:
         "second-SPI-owner, BME-mutex, VEML-HAL-delay, VEML-loop, "
         "second-I2C-owner, VEML-mutex, ADXL-priority, ADXL-recovery, "
         "ADXL-loop, ADXL-multibyte, ADXL-callback, measurement-field-ID, "
-        "measurement-invalid-value and measurement-loop mutants rejected)"
+        "measurement-invalid-value, measurement-loop, production-fault-"
+        "injection, sensor-monitor-loop and sensor-reset mutants rejected)"
     )
     return 0
 

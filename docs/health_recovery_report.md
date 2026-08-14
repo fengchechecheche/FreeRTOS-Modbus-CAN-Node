@@ -127,3 +127,17 @@ task stack watermarks, diagnostic queue maximum/drop and snapshot contention.
 Only compact before/after summaries are required. Raw per-epoch logs, queue
 traces, mutex timelines and reset evidence bundles are created only for a
 failure that needs reproduction.
+
+## S4-T05 sensor-local degradation
+
+Health input now includes sensor unavailable, stale-source and recovery masks.
+Each nonzero mask sets a distinct warning bit and makes an otherwise
+serviceable epoch `DEGRADED`; feed remains allowed. These warning branches do
+not increment the global recovery attempt, set `reset_required`, call a bus
+recovery API or enter fail-stop. Existing task-stall, exhausted-recovery and
+reset-loop rules remain the only reset escalation paths.
+
+The combined Host oracle covers persistent single-device failure and recovery
+while the other sources continue. This is a pure-policy/software result. The
+IWDG is still not configured, and real sensor disconnect, feed timing and
+reset behavior remain `NOT_RUN`.

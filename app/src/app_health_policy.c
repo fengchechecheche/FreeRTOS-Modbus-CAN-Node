@@ -180,6 +180,18 @@ bool app_health_policy_evaluate(app_health_policy_t *policy,
   {
     warning_mask |= APP_HEALTH_WARNING_RS485_ERROR;
   }
+  if (input->sensor_unavailable_mask != 0U)
+  {
+    warning_mask |= APP_HEALTH_WARNING_SENSOR_UNAVAILABLE;
+  }
+  if (input->sensor_stale_mask != 0U)
+  {
+    warning_mask |= APP_HEALTH_WARNING_SENSOR_STALE;
+  }
+  if (input->sensor_recovery_mask != 0U)
+  {
+    warning_mask |= APP_HEALTH_WARNING_SENSOR_RECOVERY;
+  }
 
   switch (input->recovery_result)
   {

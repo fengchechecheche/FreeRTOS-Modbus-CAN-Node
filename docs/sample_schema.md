@@ -148,3 +148,15 @@ last-good while the other sources continue. Record one acquisition watermark.
 
 Actual sample instant, jitter, combined WCET and hardware status transitions
 remain `NOT_MEASURED`/`NOT_RUN`; the 60-minute matrix belongs to P5-S4-T05.
+
+## S4-T05 diagnostic monitor boundary
+
+`app_sensor_monitor` consumes the four existing source metadata records and
+three owner-local driver summaries. It records accepted count, last/min/max
+interval, normalized device fault episode/recovery timing, three current masks
+and the ADXL IRQ/drop summary. It does not add a field, unit, register, CAN ID
+or wire format; schema revision 1 and all 17 logical field IDs are unchanged.
+
+Its Host interval and recovery durations use deterministic virtual ticks and
+must not be reported as measured jitter or physical recovery time. No raw
+sample history or periodic evidence stream is retained.

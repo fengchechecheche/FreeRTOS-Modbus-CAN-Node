@@ -104,3 +104,16 @@ BME280, VEML7700, ADXL345 sample and ADXL345 feature retain independent
 sequence/time metadata. Future tasks use the checked unified field accessor;
 the three driver snapshots remain acquisition-owner diagnostics. Runtime
 contention rate and real timestamp behavior remain `NOT_RUN`.
+
+## S4-T05 monitor publication
+
+`acquisition_task` also owns the pure sensor monitor update. The complete
+fixed-size monitor snapshot reuses the same zero-tick snapshot mutex; no new
+queue, mutex, task, bus owner or history buffer was introduced. The getter
+copies only, and no HAL, transport transaction, retry, encoding or logging is
+performed while the mutex is held.
+
+Sensor fault changes reuse bounded health-transition diagnostics. Per-sample
+and per-transaction events are intentionally absent. The combined Host test
+keeps diagnostic draining bounded by 2 and maximum pending at or below the
+existing depth 8. Real queue high-water and mutex contention remain `NOT_RUN`.

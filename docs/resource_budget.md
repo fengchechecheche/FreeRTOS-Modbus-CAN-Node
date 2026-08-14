@@ -205,3 +205,19 @@ inputs are static so the three driver snapshots are not simultaneously placed
 on the 256-word acquisition stack. The five application stacks, queue depth 8,
 linker heap 0 and 384 KiB/96 KiB stage gates remain unchanged. Runtime stack
 watermark, snapshot contention and real timestamp jitter remain `NOT_MEASURED`.
+
+## S4-T05 sensor monitor regression
+
+T05 adds one pure fixed-size monitor model and one published snapshot plus
+three health masks. It adds no task, stack, queue, mutex, heap or raw history.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from `[023]` |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 40648 B | 160 B | 11184 B | 40808 B | 11344 B | Flash +1344 B, RAM +552 B |
+| Release | 34064 B | 156 B | 11176 B | 34220 B | 11332 B | Flash +1072 B, RAM +544 B |
+
+Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM gates. The
+RAM changes stay below the 1 KiB T05 review threshold. The five 256-word task
+stacks, queue depth 8, one snapshot mutex and linker heap 0 are unchanged.
+Runtime stack watermark, combined bus WCET and real sample interval envelope
+remain `NOT_MEASURED`.
