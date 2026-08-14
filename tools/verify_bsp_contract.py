@@ -151,6 +151,7 @@ CHECKS: CheckTable = {
         ("freertos tasks source", "Middlewares/Third_Party/FreeRTOS/Source/tasks.c"),
         ("cm4f port source", "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c"),
         ("rs485 irq event source", "bsp/src/bsp_rs485_irq_event.c"),
+        ("transport policy source", "app/src/app_transport_policy.c"),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -189,6 +190,7 @@ CHECKS: CheckTable = {
             "irq notification smoke default off",
             'option(P5_IRQ_NOTIFICATION_SMOKE "Enable bounded DWT IRQ latency summaries" OFF)',
         ),
+        ("ownership host test", "add_test(NAME p5.host.ownership"),
     ],
     Path("docs/bsp_contract.md"): [
         ("candidate boundary", "BSP_CONTRACT_CANDIDATE_FROZEN"),
@@ -197,6 +199,15 @@ CHECKS: CheckTable = {
         ("hal tick owner", "HAL tick source = TIM6"),
         ("rtos tick reservation", "保留给后续原生 FreeRTOS kernel tick"),
         ("rtos handler owner", "接管 SysTick、PendSV 与 SVC"),
+        ("spi i2c runtime owner", "`acquisition_task` 是 SPI1 与 I²C2 的唯一运行期 owner"),
+        ("busy flag not mutex", "不提供跨 task 同步"),
+    ],
+    Path("docs/queue_ownership_report.md"): [
+        ("event linked boundary", "`LINKED_NOT_WORKLOAD_EXECUTED`"),
+        ("runtime stress not run", "Runtime queue/mutex stress: `NOT_RUN`"),
+        ("hardware waiting", "Hardware status: `WAITING_FOR_HARDWARE`"),
+        ("measurement deferred", "measurement schema deferred to S4"),
+        ("command deferred", "schema and instance deferred to S5"),
     ],
     Path("config/FreeRTOSConfig.h"): [
         ("static allocation", "#define configSUPPORT_STATIC_ALLOCATION 1"),
@@ -206,6 +217,10 @@ CHECKS: CheckTable = {
         ("pendsv handler alias", "#define xPortPendSVHandler PendSV_Handler"),
         ("svc handler alias", "#define vPortSVCHandler SVC_Handler"),
         ("task notifications enabled", "#define configUSE_TASK_NOTIFICATIONS 1"),
+        ("mutex enabled", "#define configUSE_MUTEXES 1"),
+        ("recursive mutex disabled", "#define configUSE_RECURSIVE_MUTEXES 0"),
+        ("counting semaphore disabled", "#define configUSE_COUNTING_SEMAPHORES 0"),
+        ("queue sets disabled", "#define configUSE_QUEUE_SETS 0"),
         (
             "max syscall irq priority",
             "#define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY 5",
@@ -216,6 +231,19 @@ CHECKS: CheckTable = {
         ("task notification wait", "xTaskNotifyWait("),
         ("from-isr yield", "portYIELD_FROM_ISR("),
         ("absolute release check", "app_task_runtime_release_due("),
+        ("static event queue", "xQueueCreateStatic("),
+        ("static snapshot mutex", "xSemaphoreCreateMutexStatic("),
+        ("zero-wait event publish", "xQueueSend(app_rtos_event_queue, event, 0U)"),
+        ("zero-wait bounded drain", "xQueueReceive(app_rtos_event_queue, &event, 0U)"),
+        ("snapshot zero-wait", "xSemaphoreTake(app_rtos_snapshot_mutex, 0U)"),
+    ],
+    Path("app/include/app_transport_policy.h"): [
+        ("event queue depth", "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (8U)"),
+        ("event drain budget", "#define APP_TRANSPORT_EVENT_DRAIN_BUDGET (2U)"),
+        ("event timestamp by value", "uint32_t timestamp_ms;"),
+        ("event detail by value", "uint32_t detail;"),
+        ("event source by value", "uint16_t source;"),
+        ("event code by value", "uint16_t code;"),
     ],
     Path("bsp/src/bsp_rs485.c"): [
         ("irq event publish", "bsp_rs485_irq_publish_from_isr("),
@@ -241,6 +269,17 @@ FORBIDDEN_CHECKS: CheckTable = {
     ],
     Path("config/FreeRTOSConfig.h"): [
         ("task notifications disabled", "#define configUSE_TASK_NOTIFICATIONS 0"),
+        ("mutex disabled", "#define configUSE_MUTEXES 0"),
+        ("recursive mutex enabled", "#define configUSE_RECURSIVE_MUTEXES 1"),
+        ("counting semaphore enabled", "#define configUSE_COUNTING_SEMAPHORES 1"),
+        ("queue sets enabled", "#define configUSE_QUEUE_SETS 1"),
+    ],
+    Path("app/src/app_rtos.c"): [
+        ("blocking transport wait", "portMAX_DELAY"),
+        ("dynamic queue create", "xQueueCreate("),
+        ("dynamic mutex create", "xSemaphoreCreateMutex()"),
+        ("ordinary event queue from ISR", "xQueueSendFromISR("),
+        ("event overwrite", "xQueueOverwrite("),
     ],
 }
 
@@ -474,10 +513,94 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    transport_path = Path("app/include/app_transport_policy.h")
+    original_transport = (root / transport_path).read_text(encoding="utf-8")
+    depth_mutant = original_transport.replace(
+        "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (8U)",
+        "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (0U)",
+        1,
+    )
+    if depth_mutant == original_transport:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create queue-depth mutant)"
+        )
+        return 2
+    depth_errors, _ = verify(root, {transport_path: depth_mutant})
+    if not any("event queue depth" in item for item in depth_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(zero queue depth was not detected)"
+        )
+        return 2
+
+    rtos_path = Path("app/src/app_rtos.c")
+    original_rtos = (root / rtos_path).read_text(encoding="utf-8")
+    wait_mutant = original_rtos.replace(
+        "xQueueSend(app_rtos_event_queue, event, 0U)",
+        "xQueueSend(app_rtos_event_queue, event, portMAX_DELAY)",
+        1,
+    )
+    if wait_mutant == original_rtos:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create blocking-wait mutant)"
+        )
+        return 2
+    wait_errors, _ = verify(root, {rtos_path: wait_mutant})
+    if not any("blocking transport wait" in item for item in wait_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(blocking transport wait was not detected)"
+        )
+        return 2
+
+    dynamic_mutant = original_rtos.replace(
+        "xQueueCreateStatic(", "xQueueCreate(", 1
+    )
+    if dynamic_mutant == original_rtos:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create dynamic-queue mutant)"
+        )
+        return 2
+    dynamic_errors, _ = verify(root, {rtos_path: dynamic_mutant})
+    if not any("dynamic queue create" in item for item in dynamic_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(dynamic queue create was not detected)"
+        )
+        return 2
+
+    callback_queue_mutant = original_callbacks.replace(
+        callback_marker,
+        callback_marker + "  xQueueSend(0, 0, 0);\n",
+        1,
+    )
+    if callback_queue_mutant == original_callbacks:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create callback-queue mutant)"
+        )
+        return 2
+    callback_queue_errors, _ = verify(
+        root, {callback_path: callback_queue_mutant}
+    )
+    if not any(
+        "HAL_UART_TxCpltCallback" in item and "xQueue" in item
+        for item in callback_queue_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(ordinary callback queue API was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
-        "callback-work mutants rejected)"
+        "callback-work, queue-depth, blocking-wait, dynamic-queue and "
+        "callback-queue mutants rejected)"
     )
     return 0
 

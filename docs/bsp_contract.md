@@ -141,6 +141,11 @@ HAL_Init
 CubeMX 生成模块拥有句柄和 `MX_*_Init()`。BSP 只借用句柄，不释放、不重复初始化。当前 SPI/I²C
 bare-metal busy flag 不是 FreeRTOS mutex。
 
+自 P5-S3-T04 起，`acquisition_task` 是 SPI1 与 I²C2 的唯一运行期 owner；其他 task 后续只能读取
+复制后的 measurement snapshot，不得直接调用传感器或 BSP bus API。scheduler 启动前的 one-shot
+boot probe 是当前唯一例外。bare-metal busy flag 仍只提供 HAL adapter 重入保护，不提供跨 task 同步，
+因此当前不增加 SPI/I²C bus mutex。
+
 ## 6. 已验证与未验证
 
 | 范围 | 当前状态 | 允许结论 |

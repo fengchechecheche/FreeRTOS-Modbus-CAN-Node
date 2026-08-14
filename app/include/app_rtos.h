@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "app_task_model.h"
+#include "app_transport_policy.h"
 
 typedef enum
 {
@@ -18,6 +19,8 @@ typedef enum
   APP_RTOS_FAULT_MODEL = 0x5301U,
   APP_RTOS_FAULT_TASK_CREATE = 0x5302U,
   APP_RTOS_FAULT_CYCLE = 0x5303U,
+  APP_RTOS_FAULT_QUEUE_CREATE = 0x5304U,
+  APP_RTOS_FAULT_MUTEX_CREATE = 0x5305U,
   APP_RTOS_FAULT_ASSERT = 0x5310U,
   APP_RTOS_FAULT_STACK_OVERFLOW = 0x5320U,
   APP_RTOS_FAULT_SCHEDULER_RETURN = 0x5330U
@@ -54,10 +57,13 @@ typedef struct
 } app_rtos_irq_latency_snapshot_t;
 
 app_rtos_status_t app_rtos_initialize(void);
-void app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot);
-void app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot);
-void app_rtos_get_irq_latency_snapshot(
+/* The queue and snapshot APIs below are task-context only. */
+bool app_rtos_publish_diagnostic_event(const app_transport_event_t *event);
+bool app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot);
+bool app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot);
+bool app_rtos_get_irq_latency_snapshot(
     app_rtos_irq_latency_snapshot_t *snapshot);
+bool app_rtos_get_transport_counters(app_transport_counters_t *counters);
 uint32_t app_rtos_fault_code(void);
 _Noreturn void app_rtos_fail_stop(uint32_t fault_code);
 

@@ -29,7 +29,7 @@ void app_rtos_assert_failed(const char *file, uint32_t line);
 #define configCHECK_FOR_STACK_OVERFLOW 2
 #define configUSE_MALLOC_FAILED_HOOK 0
 
-#define configUSE_MUTEXES 0
+#define configUSE_MUTEXES 1
 #define configUSE_RECURSIVE_MUTEXES 0
 #define configUSE_COUNTING_SEMAPHORES 0
 #define configUSE_QUEUE_SETS 0

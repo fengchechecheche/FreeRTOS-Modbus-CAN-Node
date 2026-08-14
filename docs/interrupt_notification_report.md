@@ -1,7 +1,7 @@
 # P5-S3-T03 interrupt and task-notification report
 
 > Software status: `PASS_HOST + PASS_CROSS_BUILD + PASS_ISR_CONTRACT`
-> Content status: `READY_FOR_CONTENT_REVIEW`
+> Content status: `FROZEN` (approved 2026-08-14)
 > Hardware notification path: `LINKED_NOT_EXECUTED`
 > ISR-to-task latency: `NOT_MEASURED`
 > Hardware status: `WAITING_FOR_HARDWARE`
@@ -39,8 +39,9 @@ drained when `protocol_task` starts.
 The notification value is a wake signal, not a frame queue. `protocol_task`
 waits only until its existing absolute 5 ms release. After every bounded event
 drain it checks that release again, so repeated notifications cannot move the
-poll/timeout deadline. No sixth task, queue, semaphore, mutex, heap or multi-frame
-ring buffer was added.
+poll/timeout deadline. T03 itself added no sixth task, queue, semaphore, mutex,
+heap or multi-frame ring buffer. The later T04 diagnostic queue and snapshot
+mutex do not replace or enter this ISR notification path.
 
 ## Software verification
 

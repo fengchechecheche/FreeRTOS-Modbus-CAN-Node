@@ -64,6 +64,22 @@ fixed mailbox, counters and latency summary. No queue, semaphore, dynamic heap
 or event trace buffer was added. Runtime task watermarks and ISR latency remain
 `NOT_MEASURED` until hardware execution.
 
+### T04 queue and mutex regression
+
+T04 adds one 96 B by-value event storage area, one `StaticQueue_t`, one
+`StaticSemaphore_t`, transport counters and the mutex-related kernel state. The
+five task stacks are unchanged.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from T03 |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 23272 B | 160 B | 9056 B | 23432 B | 9216 B | Flash +3136 B, RAM +328 B |
+| Release | 20360 B | 156 B | 9052 B | 20516 B | 9208 B | Flash +2752 B, RAM +328 B |
+
+Both builds remain far below the existing 384 KiB Flash and 96 KiB linked-RAM
+limits. The increase is accepted without reducing any provisional task stack.
+The diagnostic queue item area is fixed at 8 × 12 B; runtime watermark and
+mutex-contention measurements remain `NOT_MEASURED`/`NOT_RUN` until hardware.
+
 ## Static-only checks
 
 - `configSUPPORT_STATIC_ALLOCATION = 1`;

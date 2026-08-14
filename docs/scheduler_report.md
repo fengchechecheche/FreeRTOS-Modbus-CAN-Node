@@ -13,12 +13,15 @@
 - RS485 poll moved to `protocol_task`;
 - USART1/DMA direct notification wake with an absolute 5 ms timeout;
 - finite heartbeat moved to `diagnostic_task`;
+- one depth-8 static diagnostic event queue with a two-item drain budget;
+- one zero-wait static mutex for short system-snapshot copies;
 - scheduler smoke defaults to `OFF`.
 
 ## Software verification
 
 - BSP stable-fact checker and negative self-test;
-- Host Debug/Release: 7/7 tests, including notification/mailbox injection;
+- Host Debug/Release: 8/8 tests, including notification/mailbox and bounded
+  ownership/backpressure injection;
 - Firmware Debug/Release: build and link;
 - ELF symbol checks for scheduler start, kernel handlers, five task entries,
   `xTaskGenericNotifyFromISR()` and `xTaskNotifyWait()`;
@@ -29,8 +32,8 @@ Final cross-build size summaries are:
 
 | Build | text | data | bss |
 |---|---:|---:|---:|
-| Debug | 20136 B | 160 B | 8728 B |
-| Release | 17608 B | 156 B | 8724 B |
+| Debug | 23272 B | 160 B | 9056 B |
+| Release | 20360 B | 156 B | 9052 B |
 
 These values include five separately named 256-word stacks. The static-only
 contract, linker heap removal, limits and exact accounting are maintained in

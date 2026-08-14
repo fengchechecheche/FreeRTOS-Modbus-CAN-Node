@@ -9,7 +9,7 @@
 | `acquisition_task` | 4 | 20 ms | 20 ms | 2 ms | release/health skeleton; no sensor access |
 | `can_task` | 3 | 100 ms | 100 ms | 2 ms | release/health skeleton; CAN remains stopped |
 | `health_task` | 2 | 1000 ms | 1000 ms | 5 ms | aggregate task counters; no IWDG |
-| `diagnostic_task` | 1 | 200 ms | 200 ms | 2 ms | bounded heartbeat and optional one-shot smoke |
+| `diagnostic_task` | 1 | 200 ms | 200 ms | 2 ms | drain at most 2 diagnostic events, then bounded heartbeat/smoke |
 
 Idle priority is 0. The periods, deadlines and budgets are scheduler design
 contracts, not measured WCET, final sampling rates or protocol response limits.
@@ -36,3 +36,15 @@ DMA rearm, state transitions and error recovery stay in task context.
 release. Every event drain is followed by another absolute-release check, so a
 notification storm cannot move the timeout/poll deadline. The other four tasks
 retain the original `vTaskDelayUntil()` loop.
+
+P5-S3-T04 adds one depth-8 static diagnostic event queue. Task producers use a
+zero-tick send and drop-new accounting; `diagnostic_task` consumes at most two
+items per release, so event traffic cannot create an unbounded low-priority
+loop. Health, resource and IRQ-latency snapshots use a zero-wait static mutex
+only while copying complete values. A failed lock returns an explicit
+unavailable result and increments a contention counter.
+
+`acquisition_task` is the only runtime owner of SPI1 and I²C2. Sensor drivers
+will publish a copied latest-value snapshot in S4; protocol, CAN and health tasks
+must not call sensor or bus APIs directly. The scheduler-before boot probe is
+the only current exception.

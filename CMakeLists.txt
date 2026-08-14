@@ -65,5 +65,12 @@ else()
         app/include bsp/include)
     p5_apply_project_warnings(p5_host_irq_notification)
     add_test(NAME p5.host.irq_notification COMMAND p5_host_irq_notification)
+
+    add_executable(p5_host_ownership
+        test/host/ownership_main.c
+        app/src/app_transport_policy.c)
+    target_include_directories(p5_host_ownership PRIVATE app/include)
+    p5_apply_project_warnings(p5_host_ownership)
+    add_test(NAME p5.host.ownership COMMAND p5_host_ownership)
   endif()
 endif()

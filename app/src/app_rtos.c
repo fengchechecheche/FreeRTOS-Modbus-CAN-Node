@@ -7,7 +7,10 @@
 #include "app_resource_budget.h"
 #include "app_rs485_smoke.h"
 #include "app_task_model.h"
+#include "app_transport_policy.h"
 #include "bsp_rs485.h"
+#include "queue.h"
+#include "semphr.h"
 #include "stm32f4xx.h"
 #include "task.h"
 
@@ -27,6 +30,15 @@ _Static_assert(APP_RESOURCE_HEALTH_STACK_WORDS >= configMINIMAL_STACK_SIZE,
                "health stack is below the FreeRTOS minimum");
 _Static_assert(APP_RESOURCE_DIAGNOSTIC_STACK_WORDS >= configMINIMAL_STACK_SIZE,
                "diagnostic stack is below the FreeRTOS minimum");
+_Static_assert(sizeof(app_transport_event_t) ==
+                   APP_RESOURCE_DIAGNOSTIC_EVENT_ITEM_BYTES,
+               "diagnostic event resource item size drifted");
+_Static_assert(APP_TRANSPORT_EVENT_QUEUE_DEPTH ==
+                   APP_RESOURCE_DIAGNOSTIC_EVENT_QUEUE_DEPTH,
+               "diagnostic event queue depth drifted");
+_Static_assert(APP_TRANSPORT_EVENT_DRAIN_BUDGET ==
+                   APP_RESOURCE_DIAGNOSTIC_EVENT_DRAIN_BUDGET,
+               "diagnostic event drain budget drifted");
 
 typedef void (*app_rtos_service_t)(void);
 
@@ -55,10 +67,17 @@ static const uint32_t app_rtos_task_stack_words[APP_TASK_COUNT] = {
 };
 static TaskHandle_t app_rtos_task_handles[APP_TASK_COUNT];
 static app_task_runtime_t app_rtos_task_runtime[APP_TASK_COUNT];
-static volatile app_rtos_health_snapshot_t app_rtos_health_snapshot;
-static volatile app_rtos_resource_snapshot_t app_rtos_resource_snapshot;
+static app_rtos_health_snapshot_t app_rtos_health_snapshot;
+static app_rtos_resource_snapshot_t app_rtos_resource_snapshot;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
 static bsp_rs485_irq_latency_summary_t app_rtos_irq_latency_summary;
+static StaticQueue_t app_rtos_event_queue_control;
+static uint8_t app_rtos_event_queue_storage[
+    APP_RESOURCE_DIAGNOSTIC_EVENT_STORAGE_BYTES];
+static QueueHandle_t app_rtos_event_queue;
+static StaticSemaphore_t app_rtos_snapshot_mutex_control;
+static SemaphoreHandle_t app_rtos_snapshot_mutex;
+static app_transport_counters_t app_rtos_transport_counters;
 #if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
 static volatile uint32_t app_rtos_irq_first_cycles;
 static volatile bool app_rtos_irq_first_cycles_valid;
@@ -71,6 +90,37 @@ static uint32_t app_rtos_saturating_add(uint32_t value, uint32_t increment)
     return UINT32_MAX;
   }
   return value + increment;
+}
+
+static void app_rtos_note_snapshot_contention(bool writer)
+{
+  taskENTER_CRITICAL();
+  app_transport_note_snapshot_contention(&app_rtos_transport_counters, writer);
+  taskEXIT_CRITICAL();
+}
+
+static bool app_rtos_snapshot_take(bool writer)
+{
+  if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED)
+  {
+    return true;
+  }
+
+  if ((app_rtos_snapshot_mutex == NULL) ||
+      (xSemaphoreTake(app_rtos_snapshot_mutex, 0U) != pdTRUE))
+  {
+    app_rtos_note_snapshot_contention(writer);
+    return false;
+  }
+  return true;
+}
+
+static void app_rtos_snapshot_give(void)
+{
+  if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED)
+  {
+    (void)xSemaphoreGive(app_rtos_snapshot_mutex);
+  }
 }
 
 static void app_rtos_noop_service(void)
@@ -134,9 +184,13 @@ static void app_rtos_record_irq_latency(void)
 
   if (available)
   {
-    bsp_rs485_irq_latency_record(&app_rtos_irq_latency_summary,
-                                 isr_cycles,
-                                 task_cycles);
+    if (app_rtos_snapshot_take(true))
+    {
+      bsp_rs485_irq_latency_record(&app_rtos_irq_latency_summary,
+                                   isr_cycles,
+                                   task_cycles);
+      app_rtos_snapshot_give();
+    }
   }
 #endif
 }
@@ -161,15 +215,14 @@ static void app_rtos_update_resource_snapshot(void)
     }
   }
 
-  if (scheduler_running)
+  if (!scheduler_running)
   {
-    taskENTER_CRITICAL();
     app_rtos_resource_snapshot = snapshot;
-    taskEXIT_CRITICAL();
   }
-  else
+  else if (app_rtos_snapshot_take(true))
   {
     app_rtos_resource_snapshot = snapshot;
+    app_rtos_snapshot_give();
   }
 }
 
@@ -192,14 +245,32 @@ static void app_rtos_health_service(void)
         snapshot.budget_overrun_count,
         app_rtos_task_runtime[index].budget_overrun_count);
   }
-  app_rtos_health_snapshot = snapshot;
   taskEXIT_CRITICAL();
+
+  if (app_rtos_snapshot_take(true))
+  {
+    app_rtos_health_snapshot = snapshot;
+    app_rtos_snapshot_give();
+  }
 
   app_rtos_update_resource_snapshot();
 }
 
 static void app_rtos_diagnostic_service(void)
 {
+  size_t drained_count = 0U;
+  app_transport_event_t event;
+  while ((drained_count < APP_TRANSPORT_EVENT_DRAIN_BUDGET) &&
+         (xQueueReceive(app_rtos_event_queue, &event, 0U) == pdTRUE))
+  {
+    ++drained_count;
+  }
+
+  taskENTER_CRITICAL();
+  app_transport_note_events_drained(&app_rtos_transport_counters,
+                                    drained_count);
+  taskEXIT_CRITICAL();
+
   app_boot_diagnostic_service();
 }
 
@@ -332,6 +403,26 @@ app_rtos_status_t app_rtos_initialize(void)
     return APP_RTOS_ERROR;
   }
 
+  app_transport_counters_initialize(&app_rtos_transport_counters);
+  app_rtos_event_queue = xQueueCreateStatic(
+      APP_TRANSPORT_EVENT_QUEUE_DEPTH,
+      sizeof(app_transport_event_t),
+      app_rtos_event_queue_storage,
+      &app_rtos_event_queue_control);
+  if (app_rtos_event_queue == NULL)
+  {
+    app_rtos_current_fault_code = APP_RTOS_FAULT_QUEUE_CREATE;
+    return APP_RTOS_ERROR;
+  }
+
+  app_rtos_snapshot_mutex =
+      xSemaphoreCreateMutexStatic(&app_rtos_snapshot_mutex_control);
+  if (app_rtos_snapshot_mutex == NULL)
+  {
+    app_rtos_current_fault_code = APP_RTOS_FAULT_MUTEX_CREATE;
+    return APP_RTOS_ERROR;
+  }
+
   app_rtos_update_resource_snapshot();
   bsp_rs485_irq_latency_reset(&app_rtos_irq_latency_summary);
 #if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
@@ -368,53 +459,86 @@ app_rtos_status_t app_rtos_initialize(void)
   return APP_RTOS_OK;
 }
 
-void app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot)
+bool app_rtos_publish_diagnostic_event(const app_transport_event_t *event)
 {
-  if (snapshot == NULL)
+  BaseType_t queued = pdFALSE;
+  if ((app_rtos_event_queue != NULL) && app_transport_event_is_valid(event))
   {
-    return;
+    queued = xQueueSend(app_rtos_event_queue, event, 0U);
   }
 
   taskENTER_CRITICAL();
-  *snapshot = app_rtos_health_snapshot;
+  const app_transport_event_result_t result = app_transport_event_admit(
+      &app_rtos_transport_counters, event, queued == pdTRUE);
   taskEXIT_CRITICAL();
+  return result == APP_TRANSPORT_EVENT_ACCEPTED;
 }
 
-void app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot)
+bool app_rtos_get_health_snapshot(app_rtos_health_snapshot_t *snapshot)
 {
   if (snapshot == NULL)
   {
-    return;
+    return false;
   }
 
-  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+  if (!app_rtos_snapshot_take(false))
   {
-    taskENTER_CRITICAL();
-    *snapshot = app_rtos_resource_snapshot;
-    taskEXIT_CRITICAL();
+    return false;
   }
-  else
-  {
-    *snapshot = app_rtos_resource_snapshot;
-  }
+  *snapshot = app_rtos_health_snapshot;
+  app_rtos_snapshot_give();
+  return true;
 }
 
-void app_rtos_get_irq_latency_snapshot(
+bool app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot)
+{
+  if (snapshot == NULL)
+  {
+    return false;
+  }
+
+  if (!app_rtos_snapshot_take(false))
+  {
+    return false;
+  }
+  *snapshot = app_rtos_resource_snapshot;
+  app_rtos_snapshot_give();
+  return true;
+}
+
+bool app_rtos_get_irq_latency_snapshot(
     app_rtos_irq_latency_snapshot_t *snapshot)
 {
   if (snapshot == NULL)
   {
-    return;
+    return false;
   }
 
-  taskENTER_CRITICAL();
+  if (!app_rtos_snapshot_take(false))
+  {
+    return false;
+  }
   snapshot->sample_count = app_rtos_irq_latency_summary.sample_count;
   snapshot->minimum_cycles = app_rtos_irq_latency_summary.minimum_cycles;
   snapshot->maximum_cycles = app_rtos_irq_latency_summary.maximum_cycles;
   snapshot->last_cycles = app_rtos_irq_latency_summary.last_cycles;
   snapshot->measured = app_rtos_irq_latency_summary.measured;
   snapshot->enabled = P5_IRQ_NOTIFICATION_SMOKE_ENABLE != 0;
+  app_rtos_snapshot_give();
+  return true;
+}
+
+bool app_rtos_get_transport_counters(app_transport_counters_t *counters)
+{
+  if (counters == NULL)
+  {
+    return false;
+  }
+
+  taskENTER_CRITICAL();
+  *counters = app_rtos_transport_counters;
   taskEXIT_CRITICAL();
+  return true;
 }
 
 uint32_t app_rtos_fault_code(void)

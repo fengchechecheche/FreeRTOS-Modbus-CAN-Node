@@ -45,6 +45,7 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_rs485_smoke.c
     app/src/app_rs485_smoke_logic.c
     app/src/app_task_model.c
+    app/src/app_transport_policy.c
     bsp/src/bsp_clock.c
     bsp/src/bsp_clock_math.c
     bsp/src/bsp_spi_bus.c
