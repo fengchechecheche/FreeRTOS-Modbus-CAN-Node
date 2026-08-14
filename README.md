@@ -3,8 +3,9 @@
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
 汇总为 BSP 软件候选合同；当前状态为 `BSP_CONTRACT_CANDIDATE_FROZEN + WAITING_FOR_HARDWARE`。
 这允许后续纯软件轨道继续，但不代表板卡、Shield 或外设已经实测。P5-S3-T01 已集成随包
-FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核冻结；Modbus 协议、CAN 业务与
-完整传感器驱动仍未实现。
+FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核冻结。P5-S4-T01 已完成 BME280
+forced-mode、整数补偿与 acquisition task 软件候选，等待内容审核和硬件补验；Modbus 协议、CAN
+业务与其他传感器驱动仍未实现。
 
 ## 当前边界
 
@@ -28,11 +29,12 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 - `P5_DEVICE_PROBE_SMOKE` 默认关闭；临时启用时只探测一次并通过 USART2 输出紧凑摘要，设备缺失
   不阻塞正常启动。
 - FreeRTOS 任务使用静态分配，`protocol_task` 接管有限 RS485 poll，`diagnostic_task` 接管有限
-  heartbeat；其余任务在 T01 只维护调度/健康计数。
-- `P5_RTOS_SCHEDULER_SMOKE` 默认关闭；五个任务的栈均为 provisional buffer，尚未完成 T02
-  watermark 和 RAM 预算。
+  heartbeat；`acquisition_task` 每 20 ms 推进一次 BME280 状态机。
+- 五个应用任务栈各为 256 words，Host/ARM 资源门已通过；硬件 watermark 仍为 `NOT_MEASURED`。
 - SPI/I²C 候选不使用 DMA、RTOS 或动态内存；timeout/bus error 最多请求一次 recovery，当前 HAL
   adapter 不伪造未实测的 SCL pulse 或重新初始化。
+- BME280 使用 1 Hz forced mode、T/P/H x1、filter off 和 5 ms SPI timeout；raw 与整数工程量保存在
+  owner-local snapshot。Host Debug/Release 均为 10/10，但实物 ID、采集与精度仍为 `NOT_RUN`。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 尚未到货，ST-LINK、VCP、UART loopback、RS485 physical layer 和全部板级接口均保持
   `WAITING_FOR_HARDWARE`。
@@ -49,8 +51,8 @@ DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 smoke、clock、RS485、
-device-probe 和 task-model CTest。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 10 项 CTest，包括
+BME280 calibration/compensation/state-machine 回归。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的
 `.private/`。
 
 BSP 静态合同检查：

@@ -80,3 +80,10 @@ hardware = WAITING_FOR_HARDWARE
 ```
 
 无硬件路径内容已审核通过并冻结；本次不自动开始 P5-S2-T05。
+
+## P5-S4-T01 交接
+
+S2 的 one-shot probe 仍只负责 scheduler 前的 ID 准入，并保持默认关闭。
+P5-S4-T01 在 `acquisition_task` 中新增独立的 BME280 forced-mode 驱动；既有
+single-register probe 回归继续通过。Host mock 和 ARM 链接不改变本报告的
+硬件结论，BME280 identity/measurement 仍为 `NOT_RUN`。

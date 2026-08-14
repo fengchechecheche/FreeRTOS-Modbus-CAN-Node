@@ -80,5 +80,12 @@ else()
     target_include_directories(p5_host_health PRIVATE app/include)
     p5_apply_project_warnings(p5_host_health)
     add_test(NAME p5.host.health COMMAND p5_host_health)
+
+    add_executable(p5_host_bme280
+        test/host/bme280_main.c
+        sensors/src/bme280.c)
+    target_include_directories(p5_host_bme280 PRIVATE sensors/include)
+    p5_apply_project_warnings(p5_host_bme280)
+    add_test(NAME p5.host.bme280 COMMAND p5_host_bme280)
   endif()
 endif()

@@ -37,6 +37,7 @@ set(P5_STM32F4_HAL_SOURCES
     Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c)
 
 set(P5_PROJECT_FIRMWARE_SOURCES
+    app/src/app_bme280.c
     app/src/app_boot.c
     app/src/app_device_probe.c
     app/src/app_device_probe_logic.c
@@ -55,7 +56,8 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     bsp/src/bsp_rs485.c
     bsp/src/bsp_rs485_irq_event.c
     bsp/src/bsp_rs485_state.c
-    bsp/src/bsp_can.c)
+    bsp/src/bsp_can.c
+    sensors/src/bme280.c)
 
 set(P5_FREERTOS_KERNEL_SOURCES
     Middlewares/Third_Party/FreeRTOS/Source/tasks.c
@@ -77,6 +79,7 @@ target_include_directories(${P5_FIRMWARE_TARGET} PRIVATE
     Core/Inc
     app/include
     bsp/include
+    sensors/include
     config
     Middlewares/Third_Party/FreeRTOS/Source/include
     Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F

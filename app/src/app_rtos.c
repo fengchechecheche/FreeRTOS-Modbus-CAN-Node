@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 #include "FreeRTOS.h"
+#include "app_bme280.h"
 #include "app_boot.h"
 #include "app_health_policy.h"
 #include "app_reset_reason.h"
@@ -204,6 +205,11 @@ static void app_rtos_snapshot_give(void)
 
 static void app_rtos_noop_service(void)
 {
+}
+
+static void app_rtos_acquisition_service(void)
+{
+  app_bme280_service((uint32_t)xTaskGetTickCount());
 }
 
 static void app_rtos_protocol_service(void)
@@ -503,7 +509,7 @@ static void app_rtos_protocol_task(void *context)
 static void app_rtos_acquisition_task(void *context)
 {
   (void)context;
-  app_rtos_run_periodic(APP_TASK_ACQUISITION, app_rtos_noop_service);
+  app_rtos_run_periodic(APP_TASK_ACQUISITION, app_rtos_acquisition_service);
 }
 
 static void app_rtos_can_task(void *context)
@@ -542,6 +548,7 @@ app_rtos_status_t app_rtos_initialize(void)
   app_transport_counters_initialize(&app_rtos_transport_counters);
   app_rtos_event_queue_maximum_pending = 0U;
   app_health_policy_initialize(&app_rtos_health_policy);
+  app_bme280_initialize();
   app_rtos_capture_reset_reason();
   app_rtos_event_queue = xQueueCreateStatic(
       APP_TRANSPORT_EVENT_QUEUE_DEPTH,

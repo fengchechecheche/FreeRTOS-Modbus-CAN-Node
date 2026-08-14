@@ -141,3 +141,18 @@ from the empty-skeleton result. Sensor, Modbus, CAN, recovery and soak workloads
 must remeasure their affected tasks in later stages.
 
 No task watermark has been measured in this report.
+
+## S4-T01 BME280 regression
+
+T01 adds the pure BME280 calibration/compensation/state machine, one fixed
+instance and owner-local snapshot, plus bounded SPI block read/write support.
+Host oracle data is excluded from firmware; no task, stack, queue or mutex was
+added.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from T05 |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 30516 B | 160 B | 9504 B | 30676 B | 9664 B | Flash +5324 B, RAM +216 B |
+| Release | 26196 B | 156 B | 9500 B | 26352 B | 9656 B | Flash +4288 B, RAM +216 B |
+
+Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM gates.
+Runtime acquisition watermark and SPI WCET remain `NOT_MEASURED` until hardware.

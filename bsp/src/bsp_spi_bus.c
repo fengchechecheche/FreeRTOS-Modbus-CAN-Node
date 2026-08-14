@@ -1,6 +1,7 @@
 #include "bsp_spi_bus.h"
 
 #include <stdbool.h>
+#include <string.h>
 
 #include "main.h"
 #include "spi.h"
@@ -60,7 +61,18 @@ bsp_spi_bus_result_t bsp_spi_bus_read_register(bsp_spi_device_t device,
                                                 uint8_t *value,
                                                 uint32_t timeout_ms)
 {
-  if ((value == NULL) || (timeout_ms == 0U))
+  return bsp_spi_bus_read_registers(
+      device, register_address, value, 1U, timeout_ms);
+}
+
+bsp_spi_bus_result_t bsp_spi_bus_read_registers(bsp_spi_device_t device,
+                                                 uint8_t register_address,
+                                                 uint8_t *data,
+                                                 size_t length,
+                                                 uint32_t timeout_ms)
+{
+  if ((data == NULL) || (length == 0U) ||
+      (length > BSP_SPI_BUS_MAX_TRANSFER_BYTES) || (timeout_ms == 0U))
   {
     return BSP_SPI_BUS_RESULT_INVALID_ARGUMENT;
   }
@@ -77,19 +89,53 @@ bsp_spi_bus_result_t bsp_spi_bus_read_register(bsp_spi_device_t device,
     return BSP_SPI_BUS_RESULT_INVALID_ARGUMENT;
   }
 
-  uint8_t tx[2] = {(uint8_t)((register_address & UINT8_C(0x7f)) |
-                             UINT8_C(0x80)),
-                   UINT8_C(0xff)};
-  uint8_t rx[2] = {0U, 0U};
+  uint8_t tx[BSP_SPI_BUS_MAX_TRANSFER_BYTES + 1U];
+  uint8_t rx[BSP_SPI_BUS_MAX_TRANSFER_BYTES + 1U];
+  tx[0] =
+      (uint8_t)((register_address & UINT8_C(0x7f)) | UINT8_C(0x80));
+  (void)memset(&tx[1], UINT8_C(0xff), length);
+  (void)memset(rx, 0, length + 1U);
   const HAL_StatusTypeDef status =
-      HAL_SPI_TransmitReceive(&hspi1, tx, rx, 2U, timeout_ms);
+      HAL_SPI_TransmitReceive(
+          &hspi1, tx, rx, (uint16_t)(length + 1U), timeout_ms);
 
   bsp_spi_bus_deselect_all();
   bsp_spi_bus_busy = false;
   const bsp_spi_bus_result_t result = bsp_spi_bus_map_hal_status(status);
   if (result == BSP_SPI_BUS_RESULT_OK)
   {
-    *value = rx[1];
+    (void)memcpy(data, &rx[1], length);
   }
   return result;
+}
+
+bsp_spi_bus_result_t bsp_spi_bus_write_register(bsp_spi_device_t device,
+                                                 uint8_t register_address,
+                                                 uint8_t value,
+                                                 uint32_t timeout_ms)
+{
+  if (timeout_ms == 0U)
+  {
+    return BSP_SPI_BUS_RESULT_INVALID_ARGUMENT;
+  }
+  if (bsp_spi_bus_busy)
+  {
+    return BSP_SPI_BUS_RESULT_BUSY;
+  }
+
+  bsp_spi_bus_busy = true;
+  if (!bsp_spi_bus_select(device))
+  {
+    bsp_spi_bus_deselect_all();
+    bsp_spi_bus_busy = false;
+    return BSP_SPI_BUS_RESULT_INVALID_ARGUMENT;
+  }
+
+  uint8_t tx[2] = {
+      (uint8_t)(register_address & UINT8_C(0x7f)), value};
+  const HAL_StatusTypeDef status =
+      HAL_SPI_Transmit(&hspi1, tx, (uint16_t)sizeof(tx), timeout_ms);
+  bsp_spi_bus_deselect_all();
+  bsp_spi_bus_busy = false;
+  return bsp_spi_bus_map_hal_status(status);
 }

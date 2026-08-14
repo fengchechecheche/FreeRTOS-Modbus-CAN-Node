@@ -195,6 +195,7 @@ CHECKS: CheckTable = {
         ),
         ("ownership host test", "add_test(NAME p5.host.ownership"),
         ("health host test", "add_test(NAME p5.host.health"),
+        ("bme280 host test", "add_test(NAME p5.host.bme280"),
     ],
     Path("docs/bsp_contract.md"): [
         ("candidate boundary", "BSP_CONTRACT_CANDIDATE_FROZEN"),
@@ -259,6 +260,8 @@ CHECKS: CheckTable = {
         ("queue maximum pending", "app_rtos_event_queue_maximum_pending"),
         ("reset reason capture", "app_rtos_capture_reset_reason("),
         ("reset flags cleared after capture", "__HAL_RCC_CLEAR_RESET_FLAGS();"),
+        ("bme acquisition service", "app_bme280_service((uint32_t)xTaskGetTickCount())"),
+        ("bme initialized before scheduler", "app_bme280_initialize();"),
     ],
     Path("app/include/app_transport_policy.h"): [
         ("event queue depth", "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (8U)"),
@@ -289,6 +292,35 @@ CHECKS: CheckTable = {
         ("reset record magic", "#define APP_RESET_RECORD_MAGIC UINT32_C(0x50355252)"),
         ("reset loop limit", "#define APP_RESET_LOOP_LIMIT (3U)"),
         ("reset record checksum field", "uint32_t checksum;"),
+    ],
+    Path("sensors/include/bme280.h"): [
+        ("bme280 chip identity", "#define BME280_CHIP_ID UINT8_C(0x60)"),
+        ("bme280 bmp identity boundary", "#define BME280_BMP280_CHIP_ID UINT8_C(0x58)"),
+        ("bme280 one-hz period", "#define BME280_DEFAULT_SAMPLE_PERIOD_MS UINT32_C(1000)"),
+        ("bme280 full valid mask", "BME280_SAMPLE_VALID_ALL"),
+        ("bme280 integer temperature", "int32_t temperature_centi_c;"),
+        ("bme280 integer pressure", "uint32_t pressure_pa;"),
+        ("bme280 integer humidity", "uint32_t humidity_milli_pct;"),
+    ],
+    Path("sensors/src/bme280.c"): [
+        ("single recovery attempt", "#define BME280_MAX_RECOVERY_ATTEMPTS (1U)"),
+        ("calibration zero guard", "calibration->dig_p1 != 0U"),
+        ("humidity clamp", "humidity_value = INT64_C(419430400);"),
+        ("ctrl hum before measurement state", "BME280_STATE_CONFIGURE_HUMIDITY"),
+    ],
+    Path("bsp/include/bsp_spi_bus.h"): [
+        ("bounded spi block", "#define BSP_SPI_BUS_MAX_TRANSFER_BYTES (32U)"),
+        ("spi block read", "bsp_spi_bus_read_registers("),
+        ("spi single write", "bsp_spi_bus_write_register("),
+    ],
+    Path("app/include/app_bme280.h"): [
+        ("bme spi timeout", "#define APP_BME280_SPI_TIMEOUT_MS UINT32_C(5)"),
+        ("owner-context snapshot", "Owner-context only until P5-S4-T04"),
+    ],
+    Path("app/src/app_bme280.c"): [
+        ("bme block read adapter", "bsp_spi_bus_read_registers("),
+        ("bme register write adapter", "bsp_spi_bus_write_register("),
+        ("bme default sample period", "BME280_DEFAULT_SAMPLE_PERIOD_MS"),
     ],
     Path("bsp/src/bsp_rs485.c"): [
         ("irq event publish", "bsp_rs485_irq_publish_from_isr("),
@@ -331,6 +363,7 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("watchdog adapter refresh", "bsp_watchdog_refresh("),
         ("task delete", "vTaskDelete("),
         ("direct system reset", "NVIC_SystemReset("),
+        ("second spi runtime owner", "bsp_spi_bus_"),
     ],
     Path("Core/Src/main.c"): [
         ("generated iwdg init", "MX_IWDG_Init("),
@@ -341,6 +374,23 @@ FORBIDDEN_CHECKS: CheckTable = {
     ],
     Path("app/src/app_health_policy.c"): [
         ("unbounded recovery loop", "for (;;)")
+    ],
+    Path("sensors/src/bme280.c"): [
+        ("bme hal dependency", "HAL_"),
+        ("bme freertos delay", "vTaskDelay("),
+        ("bme snapshot mutex", "xSemaphore"),
+        ("bme dynamic allocation", "malloc("),
+        ("bme unbounded for loop", "for (;;)"),
+        ("bme unbounded true loop", "while (true)"),
+        ("bme unbounded one loop", "while (1)"),
+        ("bme periodic print", "printf("),
+    ],
+    Path("app/src/app_bme280.c"): [
+        ("bme adapter direct hal", "HAL_"),
+        ("bme adapter task delay", "vTaskDelay("),
+        ("bme adapter mutex", "xSemaphore"),
+        ("bme adapter dynamic allocation", "malloc("),
+        ("bme adapter unbounded loop", "for (;;)"),
     ],
 }
 
@@ -780,12 +830,59 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    sensor_path = Path("sensors/src/bme280.c")
+    original_sensor = (root / sensor_path).read_text(encoding="utf-8")
+    sensor_delay_mutant = original_sensor + "\nHAL_Delay(1U);\n"
+    sensor_delay_errors, _ = verify(root, {sensor_path: sensor_delay_mutant})
+    if not any("bme hal dependency" in item for item in sensor_delay_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(BME280 HAL delay/dependency was not detected)"
+        )
+        return 2
+
+    sensor_loop_mutant = original_sensor + "\nfor (;;) {}\n"
+    sensor_loop_errors, _ = verify(root, {sensor_path: sensor_loop_mutant})
+    if not any("bme unbounded for loop" in item for item in sensor_loop_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(BME280 unbounded retry loop was not detected)"
+        )
+        return 2
+
+    second_spi_owner_mutant = original_rtos + "\nbsp_spi_bus_read_register(0, 0, 0, 0);\n"
+    second_spi_owner_errors, _ = verify(
+        root, {rtos_path: second_spi_owner_mutant}
+    )
+    if not any(
+        "second spi runtime owner" in item for item in second_spi_owner_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(second SPI runtime owner was not detected)"
+        )
+        return 2
+
+    bme_adapter_path = Path("app/src/app_bme280.c")
+    original_bme_adapter = (root / bme_adapter_path).read_text(encoding="utf-8")
+    bme_mutex_mutant = original_bme_adapter + "\nxSemaphoreTake(0, 0);\n"
+    bme_mutex_errors, _ = verify(
+        root, {bme_adapter_path: bme_mutex_mutant}
+    )
+    if not any("bme adapter mutex" in item for item in bme_mutex_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(SPI-under-snapshot-mutex mutant was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
         "callback-work, queue-depth, blocking-wait, dynamic-queue and "
         "callback-queue, one-epoch-stall, recovery-budget, degraded-feed, "
-        "task-delete, default-IWDG and second-feed mutants rejected)"
+        "task-delete, default-IWDG, second-feed, BME-HAL-delay, BME-loop, "
+        "second-SPI-owner and BME-mutex mutants rejected)"
     )
     return 0
 
