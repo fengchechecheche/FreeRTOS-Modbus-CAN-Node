@@ -51,6 +51,25 @@ The current environment has `vcan` and `gs_usb` kernel modules. `can-utils`
 SocketCAN loopback or adapter TX echo is not an ACK or MCU application-acceptance
 result.
 
+## Dual-bus backpressure preflight
+
+P5-S6-T04 directly links the CAN scheduler/controller with the production
+Modbus stream, RS485 state, task model and health/diagnostic policies. The
+bounded D01-D08 Host matrix confirms:
+
+- ordinary telemetry replaces an unsent older value latest-wins;
+- `HAL_BUSY` preserves the selected frame and token;
+- a full depth-8 event FIFO records the rejected event instead of silently
+  growing storage;
+- the two-event burst limit allows waiting health/periodic traffic to proceed;
+- `0x340/0x341` retains one sequence under event pressure;
+- bus-off waits 1000 virtual ms, attempts recovery three times and latches while
+  Modbus, acquisition and health task models continue.
+
+The maximum observed pending count in the deliberate event-pressure scenario
+is 11 fixed frames. This is not a new queue-size contract or a physical
+throughput result. See [`dual_bus_fault_matrix.md`](dual_bus_fault_matrix.md).
+
 ## Troubleshooting order
 
 1. If state is `RECOVERY_LATCHED`, inspect `last_hal_error`, `bus_off_transitions`,

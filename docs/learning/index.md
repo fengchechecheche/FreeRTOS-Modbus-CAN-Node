@@ -7,6 +7,9 @@
 > P5-S6-T03 tutorial is now `READY_FOR_CONTENT_REVIEW`:
 > `p5_s6_t03_socketcan与candlelight联调.md`.
 
+> P5-S6-T04 tutorial is `FROZEN` after content review:
+> `p5_s6_t04_双总线并发背压与故障隔离.md`.
+
 > 版本：1.0.0  
 > 冻结任务：P5-S1-T05  
 > 总数：35  
@@ -42,7 +45,7 @@
 | S6 | P5-S6-T01 | CAN 物理层、仲裁与报文合同 | `p5_s6_t01_can物理层仲裁与报文合同.md` | READY_FOR_CONTENT_REVIEW |
 | S6 | P5-S6-T02 | bxCAN 过滤器、中断与发送队列 | `p5_s6_t02_bxcan过滤器中断与发送队列.md` | FROZEN |
 | S6 | P5-S6-T03 | SocketCAN 与 candleLight 联调 | `p5_s6_t03_socketcan与candlelight联调.md` | READY_FOR_CONTENT_REVIEW |
-| S6 | P5-S6-T04 | 双总线并发、背压与故障隔离 | `p5_s6_t04_双总线并发背压与故障隔离.md` | PLANNED |
+| S6 | P5-S6-T04 | 双总线并发、背压与故障隔离 | `p5_s6_t04_双总线并发背压与故障隔离.md` | FROZEN |
 | S6 | P5-S6-T05 | 长稳测试与实时资源趋势 | `p5_s6_t05_长稳测试与实时资源趋势.md` | PLANNED |
 | S7 | P5-S7-T01 | Release 阻塞审查与许可证 | `p5_s7_t01_release阻塞审查与许可证.md` | PLANNED |
 | S7 | P5-S7-T02 | 清洁构建、烧录与复现演练 | `p5_s7_t02_清洁构建烧录与复现演练.md` | PLANNED |

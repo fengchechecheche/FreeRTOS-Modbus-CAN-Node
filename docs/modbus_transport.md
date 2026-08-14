@@ -86,3 +86,17 @@ register image and delayed address commit. Debug/Release ARM builds prove only
 compile/link closure.
 Oscilloscope or logic-analyzer evidence for DE, first/last bit timing and real
 bus gaps remains `NOT_RUN` until hardware arrives.
+
+## S6-T04 concurrent fault boundary
+
+The dual-bus Host matrix reuses this stream and RS485 controller directly. It
+distinguishes normal master idle from one `>t1.5` internal gap, rejects one bad
+CRC before accepting the next valid frame, observes `BUSY` without overwriting
+the active response, and restores RX after the existing 25 ms virtual timeout
+for the fixed 8-byte test response.
+
+During each RS485 fault, CAN/task-model progress remains observable. During CAN
+bus-off, valid Modbus frames continue to be accepted. These are deterministic
+software-isolation results; physical master timing, UART gaps, DE timing and
+recovery duration remain `WAITING_FOR_HARDWARE`. See
+[`dual_bus_fault_matrix.md`](dual_bus_fault_matrix.md).

@@ -1,5 +1,12 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S6-T04 update: the deterministic dual-bus matrix is `PASS_HOST +
+> PASS_CROSS_BUILD + READY_FOR_HARDWARE`. D01-D08 cover Modbus/RS485 slow,
+> CRC, busy and timeout paths together with CAN latest-wins, queue pressure and
+> bus-off isolation. Physical dual-bus validation remains
+> `WAITING_FOR_HARDWARE`. See
+> [`docs/dual_bus_fault_matrix.md`](docs/dual_bus_fault_matrix.md).
+
 > P5-S6-T03 update: the standard-library SocketCAN probe, dry-run and bounded
 > `vcan` matrix are `PASS_HOST`; candleLight/physical CAN remain
 > `WAITING_FOR_HARDWARE`. `can-utils` 2023.03-1 and a one-frame
@@ -31,7 +38,8 @@ RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响�
 `NOT_RUN`，项目三地址 4 profile 仍为 `not_created`。P5-S6-T01 已冻结七个 11 位标准 CAN ID、
 8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；P5-S6-T02
 已接入 filter、IRQ、固定队列、task notification 与 bus-off 恢复软件候选，硬件保持
-`WAITING_FOR_HARDWARE`。
+`WAITING_FOR_HARDWARE`。P5-S6-T04 已用一个直接链接生产模块的 Host 矩阵验证双总线背压和
+软件故障隔离；未修改固件任务或 RTOS 资源，实物并发仍待硬件。
 
 ## 当前边界
 
@@ -87,7 +95,8 @@ RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响�
   latest-wins 周期发送、事件合并及 1 s/3 次 bus-off 恢复均达到软件候选；candleLight、收发器和
   物理帧仍为 `NOT_RUN`。P5-S6-T03 已用 raw SocketCAN/`vcan` 完成 12 帧有界软件矩阵；
   `can-utils` 2023.03-1 已安装且 `candump`/`cansend` 单帧 vcan smoke 通过；candleLight/实物 HIL
-  仍为 `NOT_RUN`。
+  仍为 `NOT_RUN`。T04 的 D01～D08 Host 矩阵进一步验证 RS485 CRC/timeout 与 CAN busy、FIFO full、
+  bus-off 同时发生时，健康链路、采集和 health task model 仍有进度；虚拟 tick 不构成物理恢复时间。
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
@@ -100,10 +109,10 @@ DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 19 项 CTest，包括
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 21 项 CTest，包括
 BME280 calibration/compensation、VEML7700 word/range/state-machine 和 ADXL345
 parse/config/feature/recovery、统一 sample schema/quality/freshness、三驱动联合故障矩阵、CAN
-known-good payload/边界，以及 Modbus CRC/完整 ADU/8E1 timing 回归。
+known-good payload/边界、Modbus CRC/完整 ADU/8E1 timing，以及双总线 D01～D08 故障隔离回归。
 S4 软件验收边界见 [`docs/s4_validation.md`](docs/s4_validation.md)。构建输出位于
 `out/`，问题排查证据只在需要时写入被忽略的
 `.private/`。
@@ -133,6 +142,15 @@ python3 tools/can_hil_probe.py --dry-run
 
 `can-utils` 的 `candump`/`cansend` 单帧 vcan smoke 已通过。`vcan` 的显式发送矩阵和到货后的接线/接口步骤见
 [`docs/can_hil_report.md`](docs/can_hil_report.md)。`PASS_HOST` 不代表 candleLight、ACK 或物理总线通过。
+
+双总线背压与故障隔离矩阵：
+
+```bash
+./out/host-debug/p5_host_dual_bus_fault_matrix
+```
+
+紧凑结果和实物补验边界见 [`docs/dual_bus_fault_matrix.md`](docs/dual_bus_fault_matrix.md)。其中的
+虚拟恢复 tick 和 task-model release 不能解释为 MCU 实测时间或 deadline 结果。
 
 Modbus register contract 检查：
 

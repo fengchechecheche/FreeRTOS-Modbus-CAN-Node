@@ -178,5 +178,22 @@ else()
         app/include sensors/include)
     p5_apply_project_warnings(p5_host_sensor_matrix)
     add_test(NAME p5.host.sensor_matrix COMMAND p5_host_sensor_matrix)
+
+    add_executable(p5_host_dual_bus_fault_matrix
+        test/host/dual_bus_fault_matrix_main.c
+        app/src/app_can_runtime.c
+        app/src/app_task_model.c
+        app/src/app_transport_policy.c
+        app/src/app_health_policy.c
+        bsp/src/bsp_rs485_state.c
+        protocol/src/p5_modbus_crc16.c
+        protocol/src/p5_modbus_rtu_adu.c
+        protocol/src/p5_modbus_rtu_stream.c
+        protocol/src/p5_can_contract.c)
+    target_include_directories(p5_host_dual_bus_fault_matrix PRIVATE
+        app/include bsp/include protocol/include sensors/include)
+    p5_apply_project_warnings(p5_host_dual_bus_fault_matrix)
+    add_test(NAME p5.host.dual_bus_fault_matrix
+             COMMAND p5_host_dual_bus_fault_matrix)
   endif()
 endif()

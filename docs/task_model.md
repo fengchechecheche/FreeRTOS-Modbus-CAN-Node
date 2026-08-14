@@ -84,3 +84,16 @@ can make health `DEGRADED`, but by themselves cannot request global recovery,
 withhold feed or enter `RESET_REQUIRED`. Host virtual time proves bounded
 software ordering and fault isolation; 20 ms deadline, 2 ms budget, bus WCET
 and jitter remain `NOT_MEASURED` on hardware.
+
+## S6-T04 dual-bus isolation contract
+
+The five-task topology is unchanged. The Host dual-bus fixture advances the
+existing absolute-release model while injecting Modbus/RS485 and CAN faults.
+D01-D08 confirm that protocol, acquisition, CAN and health progress is
+independent state: a link error does not delete, reset or globally stop a task.
+
+These release counters are deterministic contract observations. They are not
+FreeRTOS trace data, measured preemption latency, WCET or deadline evidence.
+No sixth task, queue, mutex, semaphore, notification channel or heap allocation
+was added for T04. Physical task progress, deadline misses and stack watermarks
+remain `WAITING_FOR_HARDWARE`.
