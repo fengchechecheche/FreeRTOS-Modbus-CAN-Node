@@ -64,7 +64,10 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     bsp/src/bsp_can.c
     sensors/src/adxl345.c
     sensors/src/bme280.c
-    sensors/src/veml7700.c)
+    sensors/src/veml7700.c
+    protocol/src/p5_modbus_crc16.c
+    protocol/src/p5_modbus_rtu_adu.c
+    protocol/src/p5_modbus_rtu_timing.c)
 
 set(P5_FREERTOS_KERNEL_SOURCES
     Middlewares/Third_Party/FreeRTOS/Source/tasks.c
@@ -87,6 +90,7 @@ target_include_directories(${P5_FIRMWARE_TARGET} PRIVATE
     app/include
     bsp/include
     sensors/include
+    protocol/include
     config
     Middlewares/Third_Party/FreeRTOS/Source/include
     Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F

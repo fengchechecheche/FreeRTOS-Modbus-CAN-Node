@@ -29,6 +29,15 @@ else()
     p5_apply_project_warnings(p5_host_clock)
     add_test(NAME p5.host.clock COMMAND p5_host_clock)
 
+    add_executable(p5_host_modbus_codec
+        test/host/modbus_codec_main.c
+        protocol/src/p5_modbus_crc16.c
+        protocol/src/p5_modbus_rtu_adu.c
+        protocol/src/p5_modbus_rtu_timing.c)
+    target_include_directories(p5_host_modbus_codec PRIVATE protocol/include)
+    p5_apply_project_warnings(p5_host_modbus_codec)
+    add_test(NAME p5.host.modbus_codec COMMAND p5_host_modbus_codec)
+
     add_executable(p5_host_rs485
         test/host/rs485_main.c
         bsp/src/bsp_rs485_state.c

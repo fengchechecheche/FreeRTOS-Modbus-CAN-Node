@@ -8,9 +8,9 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 内容审核，等待硬件补验。P5-S4-T03 ADXL345 DATA_READY 中断采样、整数工程量和
 100 样本振动趋势特征已经完成内容审核。P5-S4-T04 已形成统一 sequence、单调时间、
 质量和新鲜度的软件候选。P5-S4-T05 已增加固定大小的多传感器监测摘要与确定性
-联合故障矩阵，内容已审核冻结。P5-S5-T01 已形成地址 4 的 Modbus register contract
-候选和机器可读 map；当前为 `CANDIDATE_VALIDATED`，CRC/parser/handler runtime 仍为
-`NOT_IMPLEMENTED`，CAN 业务仍未实现。
+联合故障矩阵，内容已审核冻结。P5-S5-T01 已形成地址 4 的 Modbus register contract 和机器可读
+map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻辑候选；stream parser、
+function handler、RS485 runtime 和 CAN 业务仍未实现。
 
 ## 当前边界
 
@@ -56,7 +56,9 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 - NUCLEO-F446RE 尚未到货，ST-LINK、VCP、UART loopback、RS485 physical layer 和全部板级接口均保持
   `WAITING_FOR_HARDWARE`。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
-  holding map 和 0x03/0x04/0x06 应用合同，runtime 仍为 `NOT_IMPLEMENTED`。
+  holding map 和 0x03/0x04/0x06 应用合同。T02 的 CRC/完整 ADU/timing 纯逻辑已通过 Host 候选，
+  但现有 BSP 上限仍为 64 B，不能承载完整 249 B input-image response；stream/handler/runtime
+  仍为 `NOT_IMPLEMENTED`，UART/RS485 runtime 仍为 `NOT_IMPLEMENTED`。
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
@@ -69,9 +71,10 @@ DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 14 项 CTest，包括
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 15 项 CTest，包括
 BME280 calibration/compensation、VEML7700 word/range/state-machine 和 ADXL345
-parse/config/feature/recovery、统一 sample schema/quality/freshness，以及三驱动联合故障矩阵回归。
+parse/config/feature/recovery、统一 sample schema/quality/freshness、三驱动联合故障矩阵，以及
+Modbus CRC/完整 ADU/8E1 timing 回归。
 S4 软件验收边界见 [`docs/s4_validation.md`](docs/s4_validation.md)。构建输出位于
 `out/`，问题排查证据只在需要时写入被忽略的
 `.private/`。
@@ -89,7 +92,8 @@ python3 tools/verify_modbus_contract.py
 python3 tools/verify_modbus_contract.py --self-test
 ```
 
-该入口只验证 map、类型、地址、metadata 和范围，不生成或处理 RTU 帧。
+该入口只验证 map、类型、地址、metadata 和范围。可运行的 CRC/完整 ADU/timing 合同见
+[`docs/modbus_codec.md`](docs/modbus_codec.md)；它不代表 stream parser 或 UART runtime 已实现。
 
 ## 固件构建
 

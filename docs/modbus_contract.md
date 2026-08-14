@@ -1,6 +1,8 @@
 # P5-S5-T01 Modbus RTU slave and register contract
 
 > Contract status: `CANDIDATE_VALIDATED`  
+> CRC/complete-ADU/timing: `CANDIDATE_VALIDATED`
+> Stream parser/handlers/runtime: `NOT_IMPLEMENTED`
 > Runtime: `NOT_IMPLEMENTED`  
 > Hardware: `WAITING_FOR_HARDWARE`  
 > Register-map revision: 1  
@@ -13,9 +15,11 @@ master, ASCII, TCP, broadcast, multiple-register write or a custom function.
 The candidate subset is `0x03` read holding registers, `0x04` read input
 registers and `0x06` write one whitelisted holding register.
 
-This document and the JSON map freeze application semantics only. CRC, RTU
-framing, parser, exception response, function handlers and UART/RS485 runtime
-remain `NOT_IMPLEMENTED`; PA9/PA10/PA8 hardware remains untested.
+This document and the JSON map freeze application semantics. P5-S5-T02 adds
+HAL/RTOS-free CRC16, complete-ADU envelope encoding/validation and 8E1 timing
+math. Stream segmentation, exception response, function handlers and
+UART/RS485 runtime remain `NOT_IMPLEMENTED`; PA9/PA10/PA8 hardware remains
+untested.
 
 ## Link and address contract
 
@@ -28,11 +32,21 @@ remain `NOT_IMPLEMENTED`; PA9/PA10/PA8 hardware remains untested.
 | PDU register address | zero-based `0x0000..0xFFFF` |
 | Register byte order | high byte first |
 | 32-bit word order | high word first |
-| CRC wire order | low byte first; runtime deferred to T02 |
+| CRC wire order | low byte first; complete-buffer codec validated in T02 |
 
 `30001`/`40001` references are display notation only and never change a wire
 address. Input and holding registers are separate spaces, so both may contain
 numeric address zero.
+
+The complete-ADU codec accepts `4..256 B` and verifies CRC before exposing a
+read-only PDU view. It is deliberately not a byte-stream parser and does not
+interpret address, function or register semantics. At 19200 8E1 its integer
+timing oracle is tchar=573 us, t1.5=860 us and t3.5=2006 us. See
+[`modbus_codec.md`](modbus_codec.md).
+
+The current BSP frame limit remains 64 B. A complete 122-register input
+response requires 249 B, so full-size transport, buffer ownership and
+DMA/DE-RE integration are explicitly deferred to P5-S5-T03.
 
 ## Data and validity
 
