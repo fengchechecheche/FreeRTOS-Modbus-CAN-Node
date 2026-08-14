@@ -59,14 +59,9 @@ closed。当前不能声称：
 
 ## 本轮问题与处理
 
-CubeMX 在 Mode 3 生成时附带 1193 个无关 CMSIS/CMake/syscalls 文件。它们未进入候选，已移动到：
-
-```text
-C:\Users\Aadmin\AppData\Local\Temp\P5-S2-T04_CubeMX_extras_20260814_01
-```
-
-备份可恢复，仓库只保留 `.ioc` 与 `Core/Src/spi.c` 的 Mode 3 差异。该问题已闭环，不生成 diagnostic
-JSON。
+CubeMX 在 Mode 3 生成时附带 1193 个无关 CMSIS/CMake/syscalls 文件。它们未进入候选，已移动到
+仓库外的临时备份目录。具体用户路径不进入公开报告；备份可恢复，仓库只保留 `.ioc` 与
+`Core/Src/spi.c` 的 Mode 3 差异。该问题已闭环，不生成 diagnostic JSON。
 
 ## 未执行硬件项
 

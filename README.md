@@ -1,5 +1,12 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S7-T01 update: the project-owned source scope is MIT-licensed by
+> `fengchechecheche`; STM32Cube/CMSIS/HAL/FreeRTOS remain under their original
+> terms. The software-source blocker audit is ready for clean reproduction,
+> while binary reproduction and every hardware Release gate remain open. See
+> [`docs/release_readiness.md`](docs/release_readiness.md) and
+> [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
 > P5-S6-T05 update: the bounded soak runner, schema/trend evaluator and
 > 20-iteration Host preflight are `PASS_HOST + PASS_CROSS_BUILD +
 > READY_FOR_HARDWARE`. The 10-minute, 60-minute and formal 8-hour sessions

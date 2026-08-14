@@ -1,5 +1,8 @@
 # 项目五教程索引
 
+> P5-S7-T01 tutorial is `FROZEN` after content review:
+> `p5_s7_t01_release阻塞审查与许可证.md`.
+
 > P5-S6-T05 tutorial is `FROZEN` after content review:
 > `p5_s6_t05_长稳测试与实时资源趋势.md`.
 
@@ -50,7 +53,7 @@
 | S6 | P5-S6-T03 | SocketCAN 与 candleLight 联调 | `p5_s6_t03_socketcan与candlelight联调.md` | READY_FOR_CONTENT_REVIEW |
 | S6 | P5-S6-T04 | 双总线并发、背压与故障隔离 | `p5_s6_t04_双总线并发背压与故障隔离.md` | FROZEN |
 | S6 | P5-S6-T05 | 长稳测试与实时资源趋势 | `p5_s6_t05_长稳测试与实时资源趋势.md` | FROZEN |
-| S7 | P5-S7-T01 | Release 阻塞审查与许可证 | `p5_s7_t01_release阻塞审查与许可证.md` | PLANNED |
+| S7 | P5-S7-T01 | Release 阻塞审查与许可证 | `p5_s7_t01_release阻塞审查与许可证.md` | FROZEN |
 | S7 | P5-S7-T02 | 清洁构建、烧录与复现演练 | `p5_s7_t02_清洁构建烧录与复现演练.md` | PLANNED |
 | S7 | P5-S7-T03 | 硬件证据矩阵与结论边界 | `p5_s7_t03_硬件证据矩阵与结论边界.md` | PLANNED |
 | S7 | P5-S7-T04 | 初学者学习路线与问题复盘 | `p5_s7_t04_初学者学习路线与问题复盘.md` | PLANNED |
