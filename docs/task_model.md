@@ -6,7 +6,7 @@
 | Task | Priority | Period | Deadline | Design budget | T01 service |
 |---|---:|---:|---:|---:|---|
 | `protocol_task` | 5 | 5 ms | 5 ms | 1 ms | bounded RS485 poll/smoke; no Modbus parser |
-| `acquisition_task` | 4 | 20 ms | 20 ms | 2 ms | advance BME280 service once; at most one SPI transaction |
+| `acquisition_task` | 4 | 20 ms | 20 ms | 2 ms | advance BME280 and VEML7700 once; at most one SPI plus one I²C transaction |
 | `can_task` | 3 | 100 ms | 100 ms | 2 ms | release/health skeleton; CAN remains stopped |
 | `health_task` | 2 | 1000 ms | 1000 ms | 5 ms | per-task progress and bounded feed decision; IWDG not armed |
 | `diagnostic_task` | 1 | 200 ms | 200 ms | 2 ms | drain at most 2 diagnostic events, then bounded heartbeat/smoke |
@@ -44,12 +44,14 @@ loop. Health, resource and IRQ-latency snapshots use a zero-wait static mutex
 only while copying complete values. A failed lock returns an explicit
 unavailable result and increments a contention counter.
 
-`acquisition_task` is the only runtime owner of SPI1 and I²C2. P5-S4-T01 now
-advances the BME280 forced-mode state machine once per 20 ms release, with at
-most one 5 ms-timeout SPI transaction. Its owner-local sample is not yet the
-cross-sensor freshness schema; protocol, CAN and health tasks must not call
-sensor or bus APIs directly. The scheduler-before boot probe remains the only
-current exception.
+`acquisition_task` is the only runtime owner of SPI1 and I²C2. Each 20 ms
+release advances the BME280 forced-mode and VEML7700 ALS state machines once,
+using one shared timestamp. Each driver may issue at most one 5 ms-timeout
+transaction, so the combined candidate upper bound is one SPI plus one I²C
+transaction per release. This is not measured WCET; final arbitration remains
+for P5-S4-T05. Owner-local samples are not yet the cross-sensor freshness
+schema; protocol, CAN and health tasks must not call sensor or bus APIs
+directly. The scheduler-before boot probe remains the only current exception.
 
 P5-S3-T05 makes `health_task` the sole owner of the health-policy decision. It
 checks progress from `protocol_task`, `acquisition_task`, `can_task` and

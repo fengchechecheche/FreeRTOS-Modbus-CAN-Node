@@ -38,6 +38,7 @@ set(P5_STM32F4_HAL_SOURCES
 
 set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_bme280.c
+    app/src/app_veml7700.c
     app/src/app_boot.c
     app/src/app_device_probe.c
     app/src/app_device_probe_logic.c
@@ -57,7 +58,8 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     bsp/src/bsp_rs485_irq_event.c
     bsp/src/bsp_rs485_state.c
     bsp/src/bsp_can.c
-    sensors/src/bme280.c)
+    sensors/src/bme280.c
+    sensors/src/veml7700.c)
 
 set(P5_FREERTOS_KERNEL_SOURCES
     Middlewares/Third_Party/FreeRTOS/Source/tasks.c

@@ -87,5 +87,12 @@ else()
     target_include_directories(p5_host_bme280 PRIVATE sensors/include)
     p5_apply_project_warnings(p5_host_bme280)
     add_test(NAME p5.host.bme280 COMMAND p5_host_bme280)
+
+    add_executable(p5_host_veml7700
+        test/host/veml7700_main.c
+        sensors/src/veml7700.c)
+    target_include_directories(p5_host_veml7700 PRIVATE sensors/include)
+    p5_apply_project_warnings(p5_host_veml7700)
+    add_test(NAME p5.host.veml7700 COMMAND p5_host_veml7700)
   endif()
 endif()

@@ -196,6 +196,7 @@ CHECKS: CheckTable = {
         ("ownership host test", "add_test(NAME p5.host.ownership"),
         ("health host test", "add_test(NAME p5.host.health"),
         ("bme280 host test", "add_test(NAME p5.host.bme280"),
+        ("veml7700 host test", "add_test(NAME p5.host.veml7700"),
     ],
     Path("docs/bsp_contract.md"): [
         ("candidate boundary", "BSP_CONTRACT_CANDIDATE_FROZEN"),
@@ -260,8 +261,11 @@ CHECKS: CheckTable = {
         ("queue maximum pending", "app_rtos_event_queue_maximum_pending"),
         ("reset reason capture", "app_rtos_capture_reset_reason("),
         ("reset flags cleared after capture", "__HAL_RCC_CLEAR_RESET_FLAGS();"),
-        ("bme acquisition service", "app_bme280_service((uint32_t)xTaskGetTickCount())"),
+        ("shared acquisition timestamp", "const uint32_t now_ms = (uint32_t)xTaskGetTickCount();"),
+        ("bme acquisition service", "app_bme280_service(now_ms);"),
         ("bme initialized before scheduler", "app_bme280_initialize();"),
+        ("veml acquisition service", "app_veml7700_service(now_ms);"),
+        ("veml initialized before scheduler", "app_veml7700_initialize();"),
     ],
     Path("app/include/app_transport_policy.h"): [
         ("event queue depth", "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (8U)"),
@@ -322,6 +326,35 @@ CHECKS: CheckTable = {
         ("bme register write adapter", "bsp_spi_bus_write_register("),
         ("bme default sample period", "BME280_DEFAULT_SAMPLE_PERIOD_MS"),
     ],
+    Path("sensors/include/veml7700.h"): [
+        ("veml fixed address", "#define VEML7700_ADDRESS_7BIT UINT8_C(0x10)"),
+        ("veml default range", "#define VEML7700_DEFAULT_RANGE_LEVEL (2U)"),
+        ("veml nine range levels", "#define VEML7700_RANGE_LEVEL_COUNT (9U)"),
+        ("veml low threshold", "#define VEML7700_LOW_COUNT_THRESHOLD UINT16_C(100)"),
+        ("veml high threshold", "#define VEML7700_HIGH_COUNT_THRESHOLD UINT16_C(10000)"),
+        ("veml integer illuminance", "uint32_t illuminance_millilux;"),
+        ("veml high lux quality", "VEML7700_QUALITY_HIGH_LUX_UNCORRECTED"),
+    ],
+    Path("sensors/src/veml7700.c"): [
+        ("veml single recovery attempt", "#define VEML7700_MAX_RECOVERY_ATTEMPTS (1U)"),
+        ("veml bounded ranging", "#define VEML7700_MAX_RANGING_ADJUSTMENTS (8U)"),
+        ("veml finest integer resolution", "UINT16_C(42)"),
+        ("veml coarsest integer resolution", "UINT16_C(21504)"),
+    ],
+    Path("bsp/include/bsp_i2c_bus.h"): [
+        ("bounded i2c block", "#define BSP_I2C_BUS_MAX_TRANSFER_BYTES (32U)"),
+        ("i2c register write", "bsp_i2c_bus_write_register("),
+    ],
+    Path("app/include/app_veml7700.h"): [
+        ("veml i2c timeout", "#define APP_VEML7700_I2C_TIMEOUT_MS UINT32_C(5)"),
+        ("veml owner-context snapshot", "Owner-context only until P5-S4-T04"),
+    ],
+    Path("app/src/app_veml7700.c"): [
+        ("veml block read adapter", "bsp_i2c_bus_read_register("),
+        ("veml register write adapter", "bsp_i2c_bus_write_register("),
+        ("veml default sample period", "VEML7700_DEFAULT_SAMPLE_PERIOD_MS"),
+        ("physical recovery not fabricated", "return false;"),
+    ],
     Path("bsp/src/bsp_rs485.c"): [
         ("irq event publish", "bsp_rs485_irq_publish_from_isr("),
         ("task-context event service", "bsp_rs485_service_irq_events(void)"),
@@ -364,6 +397,7 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("task delete", "vTaskDelete("),
         ("direct system reset", "NVIC_SystemReset("),
         ("second spi runtime owner", "bsp_spi_bus_"),
+        ("second i2c runtime owner", "bsp_i2c_bus_"),
     ],
     Path("Core/Src/main.c"): [
         ("generated iwdg init", "MX_IWDG_Init("),
@@ -391,6 +425,23 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("bme adapter mutex", "xSemaphore"),
         ("bme adapter dynamic allocation", "malloc("),
         ("bme adapter unbounded loop", "for (;;)"),
+    ],
+    Path("sensors/src/veml7700.c"): [
+        ("veml hal dependency", "HAL_"),
+        ("veml freertos delay", "vTaskDelay("),
+        ("veml snapshot mutex", "xSemaphore"),
+        ("veml dynamic allocation", "malloc("),
+        ("veml unbounded for loop", "for (;;)"),
+        ("veml unbounded true loop", "while (true)"),
+        ("veml unbounded one loop", "while (1)"),
+        ("veml periodic print", "printf("),
+    ],
+    Path("app/src/app_veml7700.c"): [
+        ("veml adapter direct hal", "HAL_"),
+        ("veml adapter task delay", "vTaskDelay("),
+        ("veml adapter mutex", "xSemaphore"),
+        ("veml adapter dynamic allocation", "malloc("),
+        ("veml adapter unbounded loop", "for (;;)"),
     ],
 }
 
@@ -876,13 +927,64 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    veml_sensor_path = Path("sensors/src/veml7700.c")
+    original_veml_sensor = (root / veml_sensor_path).read_text(encoding="utf-8")
+    veml_delay_mutant = original_veml_sensor + "\nHAL_Delay(1U);\n"
+    veml_delay_errors, _ = verify(
+        root, {veml_sensor_path: veml_delay_mutant}
+    )
+    if not any("veml hal dependency" in item for item in veml_delay_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(VEML7700 HAL delay/dependency was not detected)"
+        )
+        return 2
+
+    veml_loop_mutant = original_veml_sensor + "\nfor (;;) {}\n"
+    veml_loop_errors, _ = verify(
+        root, {veml_sensor_path: veml_loop_mutant}
+    )
+    if not any("veml unbounded for loop" in item for item in veml_loop_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(VEML7700 unbounded retry loop was not detected)"
+        )
+        return 2
+
+    second_i2c_owner_mutant = original_rtos + "\nbsp_i2c_bus_read_register(0, 0, 0, 0, 0, 0);\n"
+    second_i2c_owner_errors, _ = verify(
+        root, {rtos_path: second_i2c_owner_mutant}
+    )
+    if not any(
+        "second i2c runtime owner" in item for item in second_i2c_owner_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(second I2C runtime owner was not detected)"
+        )
+        return 2
+
+    veml_adapter_path = Path("app/src/app_veml7700.c")
+    original_veml_adapter = (root / veml_adapter_path).read_text(encoding="utf-8")
+    veml_mutex_mutant = original_veml_adapter + "\nxSemaphoreTake(0, 0);\n"
+    veml_mutex_errors, _ = verify(
+        root, {veml_adapter_path: veml_mutex_mutant}
+    )
+    if not any("veml adapter mutex" in item for item in veml_mutex_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(I2C-under-snapshot-mutex mutant was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
         "callback-work, queue-depth, blocking-wait, dynamic-queue and "
         "callback-queue, one-epoch-stall, recovery-budget, degraded-feed, "
         "task-delete, default-IWDG, second-feed, BME-HAL-delay, BME-loop, "
-        "second-SPI-owner and BME-mutex mutants rejected)"
+        "second-SPI-owner, BME-mutex, VEML-HAL-delay, VEML-loop, "
+        "second-I2C-owner and VEML-mutex mutants rejected)"
     )
     return 0
 

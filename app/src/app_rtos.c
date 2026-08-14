@@ -11,6 +11,7 @@
 #include "app_rs485_smoke.h"
 #include "app_task_model.h"
 #include "app_transport_policy.h"
+#include "app_veml7700.h"
 #include "bsp_rs485.h"
 #include "queue.h"
 #include "semphr.h"
@@ -209,7 +210,9 @@ static void app_rtos_noop_service(void)
 
 static void app_rtos_acquisition_service(void)
 {
-  app_bme280_service((uint32_t)xTaskGetTickCount());
+  const uint32_t now_ms = (uint32_t)xTaskGetTickCount();
+  app_bme280_service(now_ms);
+  app_veml7700_service(now_ms);
 }
 
 static void app_rtos_protocol_service(void)
@@ -549,6 +552,7 @@ app_rtos_status_t app_rtos_initialize(void)
   app_rtos_event_queue_maximum_pending = 0U;
   app_health_policy_initialize(&app_rtos_health_policy);
   app_bme280_initialize();
+  app_veml7700_initialize();
   app_rtos_capture_reset_reason();
   app_rtos_event_queue = xQueueCreateStatic(
       APP_TRANSPORT_EVENT_QUEUE_DEPTH,

@@ -7,6 +7,7 @@
 #include "stm32f4xx_hal.h"
 
 #define BSP_I2C_BUS_DEFAULT_TIMEOUT_MS UINT32_C(20)
+#define BSP_I2C_BUS_MAX_TRANSFER_BYTES (32U)
 
 typedef enum
 {
@@ -26,5 +27,10 @@ bsp_i2c_bus_result_t bsp_i2c_bus_read_register(uint8_t address_7bit,
                                                 uint8_t *data,
                                                 size_t length,
                                                 uint32_t timeout_ms);
+bsp_i2c_bus_result_t bsp_i2c_bus_write_register(uint8_t address_7bit,
+                                                 uint8_t register_address,
+                                                 const uint8_t *data,
+                                                 size_t length,
+                                                 uint32_t timeout_ms);
 
 #endif

@@ -87,3 +87,11 @@ S2 的 one-shot probe 仍只负责 scheduler 前的 ID 准入，并保持默认�
 P5-S4-T01 在 `acquisition_task` 中新增独立的 BME280 forced-mode 驱动；既有
 single-register probe 回归继续通过。Host mock 和 ARM 链接不改变本报告的
 硬件结论，BME280 identity/measurement 仍为 `NOT_RUN`。
+
+## P5-S4-T02 交接
+
+S2 的 VEML7700 探针仍只证明兼容 address/register presence policy，并保持
+默认关闭。P5-S4-T02 新增独立 ALS configuration/read、整数 millilux 与有限
+auto-range 驱动；既有 one-shot probe 回归继续通过。Host mock 与 ARM 链接不把
+`0x10` ACK、silicon identity、光照响应或总线恢复提升为硬件结论，这些仍为
+`NOT_RUN`/`NOT_CLAIMED`。

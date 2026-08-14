@@ -156,3 +156,18 @@ added.
 
 Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM gates.
 Runtime acquisition watermark and SPI WCET remain `NOT_MEASURED` until hardware.
+
+## S4-T02 VEML7700 regression
+
+T02 adds the pure VEML7700 word/config/range state machine, one fixed instance
+and owner-local snapshot, plus bounded I²C register write support. It adds no
+task, stack, queue, mutex, dynamic heap or periodic evidence buffer.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from `[019]` |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 34684 B | 160 B | 9632 B | 34844 B | 9792 B | Flash +4168 B, RAM +128 B |
+| Release | 29408 B | 156 B | 9628 B | 29564 B | 9784 B | Flash +3212 B, RAM +128 B |
+
+Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM gates. The
+five application stacks and queue depth remain unchanged. Hardware acquisition
+watermark and the combined SPI/I²C WCET remain `NOT_MEASURED`.
