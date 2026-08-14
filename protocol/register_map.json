@@ -1,0 +1,209 @@
+{
+  "schema_version": "1.0.0",
+  "document": {
+    "project": "freertos_modbus_can_node",
+    "task_id": "P5-S5-T01",
+    "status": "candidate_validated",
+    "map_revision": 1,
+    "runtime_status": "not_implemented",
+    "hardware_status": "waiting_for_hardware"
+  },
+  "protocol": {
+    "mode": "modbus_rtu",
+    "role": "slave",
+    "address_model": "zero_based",
+    "default_slave_address": 4,
+    "allowed_slave_address_min": 1,
+    "allowed_slave_address_max": 247,
+    "broadcast_supported": false,
+    "serial_profile": "19200_8E1",
+    "supported_functions": ["0x03", "0x04", "0x06"],
+    "register_byte_order": "big_endian",
+    "multi_register_word_order": "high_word_first",
+    "crc_wire_order": "low_byte_first",
+    "crc_runtime_status": "not_implemented",
+    "parser_runtime_status": "not_implemented",
+    "handler_runtime_status": "not_implemented"
+  },
+  "data_types": {
+    "uint16": {"register_count": 1, "signed": false},
+    "int32": {"register_count": 2, "signed": true},
+    "uint32": {"register_count": 2, "signed": false}
+  },
+  "atomicity": {
+    "input_region_start": 0,
+    "input_region_count": 122,
+    "input_region_end": 121,
+    "maximum_read_registers": 125,
+    "contiguous": true,
+    "response_source": "one_request_local_fixed_image",
+    "mutex_policy": "copy_then_unlock_before_lookup_crc_or_encoding",
+    "multi_request_consistency": "compare_register_image_generation",
+    "unavailable_snapshot_policy": "server_device_failure",
+    "runtime_status": "not_implemented"
+  },
+  "invalid_value_policy": {
+    "sentinel_used": false,
+    "value_words_without_last_good": 0,
+    "consumer_must_check": ["state", "value_present"],
+    "retained_value_requires": ["state", "age_ms", "quality", "value_retained"]
+  },
+  "wire_codes": {
+    "measurement_state": {
+      "invalid": 0,
+      "fresh": 1,
+      "stale": 2,
+      "offline": 3
+    },
+    "metadata_flags": {
+      "value_present": 0,
+      "value_retained": 1
+    },
+    "quality_bits": {
+      "uncalibrated": 0,
+      "range_warning": 1,
+      "saturated": 2,
+      "gap": 3,
+      "dropped": 4,
+      "transport_error": 5,
+      "configuration_error": 6,
+      "recovery_active": 7
+    },
+    "sensor_fault_class": {
+      "none": 0,
+      "not_present_or_identity": 1,
+      "transport_busy": 2,
+      "transport_timeout": 3,
+      "transport_io": 4,
+      "configuration": 5,
+      "data_stalled": 6,
+      "recovery_active": 7,
+      "offline": 8
+    },
+    "health_state": {
+      "bootstrap": 0,
+      "serviceable": 1,
+      "degraded": 2,
+      "recovery_required": 3,
+      "reset_required": 4,
+      "reset_loop_latched": 5
+    },
+    "serial_profile": {
+      "19200_8E1": 1
+    }
+  },
+  "holding_registers": {
+    "read_function": "0x03",
+    "write_function": "0x06",
+    "write_whitelist": ["active_slave_address"],
+    "write_commit": "after_normal_echo_tx_complete",
+    "persistence": "volatile_reset_to_default_4",
+    "entries": [
+      {"name": "active_slave_address", "address": 0, "type": "uint16", "count": 1, "access": "read_write", "minimum": 1, "maximum": 247, "idempotent_write_increments_generation": false},
+      {"name": "default_slave_address", "address": 1, "type": "uint16", "count": 1, "access": "read", "constant": 4},
+      {"name": "serial_profile", "address": 2, "type": "uint16", "count": 1, "access": "read", "wire_code": 1},
+      {"name": "configuration_generation", "address": 3, "type": "uint16", "count": 1, "access": "read", "increment": "successful_non_idempotent_write"}
+    ]
+  },
+  "input_registers": {
+    "read_function": "0x04",
+    "entries": [
+      {"name": "device_signature", "address": 0, "type": "uint16", "count": 1, "category": "header", "constant": 20533},
+      {"name": "register_map_revision", "address": 1, "type": "uint16", "count": 1, "category": "header", "constant": 1},
+      {"name": "measurement_schema_revision", "address": 2, "type": "uint16", "count": 1, "category": "header"},
+      {"name": "sensor_monitor_schema_revision", "address": 3, "type": "uint16", "count": 1, "category": "header"},
+      {"name": "firmware_version_major", "address": 4, "type": "uint16", "count": 1, "category": "header"},
+      {"name": "firmware_version_minor", "address": 5, "type": "uint16", "count": 1, "category": "header"},
+      {"name": "firmware_version_patch", "address": 6, "type": "uint16", "count": 1, "category": "header"},
+      {"name": "firmware_version_flags", "address": 7, "type": "uint16", "count": 1, "category": "header", "bit_fields": {"version_valid": 0}},
+      {"name": "register_image_generation", "address": 8, "type": "uint32", "count": 2, "category": "header", "unit": "count"},
+      {"name": "evaluated_monotonic_ms", "address": 10, "type": "uint32", "count": 2, "category": "header", "unit": "ms", "clock": "freertos_monotonic_not_utc"},
+      {"name": "source_value_present_mask", "address": 12, "type": "uint16", "count": 1, "category": "header", "unit": "bitmask"},
+      {"name": "source_value_retained_mask", "address": 13, "type": "uint16", "count": 1, "category": "header", "unit": "bitmask"},
+      {"name": "source_stale_mask", "address": 14, "type": "uint16", "count": 1, "category": "header", "unit": "bitmask"},
+      {"name": "sensor_unavailable_mask", "address": 15, "type": "uint16", "count": 1, "category": "header", "unit": "bitmask"},
+      {"name": "sensor_recovery_mask", "address": 16, "type": "uint16", "count": 1, "category": "header", "unit": "bitmask"},
+      {"name": "source_device_count", "address": 17, "type": "uint16", "count": 1, "category": "header", "encoding": "source_count_high_byte_device_count_low_byte", "constant": 1027},
+
+      {"name": "bme280_temperature", "address": 18, "type": "int32", "count": 2, "category": "measurement", "field_id": "0x0101", "source": "bme280", "unit": "centi_deg_c", "scale": 1},
+      {"name": "bme280_pressure", "address": 20, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0102", "source": "bme280", "unit": "pa", "scale": 1},
+      {"name": "bme280_humidity", "address": 22, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0103", "source": "bme280", "unit": "milli_percent_rh", "scale": 1},
+      {"name": "veml7700_illuminance", "address": 24, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0201", "source": "veml7700", "unit": "millilux", "scale": 1},
+      {"name": "adxl345_acceleration_x", "address": 26, "type": "int32", "count": 2, "category": "measurement", "field_id": "0x0301", "source": "adxl345_sample", "unit": "millig", "scale": 1},
+      {"name": "adxl345_acceleration_y", "address": 28, "type": "int32", "count": 2, "category": "measurement", "field_id": "0x0302", "source": "adxl345_sample", "unit": "millig", "scale": 1},
+      {"name": "adxl345_acceleration_z", "address": 30, "type": "int32", "count": 2, "category": "measurement", "field_id": "0x0303", "source": "adxl345_sample", "unit": "millig", "scale": 1},
+      {"name": "adxl345_mean_x", "address": 32, "type": "int32", "count": 2, "category": "measurement", "field_id": "0x0311", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_mean_y", "address": 34, "type": "int32", "count": 2, "category": "measurement", "field_id": "0x0312", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_mean_z", "address": 36, "type": "int32", "count": 2, "category": "measurement", "field_id": "0x0313", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_rms_x", "address": 38, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0321", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_rms_y", "address": 40, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0322", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_rms_z", "address": 42, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0323", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_peak_x", "address": 44, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0331", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_peak_y", "address": 46, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0332", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_peak_z", "address": 48, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0333", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+      {"name": "adxl345_resultant_rms", "address": 50, "type": "uint32", "count": 2, "category": "measurement", "field_id": "0x0341", "source": "adxl345_feature", "unit": "millig", "scale": 1},
+
+      {"name": "bme280_state", "address": 52, "type": "uint16", "count": 1, "category": "metadata", "source": "bme280", "member": "state"},
+      {"name": "bme280_flags", "address": 53, "type": "uint16", "count": 1, "category": "metadata", "source": "bme280", "member": "flags"},
+      {"name": "bme280_quality", "address": 54, "type": "uint32", "count": 2, "category": "metadata", "source": "bme280", "member": "quality"},
+      {"name": "bme280_sequence", "address": 56, "type": "uint32", "count": 2, "category": "metadata", "source": "bme280", "member": "sequence"},
+      {"name": "bme280_sample_monotonic_ms", "address": 58, "type": "uint32", "count": 2, "category": "metadata", "source": "bme280", "member": "sample_monotonic_ms", "unit": "ms"},
+      {"name": "bme280_age_ms", "address": 60, "type": "uint32", "count": 2, "category": "metadata", "source": "bme280", "member": "age_ms", "unit": "ms"},
+      {"name": "veml7700_state", "address": 62, "type": "uint16", "count": 1, "category": "metadata", "source": "veml7700", "member": "state"},
+      {"name": "veml7700_flags", "address": 63, "type": "uint16", "count": 1, "category": "metadata", "source": "veml7700", "member": "flags"},
+      {"name": "veml7700_quality", "address": 64, "type": "uint32", "count": 2, "category": "metadata", "source": "veml7700", "member": "quality"},
+      {"name": "veml7700_sequence", "address": 66, "type": "uint32", "count": 2, "category": "metadata", "source": "veml7700", "member": "sequence"},
+      {"name": "veml7700_sample_monotonic_ms", "address": 68, "type": "uint32", "count": 2, "category": "metadata", "source": "veml7700", "member": "sample_monotonic_ms", "unit": "ms"},
+      {"name": "veml7700_age_ms", "address": 70, "type": "uint32", "count": 2, "category": "metadata", "source": "veml7700", "member": "age_ms", "unit": "ms"},
+      {"name": "adxl345_sample_state", "address": 72, "type": "uint16", "count": 1, "category": "metadata", "source": "adxl345_sample", "member": "state"},
+      {"name": "adxl345_sample_flags", "address": 73, "type": "uint16", "count": 1, "category": "metadata", "source": "adxl345_sample", "member": "flags"},
+      {"name": "adxl345_sample_quality", "address": 74, "type": "uint32", "count": 2, "category": "metadata", "source": "adxl345_sample", "member": "quality"},
+      {"name": "adxl345_sample_sequence", "address": 76, "type": "uint32", "count": 2, "category": "metadata", "source": "adxl345_sample", "member": "sequence"},
+      {"name": "adxl345_sample_monotonic_ms", "address": 78, "type": "uint32", "count": 2, "category": "metadata", "source": "adxl345_sample", "member": "sample_monotonic_ms", "unit": "ms"},
+      {"name": "adxl345_sample_age_ms", "address": 80, "type": "uint32", "count": 2, "category": "metadata", "source": "adxl345_sample", "member": "age_ms", "unit": "ms"},
+      {"name": "adxl345_feature_state", "address": 82, "type": "uint16", "count": 1, "category": "metadata", "source": "adxl345_feature", "member": "state"},
+      {"name": "adxl345_feature_flags", "address": 83, "type": "uint16", "count": 1, "category": "metadata", "source": "adxl345_feature", "member": "flags"},
+      {"name": "adxl345_feature_quality", "address": 84, "type": "uint32", "count": 2, "category": "metadata", "source": "adxl345_feature", "member": "quality"},
+      {"name": "adxl345_feature_sequence", "address": 86, "type": "uint32", "count": 2, "category": "metadata", "source": "adxl345_feature", "member": "sequence"},
+      {"name": "adxl345_feature_monotonic_ms", "address": 88, "type": "uint32", "count": 2, "category": "metadata", "source": "adxl345_feature", "member": "sample_monotonic_ms", "unit": "ms"},
+      {"name": "adxl345_feature_age_ms", "address": 90, "type": "uint32", "count": 2, "category": "metadata", "source": "adxl345_feature", "member": "age_ms", "unit": "ms"},
+
+      {"name": "adxl345_irq_event_count", "address": 92, "type": "uint32", "count": 2, "category": "sensor_monitor", "unit": "count"},
+      {"name": "adxl345_dropped_lower_bound", "address": 94, "type": "uint32", "count": 2, "category": "sensor_monitor", "unit": "count"},
+      {"name": "bme280_fault_class", "address": 96, "type": "uint16", "count": 1, "category": "sensor_monitor", "device": "bme280"},
+      {"name": "bme280_fault_episode_count", "address": 97, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "bme280", "unit": "count"},
+      {"name": "bme280_recovery_request_count", "address": 99, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "bme280", "unit": "count"},
+      {"name": "bme280_recovery_success_count", "address": 101, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "bme280", "unit": "count"},
+      {"name": "veml7700_fault_class", "address": 103, "type": "uint16", "count": 1, "category": "sensor_monitor", "device": "veml7700"},
+      {"name": "veml7700_fault_episode_count", "address": 104, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "veml7700", "unit": "count"},
+      {"name": "veml7700_recovery_request_count", "address": 106, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "veml7700", "unit": "count"},
+      {"name": "veml7700_recovery_success_count", "address": 108, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "veml7700", "unit": "count"},
+      {"name": "adxl345_fault_class", "address": 110, "type": "uint16", "count": 1, "category": "sensor_monitor", "device": "adxl345"},
+      {"name": "adxl345_fault_episode_count", "address": 111, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "adxl345", "unit": "count"},
+      {"name": "adxl345_recovery_request_count", "address": 113, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "adxl345", "unit": "count"},
+      {"name": "adxl345_recovery_success_count", "address": 115, "type": "uint32", "count": 2, "category": "sensor_monitor", "device": "adxl345", "unit": "count"},
+      {"name": "health_state", "address": 117, "type": "uint16", "count": 1, "category": "system_diagnostic"},
+      {"name": "health_warning_mask", "address": 118, "type": "uint32", "count": 2, "category": "system_diagnostic", "unit": "bitmask"},
+      {"name": "rs485_error_count", "address": 120, "type": "uint32", "count": 2, "category": "system_diagnostic", "unit": "count"}
+    ]
+  },
+  "project_three_compatibility": {
+    "observed_repository_head": "8e0e909a8b7576ab80b6f2ade186631910226b47",
+    "existing_slave_addresses": [1, 2, 3],
+    "project_five_slave_address": 4,
+    "matching_contracts": ["zero_based", "0x03", "0x04", "0x06", "big_endian", "high_word_first"],
+    "project_three_write_authorized": false,
+    "profile_status": "not_created"
+  },
+  "scope_exclusions": [
+    "modbus_master",
+    "modbus_ascii",
+    "modbus_tcp",
+    "broadcast",
+    "multiple_register_write",
+    "can_identifier",
+    "motor_actuator_semantics",
+    "production_fault_injection",
+    "raw_sample_history"
+  ]
+}

@@ -8,8 +8,9 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 内容审核，等待硬件补验。P5-S4-T03 ADXL345 DATA_READY 中断采样、整数工程量和
 100 样本振动趋势特征已经完成内容审核。P5-S4-T04 已形成统一 sequence、单调时间、
 质量和新鲜度的软件候选。P5-S4-T05 已增加固定大小的多传感器监测摘要与确定性
-联合故障矩阵；当前为 `READY_FOR_CONTENT_REVIEW + READY_FOR_HARDWARE`，Modbus 协议与
-CAN 业务仍未实现。
+联合故障矩阵，内容已审核冻结。P5-S5-T01 已形成地址 4 的 Modbus register contract
+候选和机器可读 map；当前为 `CANDIDATE_VALIDATED`，CRC/parser/handler runtime 仍为
+`NOT_IMPLEMENTED`，CAN 业务仍未实现。
 
 ## 当前边界
 
@@ -54,7 +55,8 @@ CAN 业务仍未实现。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 尚未到货，ST-LINK、VCP、UART loopback、RS485 physical layer 和全部板级接口均保持
   `WAITING_FOR_HARDWARE`。
-- 默认 Modbus slave address contract 为 `4`；当前不实现 register table、function code 或 CRC。
+- 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
+  holding map 和 0x03/0x04/0x06 应用合同，runtime 仍为 `NOT_IMPLEMENTED`。
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
@@ -79,6 +81,15 @@ BSP 静态合同检查：
 ```bash
 python3 tools/verify_bsp_contract.py
 ```
+
+Modbus register contract 检查：
+
+```bash
+python3 tools/verify_modbus_contract.py
+python3 tools/verify_modbus_contract.py --self-test
+```
+
+该入口只验证 map、类型、地址、metadata 和范围，不生成或处理 RTU 帧。
 
 ## 固件构建
 

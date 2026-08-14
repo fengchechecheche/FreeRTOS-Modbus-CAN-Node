@@ -26,8 +26,8 @@
 | S4 | P5-S4-T02 | VEML7700 I²C 光照采集 | `p5_s4_t02_veml7700_i2c光照采集.md` | FROZEN |
 | S4 | P5-S4-T03 | ADXL345 中断采样与振动特征 | `p5_s4_t03_adxl345中断采样与振动特征.md` | FROZEN |
 | S4 | P5-S4-T04 | 统一采样、质量、新鲜度与时间戳 | `p5_s4_t04_统一采样质量新鲜度与时间戳.md` | FROZEN |
-| S4 | P5-S4-T05 | 多传感器调度与故障注入 | `p5_s4_t05_多传感器调度与故障注入.md` | READY_FOR_CONTENT_REVIEW |
-| S5 | P5-S5-T01 | Modbus 从站合同与寄存器映射 | `p5_s5_t01_modbus从站合同与寄存器映射.md` | PLANNED |
+| S4 | P5-S4-T05 | 多传感器调度与故障注入 | `p5_s4_t05_多传感器调度与故障注入.md` | FROZEN |
+| S5 | P5-S5-T01 | Modbus 从站合同与寄存器映射 | `p5_s5_t01_modbus从站合同与寄存器映射.md` | READY_FOR_CONTENT_REVIEW |
 | S5 | P5-S5-T02 | Modbus CRC、组帧与静默间隔 | `p5_s5_t02_modbus_crc组帧与静默间隔.md` | PLANNED |
 | S5 | P5-S5-T03 | RS485 接收状态机与半双工时序 | `p5_s5_t03_rs485接收状态机与半双工时序.md` | PLANNED |
 | S5 | P5-S5-T04 | 功能码、异常响应与配置写入 | `p5_s5_t04_功能码异常响应与配置写入.md` | PLANNED |

@@ -160,3 +160,19 @@ or wire format; schema revision 1 and all 17 logical field IDs are unchanged.
 Its Host interval and recovery durations use deterministic virtual ticks and
 must not be reported as measured jitter or physical recovery time. No raw
 sample history or periodic evidence stream is retained.
+
+## S5-T01 Modbus projection
+
+The candidate Modbus input map projects all 17 logical fields without changing
+their S4 types or units. Signed temperature, acceleration and mean values use
+two-register int32; pressure, humidity, illuminance, RMS, peak and resultant
+values use two-register uint32. Each register sends its high byte first and a
+32-bit value sends its high word first. No float or 16-bit rescale is used.
+
+Each of the four sources has an independent 10-register metadata block with
+state, value-present/retained flags, quality, sequence, sample monotonic time
+and age. Invalid values have no sentinel: value words are meaningful only when
+state/value-present allow them. Stale/offline last-good values remain explicitly
+retained. The complete candidate input image is 122 contiguous registers and
+can fit in one `0x04` read, but CRC/parser/handler runtime remains
+`NOT_IMPLEMENTED`.
