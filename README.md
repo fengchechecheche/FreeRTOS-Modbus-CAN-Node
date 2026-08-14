@@ -1,5 +1,11 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S6-T05 update: the bounded soak runner, schema/trend evaluator and
+> 20-iteration Host preflight are `PASS_HOST + PASS_CROSS_BUILD +
+> READY_FOR_HARDWARE`. The 10-minute, 60-minute and formal 8-hour sessions
+> remain `NOT_RUN` until hardware and a reviewed collector are available. See
+> [`docs/soak_trend_report.md`](docs/soak_trend_report.md).
+
 > P5-S6-T04 update: the deterministic dual-bus matrix is `PASS_HOST +
 > PASS_CROSS_BUILD + READY_FOR_HARDWARE`. D01-D08 cover Modbus/RS485 slow,
 > CRC, busy and timeout paths together with CAN latest-wins, queue pressure and
@@ -39,7 +45,9 @@ RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响�
 8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；P5-S6-T02
 已接入 filter、IRQ、固定队列、task notification 与 bus-off 恢复软件候选，硬件保持
 `WAITING_FOR_HARDWARE`。P5-S6-T04 已用一个直接链接生产模块的 Host 矩阵验证双总线背压和
-软件故障隔离；未修改固件任务或 RTOS 资源，实物并发仍待硬件。
+软件故障隔离；未修改固件任务或 RTOS 资源，实物并发仍待硬件。P5-S6-T05 已增加有界
+JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保持不变，真实 10 分钟、60 分钟
+和 8 小时长稳均为 `NOT_RUN`。
 
 ## 当前边界
 

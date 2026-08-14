@@ -274,3 +274,20 @@ five latest-wins telemetry groups; the RX ring holds four frames.
 The unchanged gates remain 384 KiB Flash and 96 KiB linked RAM. Physical CAN
 load, ISR-to-task latency, task stack watermark and recovery timing remain
 `NOT_MEASURED` until hardware is available.
+
+## S6-T05 soak-runner regression
+
+T05 adds only a Host-side standard-library Python runner and documentation. It
+does not change the default firmware, task set, stacks, queues, mutexes, static
+objects or linker scripts. The `[034]` resource values therefore remain:
+
+| Build | text | data | bss | Flash | Linked RAM |
+|---|---:|---:|---:|---:|---:|
+| Debug | 53272 B | 160 B | 13224 B | 53432 B | 13384 B |
+| Release | 44404 B | 156 B | 13216 B | 44560 B | 13372 B |
+
+FreeRTOS dynamic allocation is disabled, no `heap_x.c` is linked and linker
+heap reserve remains zero. The soak schema records this static heap policy
+instead of inventing a free-heap trend. Real task stack watermarks, queue
+pressure and runtime timing remain `NOT_MEASURED` until a reviewed hardware
+collector is available.

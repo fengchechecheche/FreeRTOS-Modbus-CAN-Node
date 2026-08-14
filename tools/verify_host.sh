@@ -2,6 +2,7 @@
 set -eu
 
 python3 tools/verify_modbus_contract.py
+python3 tools/soak_runner.py --self-test
 
 for preset in host-debug host-release; do
     cmake --preset "${preset}"

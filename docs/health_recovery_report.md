@@ -141,3 +141,16 @@ The combined Host oracle covers persistent single-device failure and recovery
 while the other sources continue. This is a pure-policy/software result. The
 IWDG is still not configured, and real sensor disconnect, feed timing and
 reset behavior remain `NOT_RUN`.
+
+## S6-T05 long-soak observation boundary
+
+The bounded soak runner evaluates versioned samples for task/sensor progress,
+stack watermarks, queue/CAN capacity, counter rollback, sustained error growth,
+fault/reset indicators and missing-duration coverage. Isolated events may
+require review; persistent stalls, capacity violations, reset/fault, rollback
+or a measured stack watermark below 32 free words fail the session.
+
+This adds no firmware instrumentation and does not claim that the existing
+health or reset paths ran on target. Real IWDG feed/reset, retained reset
+records, task watermarks, bus recovery and the 10-minute/60-minute/8-hour runs
+remain `NOT_RUN` pending hardware and a separately reviewed collector.
