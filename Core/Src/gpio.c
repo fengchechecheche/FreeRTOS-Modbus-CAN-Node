@@ -75,7 +75,7 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pin : ADXL345_INT1_Pin */
   GPIO_InitStruct.Pin = ADXL345_INT1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(ADXL345_INT1_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : BME280_CS_Pin */
@@ -84,6 +84,10 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(BME280_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
 }
 
