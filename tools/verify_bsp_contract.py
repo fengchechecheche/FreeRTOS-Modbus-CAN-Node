@@ -64,6 +64,7 @@ CHECKS: CheckTable = {
     ],
     Path("Core/Inc/stm32f4xx_hal_conf.h"): [
         ("tim hal enabled", "#define HAL_TIM_MODULE_ENABLED"),
+        ("iwdg hal disabled", "/* #define HAL_IWDG_MODULE_ENABLED */"),
     ],
     Path("Core/Src/stm32f4xx_hal_msp.c"): [
         ("nvic priority group", "HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);"),
@@ -152,6 +153,8 @@ CHECKS: CheckTable = {
         ("cm4f port source", "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c"),
         ("rs485 irq event source", "bsp/src/bsp_rs485_irq_event.c"),
         ("transport policy source", "app/src/app_transport_policy.c"),
+        ("health policy source", "app/src/app_health_policy.c"),
+        ("reset reason source", "app/src/app_reset_reason.c"),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -191,6 +194,7 @@ CHECKS: CheckTable = {
             'option(P5_IRQ_NOTIFICATION_SMOKE "Enable bounded DWT IRQ latency summaries" OFF)',
         ),
         ("ownership host test", "add_test(NAME p5.host.ownership"),
+        ("health host test", "add_test(NAME p5.host.health"),
     ],
     Path("docs/bsp_contract.md"): [
         ("candidate boundary", "BSP_CONTRACT_CANDIDATE_FROZEN"),
@@ -209,6 +213,19 @@ CHECKS: CheckTable = {
         ("measurement deferred", "measurement schema deferred to S4"),
         ("command deferred", "schema and instance deferred to S5"),
     ],
+    Path("docs/health_recovery_report.md"): [
+        (
+            "s3 software gate",
+            "S3 software gate: `PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE`",
+        ),
+        ("iwdg not configured", "IWDG runtime: `NOT_CONFIGURED / NOT_RUN`"),
+        (
+            "reset persistence not implemented",
+            "Reset-record persistence: `NOT_IMPLEMENTED / NOT_RUN`",
+        ),
+        ("health hardware waiting", "Hardware status: `WAITING_FOR_HARDWARE`"),
+        ("single feed owner", "the only owner of the watchdog feed decision"),
+    ],
     Path("config/FreeRTOSConfig.h"): [
         ("static allocation", "#define configSUPPORT_STATIC_ALLOCATION 1"),
         ("dynamic allocation off", "#define configSUPPORT_DYNAMIC_ALLOCATION 0"),
@@ -221,6 +238,7 @@ CHECKS: CheckTable = {
         ("recursive mutex disabled", "#define configUSE_RECURSIVE_MUTEXES 0"),
         ("counting semaphore disabled", "#define configUSE_COUNTING_SEMAPHORES 0"),
         ("queue sets disabled", "#define configUSE_QUEUE_SETS 0"),
+        ("task delete disabled", "#define INCLUDE_vTaskDelete 0"),
         (
             "max syscall irq priority",
             "#define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY 5",
@@ -236,6 +254,11 @@ CHECKS: CheckTable = {
         ("zero-wait event publish", "xQueueSend(app_rtos_event_queue, event, 0U)"),
         ("zero-wait bounded drain", "xQueueReceive(app_rtos_event_queue, &event, 0U)"),
         ("snapshot zero-wait", "xSemaphoreTake(app_rtos_snapshot_mutex, 0U)"),
+        ("health policy evaluation", "app_health_policy_evaluate("),
+        ("transition-only health event", "snapshot.decision.publish_transition"),
+        ("queue maximum pending", "app_rtos_event_queue_maximum_pending"),
+        ("reset reason capture", "app_rtos_capture_reset_reason("),
+        ("reset flags cleared after capture", "__HAL_RCC_CLEAR_RESET_FLAGS();"),
     ],
     Path("app/include/app_transport_policy.h"): [
         ("event queue depth", "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (8U)"),
@@ -244,6 +267,28 @@ CHECKS: CheckTable = {
         ("event detail by value", "uint32_t detail;"),
         ("event source by value", "uint16_t source;"),
         ("event code by value", "uint16_t code;"),
+    ],
+    Path("app/include/app_health_policy.h"): [
+        ("two-epoch stall gate", "#define APP_HEALTH_STALL_EPOCH_LIMIT (2U)"),
+        ("three-attempt recovery gate", "#define APP_HEALTH_RECOVERY_ATTEMPT_LIMIT (3U)"),
+        ("feed withheld decision", "APP_WATCHDOG_FEED_WITHHELD"),
+        ("feed allowed decision", "APP_WATCHDOG_FEED_ALLOWED"),
+    ],
+    Path("app/src/app_health_policy.c"): [
+        (
+            "serviceable degraded recovery feed contract",
+            "case APP_HEALTH_SERVICEABLE:\n"
+            "    case APP_HEALTH_DEGRADED:\n"
+            "    case APP_HEALTH_RECOVERY_REQUIRED:\n"
+            "      return APP_WATCHDOG_FEED_ALLOWED;",
+        ),
+        ("health excludes self progress", "index != (size_t)APP_TASK_HEALTH"),
+        ("bounded recovery saturation", "APP_HEALTH_RECOVERY_ATTEMPT_LIMIT"),
+    ],
+    Path("app/include/app_reset_reason.h"): [
+        ("reset record magic", "#define APP_RESET_RECORD_MAGIC UINT32_C(0x50355252)"),
+        ("reset loop limit", "#define APP_RESET_LOOP_LIMIT (3U)"),
+        ("reset record checksum field", "uint32_t checksum;"),
     ],
     Path("bsp/src/bsp_rs485.c"): [
         ("irq event publish", "bsp_rs485_irq_publish_from_isr("),
@@ -256,6 +301,7 @@ FORBIDDEN_CHECKS: CheckTable = {
     Path("freertos_modbus_can_node.ioc"): [
         ("legacy systick timebase", "VP_SYS_VS_Systick.Mode=SysTick"),
         ("non-rtos priority group", "NVIC.PriorityGroup=NVIC_PRIORITYGROUP_0"),
+        ("iwdg cubemx configuration", "IWDG."),
     ],
     Path("Core/Src/stm32f4xx_it.c"): [
         ("hal tick in systick irq file", "HAL_IncTick();"),
@@ -273,6 +319,7 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("recursive mutex enabled", "#define configUSE_RECURSIVE_MUTEXES 1"),
         ("counting semaphore enabled", "#define configUSE_COUNTING_SEMAPHORES 1"),
         ("queue sets enabled", "#define configUSE_QUEUE_SETS 1"),
+        ("task delete enabled", "#define INCLUDE_vTaskDelete 1"),
     ],
     Path("app/src/app_rtos.c"): [
         ("blocking transport wait", "portMAX_DELAY"),
@@ -280,6 +327,20 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("dynamic mutex create", "xSemaphoreCreateMutex()"),
         ("ordinary event queue from ISR", "xQueueSendFromISR("),
         ("event overwrite", "xQueueOverwrite("),
+        ("direct iwdg refresh", "HAL_IWDG_Refresh("),
+        ("watchdog adapter refresh", "bsp_watchdog_refresh("),
+        ("task delete", "vTaskDelete("),
+        ("direct system reset", "NVIC_SystemReset("),
+    ],
+    Path("Core/Src/main.c"): [
+        ("generated iwdg init", "MX_IWDG_Init("),
+        ("main iwdg refresh", "HAL_IWDG_Refresh("),
+    ],
+    Path("Core/Inc/stm32f4xx_hal_conf.h"): [
+        ("iwdg hal enabled", "#define HAL_IWDG_MODULE_ENABLED\n"),
+    ],
+    Path("app/src/app_health_policy.c"): [
+        ("unbounded recovery loop", "for (;;)")
     ],
 }
 
@@ -596,11 +657,135 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    health_header_path = Path("app/include/app_health_policy.h")
+    original_health_header = (root / health_header_path).read_text(
+        encoding="utf-8"
+    )
+    stall_mutant = original_health_header.replace(
+        "#define APP_HEALTH_STALL_EPOCH_LIMIT (2U)",
+        "#define APP_HEALTH_STALL_EPOCH_LIMIT (1U)",
+        1,
+    )
+    if stall_mutant == original_health_header:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create one-epoch-stall mutant)"
+        )
+        return 2
+    stall_errors, _ = verify(root, {health_header_path: stall_mutant})
+    if not any("two-epoch stall gate" in item for item in stall_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(one-epoch reset gate was not detected)"
+        )
+        return 2
+
+    recovery_mutant = original_health_header.replace(
+        "#define APP_HEALTH_RECOVERY_ATTEMPT_LIMIT (3U)",
+        "#define APP_HEALTH_RECOVERY_ATTEMPT_LIMIT (0U)",
+        1,
+    )
+    if recovery_mutant == original_health_header:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create recovery-budget mutant)"
+        )
+        return 2
+    recovery_errors, _ = verify(root, {health_header_path: recovery_mutant})
+    if not any(
+        "three-attempt recovery gate" in item for item in recovery_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(unbounded/zero recovery budget was not detected)"
+        )
+        return 2
+
+    health_source_path = Path("app/src/app_health_policy.c")
+    original_health_source = (root / health_source_path).read_text(
+        encoding="utf-8"
+    )
+    degraded_feed_mutant = original_health_source.replace(
+        "case APP_HEALTH_DEGRADED:",
+        "case APP_HEALTH_RESET_REQUIRED:",
+        1,
+    )
+    if degraded_feed_mutant == original_health_source:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create degraded-feed mutant)"
+        )
+        return 2
+    degraded_feed_errors, _ = verify(
+        root, {health_source_path: degraded_feed_mutant}
+    )
+    if not any(
+        "serviceable degraded recovery feed contract" in item
+        for item in degraded_feed_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(degraded feed regression was not detected)"
+        )
+        return 2
+
+    config_path = Path("config/FreeRTOSConfig.h")
+    original_config = (root / config_path).read_text(encoding="utf-8")
+    task_delete_mutant = original_config.replace(
+        "#define INCLUDE_vTaskDelete 0",
+        "#define INCLUDE_vTaskDelete 1",
+        1,
+    )
+    if task_delete_mutant == original_config:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create task-delete mutant)"
+        )
+        return 2
+    task_delete_errors, _ = verify(root, {config_path: task_delete_mutant})
+    if not any("task delete enabled" in item for item in task_delete_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(task delete enable was not detected)"
+        )
+        return 2
+
+    hal_config_path = Path("Core/Inc/stm32f4xx_hal_conf.h")
+    original_hal_config = (root / hal_config_path).read_text(encoding="utf-8")
+    iwdg_mutant = original_hal_config.replace(
+        "/* #define HAL_IWDG_MODULE_ENABLED */",
+        "#define HAL_IWDG_MODULE_ENABLED",
+        1,
+    )
+    if iwdg_mutant == original_hal_config:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create default-IWDG mutant)"
+        )
+        return 2
+    iwdg_errors, _ = verify(root, {hal_config_path: iwdg_mutant})
+    if not any("iwdg hal enabled" in item for item in iwdg_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(default IWDG enable was not detected)"
+        )
+        return 2
+
+    second_feed_mutant = original_rtos + "\nHAL_IWDG_Refresh(0);\n"
+    second_feed_errors, _ = verify(root, {rtos_path: second_feed_mutant})
+    if not any("direct iwdg refresh" in item for item in second_feed_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(second/direct feed owner was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
         "callback-work, queue-depth, blocking-wait, dynamic-queue and "
-        "callback-queue mutants rejected)"
+        "callback-queue, one-epoch-stall, recovery-budget, degraded-feed, "
+        "task-delete, default-IWDG and second-feed mutants rejected)"
     )
     return 0
 

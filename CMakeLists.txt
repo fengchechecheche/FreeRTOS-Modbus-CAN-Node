@@ -72,5 +72,13 @@ else()
     target_include_directories(p5_host_ownership PRIVATE app/include)
     p5_apply_project_warnings(p5_host_ownership)
     add_test(NAME p5.host.ownership COMMAND p5_host_ownership)
+
+    add_executable(p5_host_health
+        test/host/health_main.c
+        app/src/app_health_policy.c
+        app/src/app_reset_reason.c)
+    target_include_directories(p5_host_health PRIVATE app/include)
+    p5_apply_project_warnings(p5_host_health)
+    add_test(NAME p5.host.health COMMAND p5_host_health)
   endif()
 endif()

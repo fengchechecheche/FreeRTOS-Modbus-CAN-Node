@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "app_health_policy.h"
+#include "app_reset_reason.h"
 #include "app_task_model.h"
 #include "app_transport_policy.h"
 
@@ -32,7 +34,26 @@ typedef struct
   uint32_t missed_release_count;
   uint32_t deadline_miss_count;
   uint32_t budget_overrun_count;
+} app_rtos_task_health_t;
+
+typedef struct
+{
+  uint32_t release_count;
+  uint32_t missed_release_count;
+  uint32_t deadline_miss_count;
+  uint32_t budget_overrun_count;
+  app_rtos_task_health_t task[APP_TASK_COUNT];
+  app_health_decision_t decision;
+  uint32_t rs485_error_count;
 } app_rtos_health_snapshot_t;
+
+typedef struct
+{
+  app_transport_counters_t counters;
+  uint32_t current_pending;
+  uint32_t maximum_pending;
+  uint32_t depth;
+} app_rtos_transport_snapshot_t;
 
 typedef struct
 {
@@ -64,6 +85,8 @@ bool app_rtos_get_resource_snapshot(app_rtos_resource_snapshot_t *snapshot);
 bool app_rtos_get_irq_latency_snapshot(
     app_rtos_irq_latency_snapshot_t *snapshot);
 bool app_rtos_get_transport_counters(app_transport_counters_t *counters);
+bool app_rtos_get_transport_snapshot(app_rtos_transport_snapshot_t *snapshot);
+bool app_rtos_get_reset_reason(app_reset_decoded_t *decoded);
 uint32_t app_rtos_fault_code(void);
 _Noreturn void app_rtos_fail_stop(uint32_t fault_code);
 

@@ -8,7 +8,7 @@
 | `protocol_task` | 5 | 5 ms | 5 ms | 1 ms | bounded RS485 poll/smoke; no Modbus parser |
 | `acquisition_task` | 4 | 20 ms | 20 ms | 2 ms | release/health skeleton; no sensor access |
 | `can_task` | 3 | 100 ms | 100 ms | 2 ms | release/health skeleton; CAN remains stopped |
-| `health_task` | 2 | 1000 ms | 1000 ms | 5 ms | aggregate task counters; no IWDG |
+| `health_task` | 2 | 1000 ms | 1000 ms | 5 ms | per-task progress and bounded feed decision; IWDG not armed |
 | `diagnostic_task` | 1 | 200 ms | 200 ms | 2 ms | drain at most 2 diagnostic events, then bounded heartbeat/smoke |
 
 Idle priority is 0. The periods, deadlines and budgets are scheduler design
@@ -48,3 +48,12 @@ unavailable result and increments a contention counter.
 will publish a copied latest-value snapshot in S4; protocol, CAN and health tasks
 must not call sensor or bus APIs directly. The scheduler-before boot probe is
 the only current exception.
+
+P5-S3-T05 makes `health_task` the sole owner of the health-policy decision. It
+checks progress from `protocol_task`, `acquisition_task`, `can_task` and
+`diagnostic_task`; it deliberately does not require its own counter to advance.
+One no-progress epoch enters `DEGRADED` while feed remains allowed. Two
+consecutive no-progress epochs enter `RESET_REQUIRED` and withhold feed.
+Warning counters alone do not request reset. Recovery is bounded to three
+attempts per episode and never deletes a task. The current firmware only
+computes this decision: no IWDG is configured, armed or refreshed.

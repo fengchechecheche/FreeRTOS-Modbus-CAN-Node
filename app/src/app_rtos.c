@@ -4,6 +4,8 @@
 
 #include "FreeRTOS.h"
 #include "app_boot.h"
+#include "app_health_policy.h"
+#include "app_reset_reason.h"
 #include "app_resource_budget.h"
 #include "app_rs485_smoke.h"
 #include "app_task_model.h"
@@ -12,6 +14,7 @@
 #include "queue.h"
 #include "semphr.h"
 #include "stm32f4xx.h"
+#include "stm32f4xx_hal.h"
 #include "task.h"
 
 #ifndef P5_IRQ_NOTIFICATION_SMOKE_ENABLE
@@ -78,6 +81,9 @@ static QueueHandle_t app_rtos_event_queue;
 static StaticSemaphore_t app_rtos_snapshot_mutex_control;
 static SemaphoreHandle_t app_rtos_snapshot_mutex;
 static app_transport_counters_t app_rtos_transport_counters;
+static uint32_t app_rtos_event_queue_maximum_pending;
+static app_health_policy_t app_rtos_health_policy;
+static app_reset_decoded_t app_rtos_reset_reason;
 #if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
 static volatile uint32_t app_rtos_irq_first_cycles;
 static volatile bool app_rtos_irq_first_cycles_valid;
@@ -90,6 +96,79 @@ static uint32_t app_rtos_saturating_add(uint32_t value, uint32_t increment)
     return UINT32_MAX;
   }
   return value + increment;
+}
+
+static uint32_t app_rtos_rs485_error_count(
+    const bsp_rs485_diagnostics_t *diagnostics)
+{
+  uint32_t count = 0U;
+  count = app_rtos_saturating_add(
+      count, diagnostics->state_counters.tx_start_failures);
+  count = app_rtos_saturating_add(
+      count, diagnostics->state_counters.tx_timeouts);
+  count = app_rtos_saturating_add(
+      count, diagnostics->state_counters.uart_errors);
+  count = app_rtos_saturating_add(
+      count, diagnostics->state_counters.rx_rearm_failures);
+  count = app_rtos_saturating_add(count, diagnostics->rx_dropped);
+  count = app_rtos_saturating_add(
+      count, diagnostics->irq_events.invalid_rx_lengths);
+  count = app_rtos_saturating_add(
+      count, diagnostics->irq_events.conflict_snapshots);
+  return count;
+}
+
+static void app_rtos_capture_reset_reason(void)
+{
+  app_reset_observation_t observation = {RCC->CSR, 0U};
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) != RESET)
+  {
+    observation.normalized_flags |= APP_RESET_REASON_POWER_ON;
+  }
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_BORRST) != RESET)
+  {
+    observation.normalized_flags |= APP_RESET_REASON_BROWN_OUT;
+  }
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_PINRST) != RESET)
+  {
+    observation.normalized_flags |= APP_RESET_REASON_PIN;
+  }
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET)
+  {
+    observation.normalized_flags |= APP_RESET_REASON_SOFTWARE;
+  }
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST) != RESET)
+  {
+    observation.normalized_flags |= APP_RESET_REASON_IWDG;
+  }
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST) != RESET)
+  {
+    observation.normalized_flags |= APP_RESET_REASON_WWDG;
+  }
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_LPWRRST) != RESET)
+  {
+    observation.normalized_flags |= APP_RESET_REASON_LOW_POWER;
+  }
+
+  app_rtos_reset_reason = app_reset_reason_decode(&observation);
+  __HAL_RCC_CLEAR_RESET_FLAGS();
+}
+
+static void app_rtos_update_queue_watermark(void)
+{
+  if (app_rtos_event_queue == NULL)
+  {
+    return;
+  }
+
+  const uint32_t pending =
+      (uint32_t)uxQueueMessagesWaiting(app_rtos_event_queue);
+  taskENTER_CRITICAL();
+  if (pending > app_rtos_event_queue_maximum_pending)
+  {
+    app_rtos_event_queue_maximum_pending = pending;
+  }
+  taskEXIT_CRITICAL();
 }
 
 static void app_rtos_note_snapshot_contention(bool writer)
@@ -228,24 +307,63 @@ static void app_rtos_update_resource_snapshot(void)
 
 static void app_rtos_health_service(void)
 {
-  app_rtos_health_snapshot_t snapshot = {0U, 0U, 0U, 0U};
+  app_rtos_health_snapshot_t snapshot = {0};
+  app_health_input_t input = {0};
+  app_transport_counters_t transport_counters;
+  uint32_t maximum_pending = 0U;
 
   taskENTER_CRITICAL();
   for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
   {
+    snapshot.task[index].release_count =
+        app_rtos_task_runtime[index].release_count;
+    snapshot.task[index].missed_release_count =
+        app_rtos_task_runtime[index].missed_release_count;
+    snapshot.task[index].deadline_miss_count =
+        app_rtos_task_runtime[index].deadline_miss_count;
+    snapshot.task[index].budget_overrun_count =
+        app_rtos_task_runtime[index].budget_overrun_count;
     snapshot.release_count = app_rtos_saturating_add(
-        snapshot.release_count, app_rtos_task_runtime[index].release_count);
+        snapshot.release_count, snapshot.task[index].release_count);
     snapshot.missed_release_count = app_rtos_saturating_add(
         snapshot.missed_release_count,
-        app_rtos_task_runtime[index].missed_release_count);
+        snapshot.task[index].missed_release_count);
     snapshot.deadline_miss_count = app_rtos_saturating_add(
         snapshot.deadline_miss_count,
-        app_rtos_task_runtime[index].deadline_miss_count);
+        snapshot.task[index].deadline_miss_count);
     snapshot.budget_overrun_count = app_rtos_saturating_add(
         snapshot.budget_overrun_count,
-        app_rtos_task_runtime[index].budget_overrun_count);
+        snapshot.task[index].budget_overrun_count);
+    input.task_release_count[index] = snapshot.task[index].release_count;
+    input.task_deadline_miss_count[index] =
+        snapshot.task[index].deadline_miss_count;
+    input.task_budget_overrun_count[index] =
+        snapshot.task[index].budget_overrun_count;
   }
+  transport_counters = app_rtos_transport_counters;
+  maximum_pending = app_rtos_event_queue_maximum_pending;
   taskEXIT_CRITICAL();
+
+  input.queue_dropped_count = transport_counters.event_dropped_full_count;
+  input.queue_current_pending =
+      (uint32_t)uxQueueMessagesWaiting(app_rtos_event_queue);
+  input.queue_maximum_pending = maximum_pending;
+  input.queue_depth = APP_TRANSPORT_EVENT_QUEUE_DEPTH;
+  input.snapshot_contention_count = app_rtos_saturating_add(
+      transport_counters.snapshot_read_contention_count,
+      transport_counters.snapshot_write_contention_count);
+  const bsp_rs485_diagnostics_t rs485_diagnostics =
+      bsp_rs485_get_diagnostics();
+  input.rs485_error_count = app_rtos_rs485_error_count(&rs485_diagnostics);
+  input.recovery_result = APP_HEALTH_RECOVERY_NONE;
+  input.reset_loop_latched = false;
+
+  if (!app_health_policy_evaluate(
+          &app_rtos_health_policy, &input, &snapshot.decision))
+  {
+    app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
+  }
+  snapshot.rs485_error_count = input.rs485_error_count;
 
   if (app_rtos_snapshot_take(true))
   {
@@ -254,6 +372,24 @@ static void app_rtos_health_service(void)
   }
 
   app_rtos_update_resource_snapshot();
+
+  if (snapshot.decision.publish_transition)
+  {
+    const uint16_t code = app_health_state_event_code(
+        snapshot.decision.state);
+    if (code != 0U)
+    {
+      const app_transport_event_t event = {
+          (uint32_t)xTaskGetTickCount(),
+          (snapshot.decision.warning_mask & UINT32_C(0x0000ffff)) |
+              ((snapshot.decision.stalled_task_mask & UINT32_C(0x0000ffff))
+               << 16U),
+          APP_HEALTH_EVENT_SOURCE,
+          code,
+      };
+      (void)app_rtos_publish_diagnostic_event(&event);
+    }
+  }
 }
 
 static void app_rtos_diagnostic_service(void)
@@ -404,6 +540,9 @@ app_rtos_status_t app_rtos_initialize(void)
   }
 
   app_transport_counters_initialize(&app_rtos_transport_counters);
+  app_rtos_event_queue_maximum_pending = 0U;
+  app_health_policy_initialize(&app_rtos_health_policy);
+  app_rtos_capture_reset_reason();
   app_rtos_event_queue = xQueueCreateStatic(
       APP_TRANSPORT_EVENT_QUEUE_DEPTH,
       sizeof(app_transport_event_t),
@@ -465,6 +604,10 @@ bool app_rtos_publish_diagnostic_event(const app_transport_event_t *event)
   if ((app_rtos_event_queue != NULL) && app_transport_event_is_valid(event))
   {
     queued = xQueueSend(app_rtos_event_queue, event, 0U);
+    if (queued == pdTRUE)
+    {
+      app_rtos_update_queue_watermark();
+    }
   }
 
   taskENTER_CRITICAL();
@@ -538,6 +681,33 @@ bool app_rtos_get_transport_counters(app_transport_counters_t *counters)
   taskENTER_CRITICAL();
   *counters = app_rtos_transport_counters;
   taskEXIT_CRITICAL();
+  return true;
+}
+
+bool app_rtos_get_transport_snapshot(app_rtos_transport_snapshot_t *snapshot)
+{
+  if ((snapshot == NULL) || (app_rtos_event_queue == NULL))
+  {
+    return false;
+  }
+
+  snapshot->current_pending =
+      (uint32_t)uxQueueMessagesWaiting(app_rtos_event_queue);
+  snapshot->depth = APP_TRANSPORT_EVENT_QUEUE_DEPTH;
+  taskENTER_CRITICAL();
+  snapshot->counters = app_rtos_transport_counters;
+  snapshot->maximum_pending = app_rtos_event_queue_maximum_pending;
+  taskEXIT_CRITICAL();
+  return true;
+}
+
+bool app_rtos_get_reset_reason(app_reset_decoded_t *decoded)
+{
+  if (decoded == NULL)
+  {
+    return false;
+  }
+  *decoded = app_rtos_reset_reason;
   return true;
 }
 

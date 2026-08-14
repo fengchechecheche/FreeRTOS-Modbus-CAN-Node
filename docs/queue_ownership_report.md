@@ -1,7 +1,7 @@
 # P5-S3-T04 queue, mutex and ownership report
 
 > Software status: `PASS_HOST + PASS_CROSS_BUILD + PASS_STATIC_CONTRACT`  
-> Content status: `READY_FOR_CONTENT_REVIEW`  
+> Content status: `FROZEN` (approved 2026-08-14)
 > Runtime queue/mutex stress: `NOT_RUN`  
 > Hardware status: `WAITING_FOR_HARDWARE`  
 > Input baseline: `d8bf2eb0fe95f0e76fed13b275bea99635e691ea` (`[ 016 ]`)
@@ -35,9 +35,10 @@ handle. The queue uses `StaticQueue_t`, 96 B item storage and
 - normal action: discard after bounded accounting; no serial log or persistence;
 - ISR use: forbidden; T03 task notification remains the ISR path.
 
-No T04 business event code is fabricated. Until T05 publishes real health or
-recovery events, the firmware queue is correctly described as
-`LINKED_NOT_WORKLOAD_EXECUTED`.
+T05 now defines compact health-state transition events. They are emitted only
+when the bounded policy changes state; no periodic trace or raw counter stream
+is produced. Because the scheduler has not run on the unavailable board, the
+queue remains `LINKED_NOT_WORKLOAD_EXECUTED` at the runtime evidence boundary.
 
 ## Snapshot mutex and data ownership
 
@@ -79,11 +80,12 @@ rate, latency or slow-consumer behavior under the real task workload.
 
 ## Deferred runtime gate
 
-P5-S3-T05 will combine a bounded board workload with health/recovery checks and
-sample only compact queue watermark, drop and mutex-contention summaries. S4
-defines measurement fields, units, quality and freshness before instantiating
-the measurement snapshot. S5 defines command IDs and Modbus write semantics
-before instantiating the command queue.
+P5-S3-T05 adds current/maximum pending depth and drop/contention counts to the
+compact health input, and its Host model covers the resulting pressure policy.
+Real board queue watermark, contention and recovery behavior remain `NOT_RUN`.
+S4 defines measurement fields, units, quality and freshness before
+instantiating the measurement snapshot. S5 defines command IDs and Modbus write
+semantics before instantiating the command queue.
 
 No raw queue trace, per-item CSV/JSON, mutex timeline or evidence bundle is
 required for a normal pass.

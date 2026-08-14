@@ -40,6 +40,8 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_boot.c
     app/src/app_device_probe.c
     app/src/app_device_probe_logic.c
+    app/src/app_health_policy.c
+    app/src/app_reset_reason.c
     app/src/app_rtos.c
     app/src/app_rtos_hooks.c
     app/src/app_rs485_smoke.c

@@ -15,13 +15,14 @@
 - finite heartbeat moved to `diagnostic_task`;
 - one depth-8 static diagnostic event queue with a two-item drain budget;
 - one zero-wait static mutex for short system-snapshot copies;
+- one bounded health/feed policy plus reset-reason normalization;
 - scheduler smoke defaults to `OFF`.
 
 ## Software verification
 
 - BSP stable-fact checker and negative self-test;
-- Host Debug/Release: 8/8 tests, including notification/mailbox and bounded
-  ownership/backpressure injection;
+- Host Debug/Release: 9/9 tests, including notification/mailbox, bounded
+  ownership/backpressure injection, health transitions and reset records;
 - Firmware Debug/Release: build and link;
 - ELF symbol checks for scheduler start, kernel handlers, five task entries,
   `xTaskGenericNotifyFromISR()` and `xTaskNotifyWait()`;
@@ -32,8 +33,8 @@ Final cross-build size summaries are:
 
 | Build | text | data | bss |
 |---|---:|---:|---:|
-| Debug | 23272 B | 160 B | 9056 B |
-| Release | 20360 B | 156 B | 9052 B |
+| Debug | 25192 B | 160 B | 9288 B |
+| Release | 21908 B | 156 B | 9284 B |
 
 These values include five separately named 256-word stacks. The static-only
 contract, linker heap removal, limits and exact accounting are maintained in
@@ -41,8 +42,10 @@ contract, linker heap removal, limits and exact accounting are maintained in
 
 ## Deferred
 
-No scheduler execution, task jitter, WCET, stack watermark or ISR latency has
-been measured because the board is unavailable. The watermark API is compiled
-in, but its snapshot reports values as unmeasured until called by a running
-task. Hardware acceptance remains a separate limited smoke after the BSP
-hardware gate; no trace bundle is required for a normal pass.
+No scheduler execution, task jitter, WCET, stack watermark, ISR latency,
+queue/mutex stress or health transition has been measured because the board is
+unavailable. The watermark API is compiled in, but its snapshot reports values
+as unmeasured until called by a running task. IWDG is deliberately not
+configured or armed, and reset-record persistence is not implemented. Hardware
+acceptance remains a separate limited smoke after the BSP hardware gate; no
+trace bundle is required for a normal pass.

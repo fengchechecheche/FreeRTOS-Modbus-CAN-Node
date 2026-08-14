@@ -80,6 +80,22 @@ limits. The increase is accepted without reducing any provisional task stack.
 The diagnostic queue item area is fixed at 8 × 12 B; runtime watermark and
 mutex-contention measurements remain `NOT_MEASURED`/`NOT_RUN` until hardware.
 
+### T05 health and recovery regression
+
+T05 adds the HAL-free health policy, normalized reset-reason codec, fixed reset
+record schema, per-task progress snapshot and one transition-only diagnostic
+event. It does not add an IWDG instance, persistent storage or a periodic trace.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from T04 |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 25192 B | 160 B | 9288 B | 25352 B | 9448 B | Flash +1920 B, RAM +232 B |
+| Release | 21908 B | 156 B | 9284 B | 22064 B | 9440 B | Flash +1548 B, RAM +232 B |
+
+Both builds remain inside the unchanged 384 KiB Flash and 96 KiB linked-RAM
+limits. The RAM increase holds health progress, policy and reset metadata; the
+five task stacks and queue depth are unchanged. Hardware feed timing, reset
+retention and recovery behavior remain `NOT_RUN`.
+
 ## Static-only checks
 
 - `configSUPPORT_STATIC_ALLOCATION = 1`;
