@@ -1,5 +1,10 @@
 # P5-S2-T05 BSP 软件候选合同
 
+> P5-S5-T03 API extension: USART1 RX remains 64 B `DMA_NORMAL`; complete RTU
+> and TX capacity is 256 B. DWT is initialized once at boot, ISR publishes only
+> bounded metadata, and task context copies/re-arms/assembles. This does not
+> upgrade `WAITING_FOR_HARDWARE` or `BSP_CONTRACT_CANDIDATE_FROZEN`.
+
 > 合同状态：`BSP_CONTRACT_CANDIDATE_FROZEN`
 > 内容审核：2026-08-14 已通过
 > 软件状态：`PASS_HOST + PASS_CROSS_BUILD`

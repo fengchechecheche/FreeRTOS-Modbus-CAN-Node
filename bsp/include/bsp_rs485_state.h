@@ -5,7 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define BSP_RS485_MAX_FRAME_SIZE (64U)
+#define BSP_RS485_RX_DMA_CHUNK_SIZE (64U)
+#define BSP_RS485_MAX_FRAME_SIZE (256U)
 
 typedef enum
 {
@@ -26,6 +27,7 @@ typedef enum
 typedef enum
 {
   BSP_RS485_ERROR_NONE = 0,
+  BSP_RS485_ERROR_RX_STOP,
   BSP_RS485_ERROR_TX_START,
   BSP_RS485_ERROR_TX_TIMEOUT,
   BSP_RS485_ERROR_UART,
@@ -36,6 +38,7 @@ typedef struct
 {
   uint32_t tx_started;
   uint32_t tx_completed;
+  uint32_t rx_stop_failures;
   uint32_t tx_start_failures;
   uint32_t tx_timeouts;
   uint32_t uart_errors;
@@ -46,6 +49,7 @@ typedef struct
 {
   void *context;
   void (*set_transmit)(void *context, bool enabled);
+  bool (*stop_rx_dma)(void *context);
   bool (*start_tx_dma)(void *context, const uint8_t *data, size_t length);
   void (*abort_tx)(void *context);
   bool (*arm_rx_dma)(void *context);

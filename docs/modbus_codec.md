@@ -96,15 +96,13 @@ Project Five address-4 request/echo vectors are:
 The last frame is only an envelope/CRC oracle. T02 does not claim the write is
 authorized or committed; that behavior remains in T04.
 
-## BSP capacity handoff
+## BSP capacity handoff completed by T03
 
-The current BSP limit is 64 B, while the full 122-register input response is
-249 B. Five existing static buffers depend on the 64 B macro; changing all of
-them to 256 B would add about 960 B static RAM. T02 therefore adds no global
-ADU buffer and does not modify the BSP.
-
-P5-S5-T03 must choose buffer ownership/reuse, remove or isolate obsolete smoke
-storage, budget the final static RAM and then connect DMA/IDLE/timing/DE-RE.
+P5-S5-T03 keeps the Normal-DMA RX chunk at 64 B while separating the complete
+RTU/TX capacity at 256 B. The default firmware links one 256 B stream buffer,
+one 256 B controller TX copy and two 64 B RX chunk buffers. The legacy smoke
+path is compile-time selected and is not called by the default transport.
+See [`modbus_transport.md`](modbus_transport.md).
 
 ## Verification boundary
 
@@ -112,3 +110,5 @@ storage, budget the final static RAM and then connect DMA/IDLE/timing/DE-RE.
 files are also compiled by both ARM presets but remain unreferenced by runtime,
 so linker garbage collection should add no linked static RAM. Host and ARM
 success do not prove physical character time, frame gaps or RS485 transfer.
+T03 adds a runtime candidate and Host stream tests, but the same physical
+validation boundary remains in force.

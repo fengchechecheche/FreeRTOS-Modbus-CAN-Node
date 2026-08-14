@@ -1,5 +1,10 @@
 # protocol
 
+> P5-S5-T03 supersedes the older capacity note below: the runtime candidate
+> now has one 256 B RTU stream buffer, a 64 B Normal-DMA RX chunk and a 256 B
+> TX copy. CRC-valid ADUs are assembled but deliberately remain unhandled until
+> T04. See [`../docs/modbus_transport.md`](../docs/modbus_transport.md).
+
 项目自有 Modbus RTU 与 CAN 协议纯逻辑边界。P5-S4-T04 冻结的 17 个
 `app_measurement` logical field ID、source、quality 和整数单位是两种协议后续映射的
 唯一上游字典。

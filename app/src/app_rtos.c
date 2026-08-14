@@ -8,6 +8,7 @@
 #include "app_boot.h"
 #include "app_health_policy.h"
 #include "app_measurement.h"
+#include "app_modbus_transport.h"
 #include "app_reset_reason.h"
 #include "app_resource_budget.h"
 #include "app_rs485_smoke.h"
@@ -16,6 +17,7 @@
 #include "app_transport_policy.h"
 #include "app_veml7700.h"
 #include "bsp_adxl345_irq.h"
+#include "bsp_clock.h"
 #include "bsp_rs485.h"
 #include "queue.h"
 #include "semphr.h"
@@ -25,6 +27,10 @@
 
 #ifndef P5_IRQ_NOTIFICATION_SMOKE_ENABLE
 #define P5_IRQ_NOTIFICATION_SMOKE_ENABLE (0)
+#endif
+
+#ifndef P5_RS485_LOOPBACK_SMOKE_ENABLE
+#define P5_RS485_LOOPBACK_SMOKE_ENABLE (0)
 #endif
 
 _Static_assert(sizeof(StackType_t) == APP_RESOURCE_STACK_WORD_BYTES,
@@ -114,6 +120,8 @@ static uint32_t app_rtos_rs485_error_count(
 {
   uint32_t count = 0U;
   count = app_rtos_saturating_add(
+      count, diagnostics->state_counters.rx_stop_failures);
+  count = app_rtos_saturating_add(
       count, diagnostics->state_counters.tx_start_failures);
   count = app_rtos_saturating_add(
       count, diagnostics->state_counters.tx_timeouts);
@@ -124,6 +132,8 @@ static uint32_t app_rtos_rs485_error_count(
   count = app_rtos_saturating_add(count, diagnostics->rx_dropped);
   count = app_rtos_saturating_add(
       count, diagnostics->irq_events.invalid_rx_lengths);
+  count = app_rtos_saturating_add(
+      count, diagnostics->irq_events.invalid_rx_kinds);
   count = app_rtos_saturating_add(
       count, diagnostics->irq_events.conflict_snapshots);
   return count;
@@ -267,15 +277,29 @@ static void app_rtos_acquisition_event_service(uint32_t event_count)
 static void app_rtos_protocol_service(void)
 {
   (void)bsp_rs485_poll();
+#if P5_RS485_LOOPBACK_SMOKE_ENABLE
   app_rs485_smoke_poll();
+#else
+  app_modbus_transport_poll();
+#endif
 }
 
 static void app_rtos_protocol_event_service(void)
 {
-  if (bsp_rs485_service_irq_events() != 0U)
+  const uint32_t event_mask = bsp_rs485_service_irq_events();
+#if P5_RS485_LOOPBACK_SMOKE_ENABLE
+  if (event_mask != 0U)
   {
     app_rs485_smoke_poll();
   }
+#else
+  if ((event_mask & BSP_RS485_IRQ_EVENT_UART_ERROR) != 0U)
+  {
+    app_modbus_transport_reset_partial();
+  }
+  app_modbus_transport_service_received();
+  app_modbus_transport_poll();
+#endif
 }
 
 static void app_rtos_rs485_notify_from_isr(uint32_t event_mask)
@@ -289,7 +313,7 @@ static void app_rtos_rs485_notify_from_isr(uint32_t event_mask)
 #if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
   if (!app_rtos_irq_first_cycles_valid)
   {
-    app_rtos_irq_first_cycles = DWT->CYCCNT;
+    app_rtos_irq_first_cycles = bsp_clock_cycle_now();
     app_rtos_irq_first_cycles_valid = true;
   }
 #endif
@@ -327,7 +351,7 @@ static void app_rtos_record_irq_latency(void)
   if (app_rtos_irq_first_cycles_valid)
   {
     isr_cycles = app_rtos_irq_first_cycles;
-    task_cycles = DWT->CYCCNT;
+    task_cycles = bsp_clock_cycle_now();
     app_rtos_irq_first_cycles_valid = false;
     available = true;
   }
@@ -560,8 +584,15 @@ static _Noreturn void app_rtos_run_protocol(void)
       continue;
     }
 
-    const TickType_t wait_ticks = (TickType_t)
+    TickType_t wait_ticks = (TickType_t)
         app_task_runtime_ticks_until_release(runtime, (uint32_t)now_tick);
+#if !P5_RS485_LOOPBACK_SMOKE_ENABLE
+    if (app_modbus_transport_has_partial_frame() &&
+        (wait_ticks > (TickType_t)1U))
+    {
+      wait_ticks = (TickType_t)1U;
+    }
+#endif
     uint32_t notification_value = 0U;
     if (xTaskNotifyWait(0U,
                         UINT32_MAX,
@@ -690,9 +721,6 @@ app_rtos_status_t app_rtos_initialize(void)
   app_rtos_update_resource_snapshot();
   bsp_rs485_irq_latency_reset(&app_rtos_irq_latency_summary);
 #if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
-  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-  DWT->CYCCNT = 0U;
-  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
   app_rtos_irq_first_cycles = 0U;
   app_rtos_irq_first_cycles_valid = false;
 #endif

@@ -20,6 +20,10 @@ typedef struct
 } bsp_clock_profile_t;
 
 uint32_t bsp_clock_tick_ms(void);
+bool bsp_clock_cycle_counter_initialize(void);
+bool bsp_clock_cycle_counter_is_ready(void);
+uint32_t bsp_clock_cycle_now(void);
+uint32_t bsp_clock_cycles_per_us(void);
 bsp_clock_profile_t bsp_clock_get_profile(void);
 bool bsp_clock_profile_is_expected(const bsp_clock_profile_t *profile);
 uint32_t bsp_clock_elapsed_ms(uint32_t now_ms, uint32_t start_ms);

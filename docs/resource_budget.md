@@ -221,3 +221,18 @@ RAM changes stay below the 1 KiB T05 review threshold. The five 256-word task
 stacks, queue depth 8, one snapshot mutex and linker heap 0 are unchanged.
 Runtime stack watermark, combined bus WCET and real sample interval envelope
 remain `NOT_MEASURED`.
+
+## S5-T03 Modbus stream and RS485 transport regression
+
+T03 adds no task, stack, queue, mutex, heap or raw-frame history. The default
+path links a 256 B controller TX copy, 256 B RTU stream buffer and two 64 B RX
+chunk buffers. Legacy smoke storage is not retained by the default call graph.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from A0 `[026]` |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 42252 B | 160 B | 11648 B | 42412 B | 11808 B | Flash +1604 B, RAM +464 B |
+| Release | 35400 B | 156 B | 11648 B | 35556 B | 11804 B | Flash +1336 B, RAM +472 B |
+
+Both RAM deltas are below the T03 768 B review threshold and the unchanged
+96 KiB linked-RAM gate. Runtime stack watermark and physical timing remain
+`NOT_MEASURED`.

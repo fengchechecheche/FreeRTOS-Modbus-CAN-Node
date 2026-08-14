@@ -1,5 +1,9 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S5-T03 update: the default firmware now includes the bounded Modbus RTU
+> stream/RS485 transport candidate. Function handlers and physical validation
+> remain deferred. See [`docs/modbus_transport.md`](docs/modbus_transport.md).
+
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
 汇总为 BSP 软件候选合同；当前状态为 `BSP_CONTRACT_CANDIDATE_FROZEN + WAITING_FOR_HARDWARE`。
 这允许后续纯软件轨道继续，但不代表板卡、Shield 或外设已经实测。P5-S3-T01 已集成随包

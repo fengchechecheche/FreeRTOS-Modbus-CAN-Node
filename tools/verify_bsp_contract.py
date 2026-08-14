@@ -52,7 +52,9 @@ CHECKS: CheckTable = {
         ("adxl exti rtos irq priority", "NVIC.EXTI4_IRQn=true\\:6\\:0"),
         ("adxl int pull down", "PB4.GPIO_PuPd=GPIO_PULLDOWN"),
         ("usart1 rx dma", "Dma.USART1_RX.0.Instance=DMA2_Stream2"),
+        ("usart1 rx dma normal", "Dma.USART1_RX.0.Mode=DMA_NORMAL"),
         ("usart1 tx dma", "Dma.USART1_TX.1.Instance=DMA2_Stream7"),
+        ("usart1 tx dma normal", "Dma.USART1_TX.1.Mode=DMA_NORMAL"),
         ("spi1 mode", "SPI1.Mode=SPI_MODE_MASTER"),
         ("spi1 polarity", "SPI1.CLKPolarity=SPI_POLARITY_HIGH"),
         ("spi1 phase", "SPI1.CLKPhase=SPI_PHASE_2EDGE"),
@@ -159,6 +161,8 @@ CHECKS: CheckTable = {
         ("freertos tasks source", "Middlewares/Third_Party/FreeRTOS/Source/tasks.c"),
         ("cm4f port source", "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c"),
         ("rs485 irq event source", "bsp/src/bsp_rs485_irq_event.c"),
+        ("modbus transport source", "app/src/app_modbus_transport.c"),
+        ("modbus stream source", "protocol/src/p5_modbus_rtu_stream.c"),
         ("transport policy source", "app/src/app_transport_policy.c"),
         ("health policy source", "app/src/app_health_policy.c"),
         ("reset reason source", "app/src/app_reset_reason.c"),
@@ -170,6 +174,9 @@ CHECKS: CheckTable = {
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
         ("clock tick api", "bsp_clock_tick_ms(void)"),
+        ("cycle counter initialize", "bsp_clock_cycle_counter_initialize(void)"),
+        ("cycle counter now", "bsp_clock_cycle_now(void)"),
+        ("cycle scale", "bsp_clock_cycles_per_us(void)"),
         ("clock profile api", "bsp_clock_get_profile(void)"),
         ("clock elapsed api", "bsp_clock_elapsed_ms"),
     ],
@@ -177,6 +184,7 @@ CHECKS: CheckTable = {
         ("rs485 init api", "bsp_rs485_initialize(void)"),
         ("rs485 send api", "bsp_rs485_send"),
         ("rs485 receive api", "bsp_rs485_take_received"),
+        ("rs485 chunk receive api", "bsp_rs485_take_received_chunk"),
         ("rs485 diagnostics api", "bsp_rs485_get_diagnostics(void)"),
     ],
     Path("bsp/include/bsp_spi_bus.h"): [
@@ -209,6 +217,7 @@ CHECKS: CheckTable = {
         ("bme280 host test", "add_test(NAME p5.host.bme280"),
         ("veml7700 host test", "add_test(NAME p5.host.veml7700"),
         ("adxl345 host test", "add_test(NAME p5.host.adxl345"),
+        ("modbus stream host test", "add_test(NAME p5.host.modbus_stream"),
         ("sensor matrix host test", "add_test(NAME p5.host.sensor_matrix"),
     ],
     Path("docs/bsp_contract.md"): [
@@ -310,6 +319,34 @@ CHECKS: CheckTable = {
         ("health sensor unavailable input", "input.sensor_unavailable_mask ="),
         ("health sensor stale input", "input.sensor_stale_mask ="),
         ("health sensor recovery input", "input.sensor_recovery_mask ="),
+        ("modbus transport poll", "app_modbus_transport_poll();"),
+        ("partial frame one tick bound", "wait_ticks > (TickType_t)1U"),
+        ("legacy smoke compile switch", "#if P5_RS485_LOOPBACK_SMOKE_ENABLE"),
+    ],
+    Path("app/src/app_boot.c"): [
+        ("cycle counter startup", "bsp_clock_cycle_counter_initialize()"),
+        ("default modbus transport", "app_modbus_transport_initialize()"),
+        ("legacy smoke compile switch", "#if P5_RS485_LOOPBACK_SMOKE_ENABLE"),
+    ],
+    Path("app/include/app_modbus_transport.h"): [
+        ("unhandled valid frame counter", "unhandled_valid_frames"),
+        ("partial frame query", "app_modbus_transport_has_partial_frame"),
+    ],
+    Path("protocol/include/p5_modbus_rtu_stream.h"): [
+        ("stream idle state", "P5_MODBUS_STREAM_IDLE"),
+        ("stream receiving state", "P5_MODBUS_STREAM_RECEIVING"),
+        ("stream discard state", "P5_MODBUS_STREAM_DISCARD_UNTIL_GAP"),
+        ("fixed 256 byte frame", "uint8_t frame[P5_MODBUS_RTU_MAX_ADU_SIZE]"),
+    ],
+    Path("bsp/include/bsp_rs485_state.h"): [
+        ("rx dma chunk 64", "BSP_RS485_RX_DMA_CHUNK_SIZE (64U)"),
+        ("tx frame 256", "BSP_RS485_MAX_FRAME_SIZE (256U)"),
+        ("rx stop operation", "stop_rx_dma"),
+    ],
+    Path("bsp/include/bsp_rs485_irq_event.h"): [
+        ("idle event kind", "BSP_RS485_RX_EVENT_IDLE"),
+        ("dma complete event kind", "BSP_RS485_RX_EVENT_DMA_COMPLETE"),
+        ("rx captured cycles", "rx_captured_cycles"),
     ],
     Path("app/include/app_measurement.h"): [
         ("measurement schema revision", "#define APP_MEASUREMENT_SCHEMA_REVISION UINT32_C(1)"),
@@ -489,6 +526,10 @@ CHECKS: CheckTable = {
     ],
     Path("bsp/src/bsp_rs485.c"): [
         ("irq event publish", "bsp_rs485_irq_publish_from_isr("),
+        ("rx metadata publish", "bsp_rs485_irq_publish_rx_from_isr("),
+        ("normal dma chunk arm", "BSP_RS485_RX_DMA_CHUNK_SIZE"),
+        ("rx stop before tx", "HAL_UART_AbortReceive(&huart1)"),
+        ("cycle capture", "bsp_clock_cycle_now()"),
         ("task-context event service", "bsp_rs485_service_irq_events(void)"),
     ],
 }

@@ -7,9 +7,11 @@
 #include "usart.h"
 
 static bsp_rs485_state_controller_t bsp_rs485_controller;
-static uint8_t bsp_rs485_rx_dma_buffer[BSP_RS485_MAX_FRAME_SIZE];
-static uint8_t bsp_rs485_rx_frame[BSP_RS485_MAX_FRAME_SIZE];
+static uint8_t bsp_rs485_rx_dma_buffer[BSP_RS485_RX_DMA_CHUNK_SIZE];
+static uint8_t bsp_rs485_rx_frame[BSP_RS485_RX_DMA_CHUNK_SIZE];
 static volatile size_t bsp_rs485_rx_length;
+static volatile bsp_rs485_rx_event_kind_t bsp_rs485_rx_kind;
+static volatile uint32_t bsp_rs485_rx_captured_cycles;
 static volatile bool bsp_rs485_rx_ready;
 static volatile uint32_t bsp_rs485_rx_completed;
 static volatile uint32_t bsp_rs485_rx_dropped;
@@ -31,6 +33,16 @@ static bool bsp_rs485_adapter_start_tx(void *context,
   return HAL_UART_Transmit_DMA(&huart1, data, (uint16_t)length) == HAL_OK;
 }
 
+static bool bsp_rs485_adapter_stop_rx(void *context)
+{
+  (void)context;
+  if (huart1.RxState != HAL_UART_STATE_BUSY_RX)
+  {
+    return true;
+  }
+  return HAL_UART_AbortReceive(&huart1) == HAL_OK;
+}
+
 static void bsp_rs485_adapter_abort_tx(void *context)
 {
   (void)context;
@@ -47,7 +59,7 @@ static bool bsp_rs485_adapter_arm_rx(void *context)
 
   if (HAL_UARTEx_ReceiveToIdle_DMA(&huart1,
                                    bsp_rs485_rx_dma_buffer,
-                                   BSP_RS485_MAX_FRAME_SIZE) != HAL_OK)
+                                   BSP_RS485_RX_DMA_CHUNK_SIZE) != HAL_OK)
   {
     return false;
   }
@@ -86,6 +98,29 @@ static void bsp_rs485_irq_publish_from_isr(uint32_t event_mask,
   }
 }
 
+static void bsp_rs485_irq_publish_rx_from_isr(
+    bsp_rs485_rx_event_kind_t kind,
+    uint16_t rx_length,
+    uint32_t captured_cycles)
+{
+  const uint32_t accepted = bsp_rs485_irq_mailbox_publish_rx(
+      &bsp_rs485_irq_mailbox, kind, rx_length, captured_cycles);
+  if (accepted == 0U)
+  {
+    return;
+  }
+
+  const bsp_rs485_irq_notifier_t notifier = bsp_rs485_irq_notifier;
+  if (notifier != NULL)
+  {
+    notifier(accepted);
+  }
+  else
+  {
+    bsp_rs485_irq_mailbox_note_deferred(&bsp_rs485_irq_mailbox);
+  }
+}
+
 UART_HandleTypeDef *bsp_rs485_uart_handle(void)
 {
   return &huart1;
@@ -101,6 +136,8 @@ void bsp_rs485_set_transmit(bool enabled)
 bsp_rs485_result_t bsp_rs485_initialize(void)
 {
   bsp_rs485_rx_length = 0U;
+  bsp_rs485_rx_kind = BSP_RS485_RX_EVENT_NONE;
+  bsp_rs485_rx_captured_cycles = 0U;
   bsp_rs485_rx_ready = false;
   bsp_rs485_rx_completed = 0U;
   bsp_rs485_rx_dropped = 0U;
@@ -111,6 +148,7 @@ bsp_rs485_result_t bsp_rs485_initialize(void)
   const bsp_rs485_state_ops_t ops = {
       .context = NULL,
       .set_transmit = bsp_rs485_adapter_set_transmit,
+      .stop_rx_dma = bsp_rs485_adapter_stop_rx,
       .start_tx_dma = bsp_rs485_adapter_start_tx,
       .abort_tx = bsp_rs485_adapter_abort_tx,
       .arm_rx_dma = bsp_rs485_adapter_arm_rx,
@@ -191,6 +229,8 @@ uint32_t bsp_rs485_service_irq_events(void)
                    bsp_rs485_rx_dma_buffer,
                    snapshot.rx_length);
       bsp_rs485_rx_length = snapshot.rx_length;
+      bsp_rs485_rx_kind = snapshot.rx_kind;
+      bsp_rs485_rx_captured_cycles = snapshot.rx_captured_cycles;
       bsp_rs485_rx_ready = true;
       ++bsp_rs485_rx_completed;
     }
@@ -219,7 +259,19 @@ bool bsp_rs485_take_received(uint8_t *destination,
                              size_t capacity,
                              size_t *received_length)
 {
-  if ((destination == NULL) || (received_length == NULL))
+  bsp_rs485_rx_chunk_info_t ignored;
+  return bsp_rs485_take_received_chunk(destination,
+                                       capacity,
+                                       received_length,
+                                       &ignored);
+}
+
+bool bsp_rs485_take_received_chunk(uint8_t *destination,
+                                   size_t capacity,
+                                   size_t *received_length,
+                                   bsp_rs485_rx_chunk_info_t *info)
+{
+  if ((destination == NULL) || (received_length == NULL) || (info == NULL))
   {
     return false;
   }
@@ -237,8 +289,12 @@ bool bsp_rs485_take_received(uint8_t *destination,
 
   const size_t length = bsp_rs485_rx_length;
   (void)memcpy(destination, bsp_rs485_rx_frame, length);
+  info->kind = bsp_rs485_rx_kind;
+  info->captured_cycles = bsp_rs485_rx_captured_cycles;
   bsp_rs485_rx_ready = false;
   bsp_rs485_rx_length = 0U;
+  bsp_rs485_rx_kind = BSP_RS485_RX_EVENT_NONE;
+  bsp_rs485_rx_captured_cycles = 0U;
   if (previous_primask == 0U)
   {
     __enable_irq();
@@ -291,8 +347,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
     return;
   }
 
-  bsp_rs485_irq_publish_from_isr(
-      BSP_RS485_IRQ_EVENT_RX_FRAME, size, 0U);
+  const bsp_rs485_rx_event_kind_t kind =
+      (HAL_UARTEx_GetRxEventType(huart) == HAL_UART_RXEVENT_IDLE)
+          ? BSP_RS485_RX_EVENT_IDLE
+          : BSP_RS485_RX_EVENT_DMA_COMPLETE;
+  bsp_rs485_irq_publish_rx_from_isr(kind,
+                                   size,
+                                   bsp_clock_cycle_now());
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)

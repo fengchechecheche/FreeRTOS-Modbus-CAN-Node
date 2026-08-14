@@ -13,6 +13,12 @@ typedef void (*bsp_rs485_irq_notifier_t)(uint32_t event_mask);
 
 typedef struct
 {
+  bsp_rs485_rx_event_kind_t kind;
+  uint32_t captured_cycles;
+} bsp_rs485_rx_chunk_info_t;
+
+typedef struct
+{
   bsp_rs485_link_state_t state;
   bsp_rs485_error_t last_error;
   bsp_rs485_state_counters_t state_counters;
@@ -33,6 +39,10 @@ bool bsp_rs485_is_busy(void);
 bool bsp_rs485_take_received(uint8_t *destination,
                              size_t capacity,
                              size_t *received_length);
+bool bsp_rs485_take_received_chunk(uint8_t *destination,
+                                   size_t capacity,
+                                   size_t *received_length,
+                                   bsp_rs485_rx_chunk_info_t *info);
 bsp_rs485_diagnostics_t bsp_rs485_get_diagnostics(void);
 
 #endif

@@ -1,5 +1,9 @@
 # 项目五教程索引
 
+> P5-S5-T03 tutorial is now `READY_FOR_CONTENT_REVIEW`:
+> `p5_s5_t03_rs485接收状态机与半双工时序.md`. This note supersedes the older
+> `PLANNED` status in the frozen index row until the next index normalization.
+
 > 版本：1.0.0  
 > 冻结任务：P5-S1-T05  
 > 总数：35  

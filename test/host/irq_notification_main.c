@@ -21,13 +21,15 @@ static int test_empty_and_early_event(void)
   bsp_rs485_irq_mailbox_initialize(&mailbox);
   CHECK(!bsp_rs485_irq_mailbox_take(&mailbox, &snapshot));
 
-  CHECK(bsp_rs485_irq_mailbox_publish(
-            &mailbox, BSP_RS485_IRQ_EVENT_RX_FRAME, 7U, 0U) ==
+  CHECK(bsp_rs485_irq_mailbox_publish_rx(
+            &mailbox, BSP_RS485_RX_EVENT_IDLE, 7U, 1234U) ==
         BSP_RS485_IRQ_EVENT_RX_FRAME);
   bsp_rs485_irq_mailbox_note_deferred(&mailbox);
   CHECK(bsp_rs485_irq_mailbox_take(&mailbox, &snapshot));
   CHECK(snapshot.event_mask == BSP_RS485_IRQ_EVENT_RX_FRAME);
   CHECK(snapshot.rx_length == 7U);
+  CHECK(snapshot.rx_kind == BSP_RS485_RX_EVENT_IDLE);
+  CHECK(snapshot.rx_captured_cycles == 1234U);
   const bsp_rs485_irq_event_counters_t counters =
       bsp_rs485_irq_mailbox_counters(&mailbox);
   CHECK(counters.deferred_notifications == 1U);
@@ -41,12 +43,14 @@ static int test_duplicate_event_is_coalesced(void)
   bsp_rs485_irq_event_snapshot_t snapshot;
   bsp_rs485_irq_mailbox_initialize(&mailbox);
 
-  CHECK(bsp_rs485_irq_mailbox_publish(
-            &mailbox, BSP_RS485_IRQ_EVENT_RX_FRAME, 8U, 0U) != 0U);
-  CHECK(bsp_rs485_irq_mailbox_publish(
-            &mailbox, BSP_RS485_IRQ_EVENT_RX_FRAME, 9U, 0U) != 0U);
+  CHECK(bsp_rs485_irq_mailbox_publish_rx(
+            &mailbox, BSP_RS485_RX_EVENT_DMA_COMPLETE, 8U, 100U) != 0U);
+  CHECK(bsp_rs485_irq_mailbox_publish_rx(
+            &mailbox, BSP_RS485_RX_EVENT_IDLE, 9U, 200U) != 0U);
   CHECK(bsp_rs485_irq_mailbox_take(&mailbox, &snapshot));
   CHECK(snapshot.rx_length == 8U);
+  CHECK(snapshot.rx_kind == BSP_RS485_RX_EVENT_DMA_COMPLETE);
+  CHECK(snapshot.rx_captured_cycles == 100U);
   const bsp_rs485_irq_event_counters_t counters =
       bsp_rs485_irq_mailbox_counters(&mailbox);
   CHECK(counters.published_events == 2U);
@@ -63,8 +67,8 @@ static int test_half_and_invalid_length_are_bounded(void)
   CHECK(bsp_rs485_irq_mailbox_publish(
             &mailbox, BSP_RS485_IRQ_EVENT_RX_HALF, 32U, 0U) ==
         BSP_RS485_IRQ_EVENT_RX_HALF);
-  CHECK(bsp_rs485_irq_mailbox_publish(
-            &mailbox, BSP_RS485_IRQ_EVENT_RX_FRAME, 0U, 0U) ==
+  CHECK(bsp_rs485_irq_mailbox_publish_rx(
+            &mailbox, BSP_RS485_RX_EVENT_IDLE, 0U, 0U) ==
         BSP_RS485_IRQ_EVENT_UART_ERROR);
   CHECK(bsp_rs485_irq_mailbox_take(&mailbox, &snapshot));
   CHECK(snapshot.event_mask ==
@@ -75,6 +79,21 @@ static int test_half_and_invalid_length_are_bounded(void)
   const bsp_rs485_irq_event_counters_t counters =
       bsp_rs485_irq_mailbox_counters(&mailbox);
   CHECK(counters.invalid_rx_lengths == 1U);
+  return EXIT_SUCCESS;
+}
+
+static int test_invalid_rx_kind_is_bounded(void)
+{
+  bsp_rs485_irq_mailbox_t mailbox;
+  bsp_rs485_irq_event_snapshot_t snapshot;
+  bsp_rs485_irq_mailbox_initialize(&mailbox);
+
+  CHECK(bsp_rs485_irq_mailbox_publish_rx(
+            &mailbox, BSP_RS485_RX_EVENT_NONE, 4U, 99U) ==
+        BSP_RS485_IRQ_EVENT_UART_ERROR);
+  CHECK(bsp_rs485_irq_mailbox_take(&mailbox, &snapshot));
+  CHECK((snapshot.uart_error & BSP_RS485_IRQ_ERROR_INVALID_RX_KIND) != 0U);
+  CHECK(bsp_rs485_irq_mailbox_counters(&mailbox).invalid_rx_kinds == 1U);
   return EXIT_SUCCESS;
 }
 
@@ -150,6 +169,7 @@ int main(void)
   CHECK(test_empty_and_early_event() == EXIT_SUCCESS);
   CHECK(test_duplicate_event_is_coalesced() == EXIT_SUCCESS);
   CHECK(test_half_and_invalid_length_are_bounded() == EXIT_SUCCESS);
+  CHECK(test_invalid_rx_kind_is_bounded() == EXIT_SUCCESS);
   CHECK(test_conflicting_snapshot_is_diagnostic() == EXIT_SUCCESS);
   CHECK(test_latency_summary_and_cycle_wrap() == EXIT_SUCCESS);
   CHECK(test_notification_storm_does_not_move_release() == EXIT_SUCCESS);

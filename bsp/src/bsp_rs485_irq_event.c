@@ -39,10 +39,13 @@ void bsp_rs485_irq_mailbox_initialize(bsp_rs485_irq_mailbox_t *mailbox)
 
   mailbox->pending_mask = 0U;
   mailbox->rx_length = 0U;
+  mailbox->rx_kind = BSP_RS485_RX_EVENT_NONE;
+  mailbox->rx_captured_cycles = 0U;
   mailbox->uart_error = 0U;
   mailbox->counters.published_events = 0U;
   mailbox->counters.coalesced_events = 0U;
   mailbox->counters.invalid_rx_lengths = 0U;
+  mailbox->counters.invalid_rx_kinds = 0U;
   mailbox->counters.conflict_snapshots = 0U;
   mailbox->counters.deferred_notifications = 0U;
   mailbox->counters.snapshots_taken = 0U;
@@ -60,7 +63,8 @@ uint32_t bsp_rs485_irq_mailbox_publish(bsp_rs485_irq_mailbox_t *mailbox,
 
   uint32_t accepted = event_mask & BSP_RS485_IRQ_EVENT_MASK;
   if (((accepted & BSP_RS485_IRQ_EVENT_RX_FRAME) != 0U) &&
-      ((rx_length == 0U) || (rx_length > BSP_RS485_MAX_FRAME_SIZE)))
+      ((rx_length == 0U) ||
+       (rx_length > BSP_RS485_RX_DMA_CHUNK_SIZE)))
   {
     accepted &= ~BSP_RS485_IRQ_EVENT_RX_FRAME;
     accepted |= BSP_RS485_IRQ_EVENT_UART_ERROR;
@@ -85,6 +89,8 @@ uint32_t bsp_rs485_irq_mailbox_publish(bsp_rs485_irq_mailbox_t *mailbox,
       ((pending & BSP_RS485_IRQ_EVENT_RX_FRAME) == 0U))
   {
     mailbox->rx_length = rx_length;
+    mailbox->rx_kind = BSP_RS485_RX_EVENT_DMA_COMPLETE;
+    mailbox->rx_captured_cycles = 0U;
   }
   if ((accepted & BSP_RS485_IRQ_EVENT_UART_ERROR) != 0U)
   {
@@ -92,6 +98,41 @@ uint32_t bsp_rs485_irq_mailbox_publish(bsp_rs485_irq_mailbox_t *mailbox,
   }
 
   mailbox->pending_mask = pending | accepted;
+  return accepted;
+}
+
+uint32_t bsp_rs485_irq_mailbox_publish_rx(
+    bsp_rs485_irq_mailbox_t *mailbox,
+    bsp_rs485_rx_event_kind_t kind,
+    uint16_t rx_length,
+    uint32_t captured_cycles)
+{
+  if (mailbox == NULL)
+  {
+    return 0U;
+  }
+  if ((kind != BSP_RS485_RX_EVENT_IDLE) &&
+      (kind != BSP_RS485_RX_EVENT_DMA_COMPLETE))
+  {
+    mailbox->counters.invalid_rx_kinds = bsp_rs485_irq_saturating_increment(
+        mailbox->counters.invalid_rx_kinds);
+    return bsp_rs485_irq_mailbox_publish(
+        mailbox,
+        BSP_RS485_IRQ_EVENT_UART_ERROR,
+        0U,
+        BSP_RS485_IRQ_ERROR_INVALID_RX_KIND);
+  }
+
+  const bool rx_was_pending =
+      (mailbox->pending_mask & BSP_RS485_IRQ_EVENT_RX_FRAME) != 0U;
+  const uint32_t accepted = bsp_rs485_irq_mailbox_publish(
+      mailbox, BSP_RS485_IRQ_EVENT_RX_FRAME, rx_length, 0U);
+  if (!rx_was_pending &&
+      ((accepted & BSP_RS485_IRQ_EVENT_RX_FRAME) != 0U))
+  {
+    mailbox->rx_kind = kind;
+    mailbox->rx_captured_cycles = captured_cycles;
+  }
   return accepted;
 }
 
@@ -106,10 +147,14 @@ bool bsp_rs485_irq_mailbox_take(bsp_rs485_irq_mailbox_t *mailbox,
 
   snapshot->event_mask = mailbox->pending_mask;
   snapshot->rx_length = mailbox->rx_length;
+  snapshot->rx_kind = mailbox->rx_kind;
+  snapshot->rx_captured_cycles = mailbox->rx_captured_cycles;
   snapshot->uart_error = mailbox->uart_error;
 
   mailbox->pending_mask = 0U;
   mailbox->rx_length = 0U;
+  mailbox->rx_kind = BSP_RS485_RX_EVENT_NONE;
+  mailbox->rx_captured_cycles = 0U;
   mailbox->uart_error = 0U;
   mailbox->counters.snapshots_taken = bsp_rs485_irq_saturating_increment(
       mailbox->counters.snapshots_taken);
@@ -147,7 +192,8 @@ void bsp_rs485_irq_mailbox_note_deferred(
 bsp_rs485_irq_event_counters_t bsp_rs485_irq_mailbox_counters(
     const bsp_rs485_irq_mailbox_t *mailbox)
 {
-  const bsp_rs485_irq_event_counters_t empty = {0U, 0U, 0U, 0U, 0U, 0U};
+  const bsp_rs485_irq_event_counters_t empty =
+      {0U, 0U, 0U, 0U, 0U, 0U, 0U};
   return (mailbox == NULL) ? empty : mailbox->counters;
 }
 

@@ -45,6 +45,7 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_device_probe_logic.c
     app/src/app_health_policy.c
     app/src/app_measurement.c
+    app/src/app_modbus_transport.c
     app/src/app_reset_reason.c
     app/src/app_rtos.c
     app/src/app_rtos_hooks.c
@@ -67,6 +68,7 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     sensors/src/veml7700.c
     protocol/src/p5_modbus_crc16.c
     protocol/src/p5_modbus_rtu_adu.c
+    protocol/src/p5_modbus_rtu_stream.c
     protocol/src/p5_modbus_rtu_timing.c)
 
 set(P5_FREERTOS_KERNEL_SOURCES

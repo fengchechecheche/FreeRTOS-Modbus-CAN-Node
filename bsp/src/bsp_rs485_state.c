@@ -9,8 +9,8 @@
 static bool bsp_rs485_state_ops_are_valid(const bsp_rs485_state_ops_t *ops)
 {
   return (ops != NULL) && (ops->set_transmit != NULL) &&
-         (ops->start_tx_dma != NULL) && (ops->abort_tx != NULL) &&
-         (ops->arm_rx_dma != NULL);
+         (ops->stop_rx_dma != NULL) && (ops->start_tx_dma != NULL) &&
+         (ops->abort_tx != NULL) && (ops->arm_rx_dma != NULL);
 }
 
 static bool bsp_rs485_state_restore_receive(
@@ -92,6 +92,14 @@ bsp_rs485_result_t bsp_rs485_state_send(
   controller->tx_started_at_ms = now_ms;
   controller->tx_timeout_ms = bsp_rs485_state_timeout_ms(length);
   controller->last_error = BSP_RS485_ERROR_NONE;
+
+  if (!controller->ops.stop_rx_dma(controller->ops.context))
+  {
+    ++controller->counters.rx_stop_failures;
+    controller->last_error = BSP_RS485_ERROR_RX_STOP;
+    return BSP_RS485_RESULT_IO_ERROR;
+  }
+
   controller->state = BSP_RS485_LINK_TX_ACTIVE;
 
   controller->ops.set_transmit(controller->ops.context, true);

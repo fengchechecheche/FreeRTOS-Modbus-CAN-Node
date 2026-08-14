@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 #include "app_device_probe.h"
+#include "app_modbus_transport.h"
 #include "app_rs485_smoke.h"
 #include "bsp_clock.h"
 #include "bsp_rs485.h"
@@ -11,6 +12,10 @@
 
 #ifndef P5_DEVICE_PROBE_SMOKE_ENABLE
 #define P5_DEVICE_PROBE_SMOKE_ENABLE (0)
+#endif
+
+#ifndef P5_RS485_LOOPBACK_SMOKE_ENABLE
+#define P5_RS485_LOOPBACK_SMOKE_ENABLE (0)
 #endif
 
 #define APP_BOOT_UART_TIMEOUT_MS (100U)
@@ -62,11 +67,22 @@ app_boot_status_t app_boot_initialize(void)
   app_heartbeat_enabled = true;
   app_scheduler_marker_sent = false;
 
+  if (!bsp_clock_cycle_counter_initialize())
+  {
+    return APP_BOOT_ERROR;
+  }
   if (bsp_rs485_initialize() != BSP_RS485_RESULT_OK)
   {
     return APP_BOOT_ERROR;
   }
+#if P5_RS485_LOOPBACK_SMOKE_ENABLE
   app_rs485_smoke_initialize();
+#else
+  if (!app_modbus_transport_initialize())
+  {
+    return APP_BOOT_ERROR;
+  }
+#endif
 
   app_device_probe_initialize();
 #if P5_DEVICE_PROBE_SMOKE_ENABLE
