@@ -24,7 +24,7 @@
 | S3 | P5-S3-T05 | 看门狗、健康监测与故障恢复 | `p5_s3_t05_看门狗健康监测与故障恢复.md` | FROZEN |
 | S4 | P5-S4-T01 | BME280 SPI 采集与补偿算法 | `p5_s4_t01_bme280_spi采集与补偿算法.md` | FROZEN |
 | S4 | P5-S4-T02 | VEML7700 I²C 光照采集 | `p5_s4_t02_veml7700_i2c光照采集.md` | FROZEN |
-| S4 | P5-S4-T03 | ADXL345 中断采样与振动特征 | `p5_s4_t03_adxl345中断采样与振动特征.md` | PLANNED |
+| S4 | P5-S4-T03 | ADXL345 中断采样与振动特征 | `p5_s4_t03_adxl345中断采样与振动特征.md` | READY_FOR_CONTENT_REVIEW |
 | S4 | P5-S4-T04 | 统一采样、质量、新鲜度与时间戳 | `p5_s4_t04_统一采样质量新鲜度与时间戳.md` | PLANNED |
 | S4 | P5-S4-T05 | 多传感器调度与故障注入 | `p5_s4_t05_多传感器调度与故障注入.md` | PLANNED |
 | S5 | P5-S5-T01 | Modbus 从站合同与寄存器映射 | `p5_s5_t01_modbus从站合同与寄存器映射.md` | PLANNED |

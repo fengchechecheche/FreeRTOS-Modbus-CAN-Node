@@ -95,3 +95,11 @@ S2 的 VEML7700 探针仍只证明兼容 address/register presence policy，并�
 auto-range 驱动；既有 one-shot probe 回归继续通过。Host mock 与 ARM 链接不把
 `0x10` ACK、silicon identity、光照响应或总线恢复提升为硬件结论，这些仍为
 `NOT_RUN`/`NOT_CLAIMED`。
+
+## P5-S4-T03 交接
+
+S2 的 ADXL345 one-shot probe 仍只负责 scheduler 前的 `0xE5` 身份准入，
+并保持默认关闭。P5-S4-T03 新增独立的 100 Hz DATA_READY/EXTI4 驱动和六字节
+XYZ coherent read；既有 single-register probe 路径不设置 multibyte bit，只有
+ADXL345 长度大于 1 的 block read 才增加 D6。Host mock 与 ARM 链接不把实物
+identity、INT1、轴方向、量程或振动响应提升为硬件结论。

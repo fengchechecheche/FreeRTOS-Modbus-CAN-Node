@@ -171,3 +171,20 @@ task, stack, queue, mutex, dynamic heap or periodic evidence buffer.
 Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM gates. The
 five application stacks and queue depth remain unchanged. Hardware acquisition
 watermark and the combined SPI/I²C WCET remain `NOT_MEASURED`.
+
+## S4-T03 ADXL345 regression
+
+T03 adds one pure ADXL345 state machine, fixed app/IRQ state, a 100-sample
+streaming accumulator and the latest feature. It does not store 100 raw samples
+and adds no task, stack, queue, mutex, semaphore, DMA, dynamic heap or trace.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from `[020]` |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 38024 B | 160 B | 10032 B | 38184 B | 10192 B | Flash +3340 B, RAM +400 B |
+| Release | 31960 B | 156 B | 10032 B | 32116 B | 10188 B | Flash +2552 B, RAM +404 B |
+
+The RAM increment holds the driver, owner-local snapshot, window sums/squares,
+latest feature and compact IRQ counters. Both builds remain far below the
+unchanged 384 KiB Flash and 96 KiB linked-RAM gates. All five application
+stacks remain 256 words and linker heap remains zero. Runtime stack watermark,
+IRQ latency and combined bus WCET remain `NOT_MEASURED`.

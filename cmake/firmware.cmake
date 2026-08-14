@@ -37,6 +37,7 @@ set(P5_STM32F4_HAL_SOURCES
     Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c)
 
 set(P5_PROJECT_FIRMWARE_SOURCES
+    app/src/app_adxl345.c
     app/src/app_bme280.c
     app/src/app_veml7700.c
     app/src/app_boot.c
@@ -52,12 +53,14 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     app/src/app_transport_policy.c
     bsp/src/bsp_clock.c
     bsp/src/bsp_clock_math.c
+    bsp/src/bsp_adxl345_irq.c
     bsp/src/bsp_spi_bus.c
     bsp/src/bsp_i2c_bus.c
     bsp/src/bsp_rs485.c
     bsp/src/bsp_rs485_irq_event.c
     bsp/src/bsp_rs485_state.c
     bsp/src/bsp_can.c
+    sensors/src/adxl345.c
     sensors/src/bme280.c
     sensors/src/veml7700.c)
 

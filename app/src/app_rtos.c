@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 #include "FreeRTOS.h"
+#include "app_adxl345.h"
 #include "app_bme280.h"
 #include "app_boot.h"
 #include "app_health_policy.h"
@@ -12,6 +13,7 @@
 #include "app_task_model.h"
 #include "app_transport_policy.h"
 #include "app_veml7700.h"
+#include "bsp_adxl345_irq.h"
 #include "bsp_rs485.h"
 #include "queue.h"
 #include "semphr.h"
@@ -208,11 +210,20 @@ static void app_rtos_noop_service(void)
 {
 }
 
-static void app_rtos_acquisition_service(void)
+static void app_rtos_acquisition_periodic_service(void)
 {
   const uint32_t now_ms = (uint32_t)xTaskGetTickCount();
+  app_adxl345_service(now_ms, 0U);
   app_bme280_service(now_ms);
   app_veml7700_service(now_ms);
+}
+
+static void app_rtos_acquisition_event_service(uint32_t event_count)
+{
+  if (event_count != 0U)
+  {
+    app_adxl345_service((uint32_t)xTaskGetTickCount(), event_count);
+  }
 }
 
 static void app_rtos_protocol_service(void)
@@ -250,6 +261,20 @@ static void app_rtos_rs485_notify_from_isr(uint32_t event_mask)
                            event_mask,
                            eSetBits,
                            &higher_priority_task_woken);
+  portYIELD_FROM_ISR(higher_priority_task_woken);
+}
+
+static void app_rtos_adxl345_notify_from_isr(void)
+{
+  TaskHandle_t acquisition_handle =
+      app_rtos_task_handles[APP_TASK_ACQUISITION];
+  if (acquisition_handle == NULL)
+  {
+    return;
+  }
+
+  BaseType_t higher_priority_task_woken = pdFALSE;
+  vTaskNotifyGiveFromISR(acquisition_handle, &higher_priority_task_woken);
   portYIELD_FROM_ISR(higher_priority_task_woken);
 }
 
@@ -503,6 +528,44 @@ static _Noreturn void app_rtos_run_protocol(void)
   }
 }
 
+static _Noreturn void app_rtos_run_acquisition(void)
+{
+  const app_task_contract_t *contract =
+      app_task_model_contract(APP_TASK_ACQUISITION);
+  if (contract == NULL)
+  {
+    app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
+  }
+
+  app_task_runtime_t *runtime =
+      &app_rtos_task_runtime[APP_TASK_ACQUISITION];
+  app_task_runtime_initialize(runtime, (uint32_t)xTaskGetTickCount());
+
+  for (;;)
+  {
+    TickType_t now_tick = xTaskGetTickCount();
+    if (app_task_runtime_release_due(runtime, (uint32_t)now_tick))
+    {
+      const TickType_t actual_start_tick = now_tick;
+      app_rtos_acquisition_periodic_service();
+      const TickType_t actual_finish_tick = xTaskGetTickCount();
+      if (!app_task_runtime_record_cycle(runtime,
+                                         contract,
+                                         (uint32_t)actual_start_tick,
+                                         (uint32_t)actual_finish_tick))
+      {
+        app_rtos_fail_stop(APP_RTOS_FAULT_CYCLE);
+      }
+      continue;
+    }
+
+    const TickType_t wait_ticks = (TickType_t)
+        app_task_runtime_ticks_until_release(runtime, (uint32_t)now_tick);
+    const uint32_t event_count = ulTaskNotifyTake(pdTRUE, wait_ticks);
+    app_rtos_acquisition_event_service(event_count);
+  }
+}
+
 static void app_rtos_protocol_task(void *context)
 {
   (void)context;
@@ -512,7 +575,7 @@ static void app_rtos_protocol_task(void *context)
 static void app_rtos_acquisition_task(void *context)
 {
   (void)context;
-  app_rtos_run_periodic(APP_TASK_ACQUISITION, app_rtos_acquisition_service);
+  app_rtos_run_acquisition();
 }
 
 static void app_rtos_can_task(void *context)
@@ -551,6 +614,8 @@ app_rtos_status_t app_rtos_initialize(void)
   app_transport_counters_initialize(&app_rtos_transport_counters);
   app_rtos_event_queue_maximum_pending = 0U;
   app_health_policy_initialize(&app_rtos_health_policy);
+  bsp_adxl345_irq_initialize();
+  app_adxl345_initialize();
   app_bme280_initialize();
   app_veml7700_initialize();
   app_rtos_capture_reset_reason();
@@ -605,6 +670,7 @@ app_rtos_status_t app_rtos_initialize(void)
   }
 
   bsp_rs485_register_irq_notifier(app_rtos_rs485_notify_from_isr);
+  bsp_adxl345_register_irq_notifier(app_rtos_adxl345_notify_from_isr);
 
   return APP_RTOS_OK;
 }

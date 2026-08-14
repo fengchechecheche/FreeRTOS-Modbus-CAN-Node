@@ -49,6 +49,8 @@ CHECKS: CheckTable = {
         ("usart1 rtos irq priority", "NVIC.USART1_IRQn=true\\:6\\:0"),
         ("usart1 rx rtos irq priority", "NVIC.DMA2_Stream2_IRQn=true\\:6\\:0"),
         ("usart1 tx rtos irq priority", "NVIC.DMA2_Stream7_IRQn=true\\:6\\:0"),
+        ("adxl exti rtos irq priority", "NVIC.EXTI4_IRQn=true\\:6\\:0"),
+        ("adxl int pull down", "PB4.GPIO_PuPd=GPIO_PULLDOWN"),
         ("usart1 rx dma", "Dma.USART1_RX.0.Instance=DMA2_Stream2"),
         ("usart1 tx dma", "Dma.USART1_TX.1.Instance=DMA2_Stream7"),
         ("spi1 mode", "SPI1.Mode=SPI_MODE_MASTER"),
@@ -98,6 +100,9 @@ CHECKS: CheckTable = {
         ("adxl cs safe", "HAL_GPIO_WritePin(ADXL345_CS_GPIO_Port, ADXL345_CS_Pin, GPIO_PIN_SET);"),
         ("rs485 de safe", "HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_RESET);"),
         ("bme cs safe", "HAL_GPIO_WritePin(BME280_CS_GPIO_Port, BME280_CS_Pin, GPIO_PIN_SET);"),
+        ("adxl int pull down", "GPIO_InitStruct.Pull = GPIO_PULLDOWN;"),
+        ("adxl exti priority", "HAL_NVIC_SetPriority(EXTI4_IRQn, 6, 0);"),
+        ("adxl exti enabled", "HAL_NVIC_EnableIRQ(EXTI4_IRQn);"),
     ],
     Path("Core/Src/usart.c"): [
         ("usart1 baud generated", "huart1.Init.BaudRate = 19200;"),
@@ -134,6 +139,8 @@ CHECKS: CheckTable = {
         ("can bs2", "hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;"),
     ],
     Path("Core/Src/stm32f4xx_it.c"): [
+        ("adxl exti handler", "void EXTI4_IRQHandler(void)"),
+        ("adxl exti hal dispatch", "HAL_GPIO_EXTI_IRQHandler(ADXL345_INT1_Pin);"),
         ("usart1 handler", "void USART1_IRQHandler(void)"),
         ("rx dma handler", "void DMA2_Stream2_IRQHandler(void)"),
         ("tx dma handler", "void DMA2_Stream7_IRQHandler(void)"),
@@ -155,6 +162,9 @@ CHECKS: CheckTable = {
         ("transport policy source", "app/src/app_transport_policy.c"),
         ("health policy source", "app/src/app_health_policy.c"),
         ("reset reason source", "app/src/app_reset_reason.c"),
+        ("adxl driver source", "sensors/src/adxl345.c"),
+        ("adxl adapter source", "app/src/app_adxl345.c"),
+        ("adxl irq source", "bsp/src/bsp_adxl345_irq.c"),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -197,6 +207,7 @@ CHECKS: CheckTable = {
         ("health host test", "add_test(NAME p5.host.health"),
         ("bme280 host test", "add_test(NAME p5.host.bme280"),
         ("veml7700 host test", "add_test(NAME p5.host.veml7700"),
+        ("adxl345 host test", "add_test(NAME p5.host.adxl345"),
     ],
     Path("docs/bsp_contract.md"): [
         ("candidate boundary", "BSP_CONTRACT_CANDIDATE_FROZEN"),
@@ -248,6 +259,8 @@ CHECKS: CheckTable = {
     ],
     Path("app/src/app_rtos.c"): [
         ("from-isr task notification", "xTaskNotifyFromISR("),
+        ("adxl counting notification", "vTaskNotifyGiveFromISR("),
+        ("adxl notification take", "ulTaskNotifyTake(pdTRUE, wait_ticks)"),
         ("task notification wait", "xTaskNotifyWait("),
         ("from-isr yield", "portYIELD_FROM_ISR("),
         ("absolute release check", "app_task_runtime_release_due("),
@@ -266,6 +279,9 @@ CHECKS: CheckTable = {
         ("bme initialized before scheduler", "app_bme280_initialize();"),
         ("veml acquisition service", "app_veml7700_service(now_ms);"),
         ("veml initialized before scheduler", "app_veml7700_initialize();"),
+        ("adxl periodic service", "app_adxl345_service(now_ms, 0U);"),
+        ("adxl initialized before scheduler", "app_adxl345_initialize();"),
+        ("adxl notifier registered", "bsp_adxl345_register_irq_notifier("),
     ],
     Path("app/include/app_transport_policy.h"): [
         ("event queue depth", "#define APP_TRANSPORT_EVENT_QUEUE_DEPTH (8U)"),
@@ -355,6 +371,40 @@ CHECKS: CheckTable = {
         ("veml default sample period", "VEML7700_DEFAULT_SAMPLE_PERIOD_MS"),
         ("physical recovery not fabricated", "return false;"),
     ],
+    Path("sensors/include/adxl345.h"): [
+        ("adxl identity", "#define ADXL345_DEVID_VALUE UINT8_C(0xe5)"),
+        ("adxl 100 hz", "#define ADXL345_BW_RATE_100_HZ UINT8_C(0x0a)"),
+        ("adxl full resolution 4g", "#define ADXL345_DATA_FORMAT_FULL_RES_4G UINT8_C(0x09)"),
+        ("adxl 100 sample window", "#define ADXL345_FEATURE_WINDOW_SAMPLES (100U)"),
+        ("adxl bounded stall", "#define ADXL345_DATA_READY_STALL_MS UINT32_C(100)"),
+        ("adxl accumulator window", "adxl345_feature_window_t window;"),
+    ],
+    Path("sensors/src/adxl345.c"): [
+        ("adxl single recovery", "#define ADXL345_MAX_RECOVERY_ATTEMPTS (1U)"),
+        ("adxl integer square root", "adxl345_integer_root("),
+        ("adxl bounded state service", "switch (driver->state)"),
+        ("adxl coherent read", "ADXL345_DATAX0_REGISTER"),
+        ("adxl event coalesce", "event_count - 1U"),
+    ],
+    Path("app/include/app_adxl345.h"): [
+        ("adxl spi timeout", "#define APP_ADXL345_SPI_TIMEOUT_MS UINT32_C(5)"),
+        ("adxl owner context snapshot", "Owner-context only until P5-S4-T04"),
+    ],
+    Path("app/src/app_adxl345.c"): [
+        ("adxl block read adapter", "bsp_spi_bus_read_registers("),
+        ("adxl register write adapter", "bsp_spi_bus_write_register("),
+        ("adxl fixed spi device", "BSP_SPI_DEVICE_ADXL345"),
+    ],
+    Path("bsp/src/bsp_spi_bus.c"): [
+        ("adxl multibyte bit", "BSP_SPI_BUS_ADXL345_MULTIBYTE_BIT"),
+        ("adxl coherent command", "UINT8_C(0xf2)"),
+        ("adxl device specific multibyte", "device == BSP_SPI_DEVICE_ADXL345"),
+    ],
+    Path("bsp/src/bsp_adxl345_irq.c"): [
+        ("adxl hal callback", "void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin)"),
+        ("adxl pin admission", "gpio_pin != ADXL345_INT1_Pin"),
+        ("adxl notifier call", "bsp_adxl345_irq_notifier();"),
+    ],
     Path("bsp/src/bsp_rs485.c"): [
         ("irq event publish", "bsp_rs485_irq_publish_from_isr("),
         ("task-context event service", "bsp_rs485_service_irq_events(void)"),
@@ -443,6 +493,25 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("veml adapter dynamic allocation", "malloc("),
         ("veml adapter unbounded loop", "for (;;)"),
     ],
+    Path("sensors/src/adxl345.c"): [
+        ("adxl hal dependency", "HAL_"),
+        ("adxl freertos dependency", "vTask"),
+        ("adxl snapshot mutex", "xSemaphore"),
+        ("adxl dynamic allocation", "malloc("),
+        ("adxl unbounded for loop", "for (;;)"),
+        ("adxl unbounded true loop", "while (true)"),
+        ("adxl unbounded one loop", "while (1)"),
+        ("adxl periodic print", "printf("),
+        ("adxl floating square root", "sqrt("),
+        ("adxl floating square root f", "sqrtf("),
+    ],
+    Path("app/src/app_adxl345.c"): [
+        ("adxl adapter direct hal", "HAL_"),
+        ("adxl adapter task delay", "vTaskDelay("),
+        ("adxl adapter mutex", "xSemaphore"),
+        ("adxl adapter dynamic allocation", "malloc("),
+        ("adxl adapter unbounded loop", "for (;;)"),
+    ],
 }
 
 
@@ -460,6 +529,16 @@ CALLBACK_FORBIDDEN = (
     "HAL_UART_Abort",
     "xTaskNotify(",
     "xQueue",
+)
+
+ADXL_CALLBACK_FORBIDDEN = (
+    "HAL_SPI_",
+    "bsp_spi_bus_",
+    "memcpy(",
+    "vTaskDelay(",
+    "xQueue",
+    "xSemaphore",
+    "printf(",
 )
 
 
@@ -547,6 +626,44 @@ def verify(
             if forbidden in body:
                 errors.append(
                     f"{callback_path}: {callback}: forbidden {forbidden!r}"
+                )
+
+    adxl_callback_path = Path("bsp/src/bsp_adxl345_irq.c")
+    if adxl_callback_path in override_map:
+        adxl_callback_source = override_map[adxl_callback_path]
+    else:
+        try:
+            adxl_callback_source = (root / adxl_callback_path).read_text(
+                encoding="utf-8"
+            )
+        except (OSError, UnicodeError) as exc:
+            errors.append(
+                f"{adxl_callback_path}: cannot read callback: {exc}"
+            )
+            adxl_callback_source = ""
+
+    adxl_callback = function_body(
+        adxl_callback_source, "HAL_GPIO_EXTI_Callback"
+    )
+    checked += 1
+    if adxl_callback is None:
+        errors.append(
+            f"{adxl_callback_path}: callback body missing: "
+            "HAL_GPIO_EXTI_Callback"
+        )
+    else:
+        checked += 1
+        if "bsp_adxl345_irq_notifier();" not in adxl_callback:
+            errors.append(
+                f"{adxl_callback_path}: HAL_GPIO_EXTI_Callback: "
+                "notifier missing"
+            )
+        for forbidden in ADXL_CALLBACK_FORBIDDEN:
+            checked += 1
+            if forbidden in adxl_callback:
+                errors.append(
+                    f"{adxl_callback_path}: HAL_GPIO_EXTI_Callback: "
+                    f"forbidden {forbidden!r}"
                 )
 
     return errors, checked
@@ -977,6 +1094,119 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    adxl_priority_mutant = original_ioc.replace(
+        "NVIC.EXTI4_IRQn=true\\:6\\:0",
+        "NVIC.EXTI4_IRQn=true\\:0\\:0",
+        1,
+    )
+    if adxl_priority_mutant == original_ioc:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create ADXL priority mutant)"
+        )
+        return 2
+    adxl_priority_errors, _ = verify(
+        root, {ioc_path: adxl_priority_mutant}
+    )
+    if not any(
+        "adxl exti rtos irq priority" in item
+        for item in adxl_priority_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(ADXL priority-0 mutant was not detected)"
+        )
+        return 2
+
+    adxl_sensor_path = Path("sensors/src/adxl345.c")
+    original_adxl_sensor = (root / adxl_sensor_path).read_text(
+        encoding="utf-8"
+    )
+    adxl_recovery_mutant = original_adxl_sensor.replace(
+        "#define ADXL345_MAX_RECOVERY_ATTEMPTS (1U)",
+        "#define ADXL345_MAX_RECOVERY_ATTEMPTS (2U)",
+        1,
+    )
+    if adxl_recovery_mutant == original_adxl_sensor:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create ADXL recovery mutant)"
+        )
+        return 2
+    adxl_recovery_errors, _ = verify(
+        root, {adxl_sensor_path: adxl_recovery_mutant}
+    )
+    if not any("adxl single recovery" in item for item in adxl_recovery_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(ADXL recovery budget mutant was not detected)"
+        )
+        return 2
+
+    adxl_loop_errors, _ = verify(
+        root, {adxl_sensor_path: original_adxl_sensor + "\nfor (;;) {}\n"}
+    )
+    if not any("adxl unbounded for loop" in item for item in adxl_loop_errors):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(ADXL unbounded feature mutant was not detected)"
+        )
+        return 2
+
+    spi_path = Path("bsp/src/bsp_spi_bus.c")
+    original_spi = (root / spi_path).read_text(encoding="utf-8")
+    adxl_mb_mutant = original_spi.replace(
+        "device == BSP_SPI_DEVICE_ADXL345",
+        "device == BSP_SPI_DEVICE_BME280",
+        1,
+    )
+    if adxl_mb_mutant == original_spi:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create ADXL multibyte mutant)"
+        )
+        return 2
+    adxl_mb_errors, _ = verify(root, {spi_path: adxl_mb_mutant})
+    if not any(
+        "adxl device specific multibyte" in item for item in adxl_mb_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(ADXL multibyte mutant was not detected)"
+        )
+        return 2
+
+    adxl_callback_path = Path("bsp/src/bsp_adxl345_irq.c")
+    original_adxl_callback = (root / adxl_callback_path).read_text(
+        encoding="utf-8"
+    )
+    adxl_callback_marker = (
+        "void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin)\n{\n"
+    )
+    adxl_callback_mutant = original_adxl_callback.replace(
+        adxl_callback_marker,
+        adxl_callback_marker + "  memcpy(0, 0, 0);\n",
+        1,
+    )
+    if adxl_callback_mutant == original_adxl_callback:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create ADXL callback mutant)"
+        )
+        return 2
+    adxl_callback_errors, _ = verify(
+        root, {adxl_callback_path: adxl_callback_mutant}
+    )
+    if not any(
+        "HAL_GPIO_EXTI_Callback" in item and "memcpy(" in item
+        for item in adxl_callback_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(ADXL callback-work mutant was not detected)"
+        )
+        return 2
+
     print(
         "P5 BSP CONTRACT SELF-TEST: PASS "
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
@@ -984,7 +1214,8 @@ def run_self_test(root: Path) -> int:
         "callback-queue, one-epoch-stall, recovery-budget, degraded-feed, "
         "task-delete, default-IWDG, second-feed, BME-HAL-delay, BME-loop, "
         "second-SPI-owner, BME-mutex, VEML-HAL-delay, VEML-loop, "
-        "second-I2C-owner and VEML-mutex mutants rejected)"
+        "second-I2C-owner, VEML-mutex, ADXL-priority, ADXL-recovery, "
+        "ADXL-loop, ADXL-multibyte and ADXL-callback mutants rejected)"
     )
     return 0
 

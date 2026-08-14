@@ -28,7 +28,7 @@
 | SPI1 SCK/MISO/MOSI | PA5/PA6/PA7 | AF5，Mode 3，MSB first | software NSS |
 | BME280 CS | PB6 | GPIO output | high/deselected |
 | ADXL345 CS | PC7 | GPIO output | high/deselected |
-| ADXL345 INT1 | PB4 | rising-edge EXTI pin candidate | NVIC/callback 尚未启用 |
+| ADXL345 INT1 | PB4 | rising-edge EXTI4，pull-down | priority 6/0；实物电平待测 |
 | I2C2 SCL/SDA | PB10/PB3 | AF4 open-drain，100 kHz | 外部上拉待实测 |
 | CAN1 RX/TX | PB8/PB9 | AF9，500 kbit/s init candidate | 收发器与总线待实测 |
 
@@ -58,6 +58,8 @@ P5-S3-T01 A2 已由原生 FreeRTOS ARM_CM4F port 接管 SysTick、PendSV 与 SVC
 tick。P5-S3-T03 将 USART1、DMA2 Stream2 和 DMA2 Stream7 固定为 priority 6/subpriority 0，并使用
 `xTaskNotifyFromISR(eSetBits)` 唤醒 `protocol_task`。NVIC 使用 `NVIC_PRIORITYGROUP_4`，FreeRTOS
 `configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY=5`；数值 6 满足 Cortex-M4 port 的 BASEPRI 边界。
+P5-S4-T03 同样把 PB4/EXTI4 固定为 priority 6/subpriority 0，并使用 counting
+task notification 唤醒 `acquisition_task`；ISR 只核对 pin、计数和通知。
 
 生成初始化顺序：
 
@@ -97,6 +99,8 @@ HAL_Init
 - master、2-line、8-bit、Mode 3、MSB first、software NSS；
 - prescaler 32，在 PCLK2 90 MHz 下候选速率 2.8125 Mbit/s；
 - BME280 和 ADXL345 共用 SPI1，片选独立；
+- ADXL345 六字节 XYZ block read 额外设置 multibyte D6，wire command 为 `0xF2`；
+- BME280 与 ADXL345 single-register read 不受该 device-specific D6 规则影响；
 - transaction 前后恢复两个 CS high；
 - 默认 timeout 20 ms，不使用 SPI DMA；
 - `P5_DEVICE_PROBE_SMOKE` 默认 `OFF`。
@@ -134,7 +138,10 @@ HAL_Init
 
 ### SPI/I²C/CAN
 
-- `bsp_spi_bus_handle()` / `bsp_spi_bus_read_register()`；
+- `bsp_spi_bus_handle()` / `bsp_spi_bus_read_register()` /
+  `bsp_spi_bus_read_registers()`；
+- `bsp_adxl345_register_irq_notifier()` /
+  `bsp_adxl345_get_irq_diagnostics()`；
 - `bsp_i2c_bus_handle()` / `bsp_i2c_bus_is_device_ready()` / `bsp_i2c_bus_read_register()`；
 - `bsp_can_handle()`。
 

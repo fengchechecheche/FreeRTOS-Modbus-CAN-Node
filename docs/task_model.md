@@ -6,7 +6,7 @@
 | Task | Priority | Period | Deadline | Design budget | T01 service |
 |---|---:|---:|---:|---:|---|
 | `protocol_task` | 5 | 5 ms | 5 ms | 1 ms | bounded RS485 poll/smoke; no Modbus parser |
-| `acquisition_task` | 4 | 20 ms | 20 ms | 2 ms | advance BME280 and VEML7700 once; at most one SPI plus one I²C transaction |
+| `acquisition_task` | 4 | 20 ms | 20 ms | 2 ms | ADXL DATA_READY notification plus absolute BME280/VEML7700 release |
 | `can_task` | 3 | 100 ms | 100 ms | 2 ms | release/health skeleton; CAN remains stopped |
 | `health_task` | 2 | 1000 ms | 1000 ms | 5 ms | per-task progress and bounded feed decision; IWDG not armed |
 | `diagnostic_task` | 1 | 200 ms | 200 ms | 2 ms | drain at most 2 diagnostic events, then bounded heartbeat/smoke |
@@ -34,8 +34,11 @@ DMA rearm, state transitions and error recovery stay in task context.
 
 `protocol_task` now waits for either a notification or the next absolute 5 ms
 release. Every event drain is followed by another absolute-release check, so a
-notification storm cannot move the timeout/poll deadline. The other four tasks
-retain the original `vTaskDelayUntil()` loop.
+notification storm cannot move the timeout/poll deadline. The ADXL345
+integration applies the same rule to `acquisition_task`: counting
+notifications wake it for at most one coherent XYZ read, then it immediately
+rechecks the unchanged 20 ms release. The other three tasks retain the original
+`vTaskDelayUntil()` loop.
 
 P5-S3-T04 adds one depth-8 static diagnostic event queue. Task producers use a
 zero-tick send and drop-new accounting; `diagnostic_task` consumes at most two
@@ -45,13 +48,15 @@ only while copying complete values. A failed lock returns an explicit
 unavailable result and increments a contention counter.
 
 `acquisition_task` is the only runtime owner of SPI1 and I²C2. Each 20 ms
-release advances the BME280 forced-mode and VEML7700 ALS state machines once,
-using one shared timestamp. Each driver may issue at most one 5 ms-timeout
-transaction, so the combined candidate upper bound is one SPI plus one I²C
-transaction per release. This is not measured WCET; final arbitration remains
-for P5-S4-T05. Owner-local samples are not yet the cross-sensor freshness
-schema; protocol, CAN and health tasks must not call sensor or bus APIs
-directly. The scheduler-before boot probe remains the only current exception.
+release advances the BME280 forced-mode and VEML7700 ALS state machines once
+and checks the ADXL stall deadline. A DATA_READY notification batch performs
+at most one 5 ms ADXL SPI read and records `count-1` as a drop lower bound.
+When an event and periodic release coincide, the candidate upper bound is one
+ADXL SPI read plus at most one BME SPI and one VEML I²C transaction. This is not
+measured WCET; final arbitration remains for P5-S4-T05. Owner-local samples are
+not yet the cross-sensor freshness schema; protocol, CAN and health tasks must
+not call sensor or bus APIs directly. The scheduler-before boot probe remains
+the only current exception.
 
 P5-S3-T05 makes `health_task` the sole owner of the health-policy decision. It
 checks progress from `protocol_task`, `acquisition_task`, `can_task` and

@@ -17,6 +17,13 @@ runtime owner, and one VEML service call performs at most one transaction.
 High-lux correction is deliberately flagged but not fabricated without an
 application-specific optical validation.
 
+`adxl345.c` implements the P5-S4-T03 ADXL345 candidate. It uses injected SPI
+operations, one-transaction-per-service initialization, six-byte coherent XYZ
+reads, signed integer scaling and a fixed 100-sample accumulator window. The
+window stores no raw history and publishes only mean, DC-removed RMS, peak and
+resultant RMS. DATA_READY event coalescing is reported as a lower-bound drop
+count; FIFO, FFT, alarm thresholds and fault classification remain out of scope.
+
 Host vectors and ARM linking validate software behavior only. Until hardware is
 available, chip identity, bus timing, measurement acquisition and accuracy all
 remain `NOT_RUN`/`NOT_CLAIMED`.

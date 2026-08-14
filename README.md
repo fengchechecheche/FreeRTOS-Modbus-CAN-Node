@@ -5,7 +5,8 @@
 这允许后续纯软件轨道继续，但不代表板卡、Shield 或外设已经实测。P5-S3-T01 已集成随包
 FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核冻结。P5-S4-T01 BME280 内容
 已经审核冻结；P5-S4-T02 VEML7700 整数照度、有限自动量程与 acquisition task 软件候选也已完成
-内容审核，等待硬件补验。Modbus 协议、CAN 业务与 ADXL345 驱动仍未实现。
+内容审核，等待硬件补验。P5-S4-T03 已形成 ADXL345 DATA_READY 中断采样、整数工程量和
+100 样本振动趋势特征的软件候选；Modbus 协议与 CAN 业务仍未实现。
 
 ## 当前边界
 
@@ -29,7 +30,8 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 - `P5_DEVICE_PROBE_SMOKE` 默认关闭；临时启用时只探测一次并通过 USART2 输出紧凑摘要，设备缺失
   不阻塞正常启动。
 - FreeRTOS 任务使用静态分配，`protocol_task` 接管有限 RS485 poll，`diagnostic_task` 接管有限
-  heartbeat；`acquisition_task` 每 20 ms 依次推进一次 BME280 与 VEML7700 状态机。
+  heartbeat；`acquisition_task` 保持 20 ms 绝对释放推进 BME280/VEML7700，并接收 ADXL345
+  DATA_READY 计数通知；每批通知最多读取一帧。
 - 五个应用任务栈各为 256 words，Host/ARM 资源门已通过；硬件 watermark 仍为 `NOT_MEASURED`。
 - SPI/I²C 候选不使用 DMA、RTOS 或动态内存；timeout/bus error 最多请求一次 recovery，当前 HAL
   adapter 不伪造未实测的 SCL pulse 或重新初始化。
@@ -37,6 +39,9 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
   owner-local snapshot；实物 ID、采集与精度仍为 `NOT_RUN`。
 - VEML7700 使用 7-bit `0x10`、默认 gain x1/8 与 100 ms integration，以 9 级有限自动量程输出整数
   millilux；高照度修正只标记不伪造，实物 ACK、采集、量程切换与精度仍为 `NOT_RUN`/`NOT_CLAIMED`。
+- ADXL345 候选为 100 Hz、full-resolution、±4 g、FIFO bypass，DATA_READY 映射到 PB4/EXTI4
+  priority 6/0；六字节 coherent read 使用 `0xF2` wire command。100 样本窗口只保存
+  sum/sum-square/min/max，输出去直流 RMS/peak 和三轴合成 RMS，不构成故障诊断或校准结论。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 尚未到货，ST-LINK、VCP、UART loopback、RS485 physical layer 和全部板级接口均保持
   `WAITING_FOR_HARDWARE`。
@@ -53,8 +58,9 @@ DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 11 项 CTest，包括
-BME280 calibration/compensation 与 VEML7700 word/range/state-machine 回归。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 12 项 CTest，包括
+BME280 calibration/compensation、VEML7700 word/range/state-machine 和 ADXL345
+parse/config/feature/recovery 回归。构建输出位于 `out/`，问题排查证据只在需要时写入被忽略的
 `.private/`。
 
 BSP 静态合同检查：

@@ -77,3 +77,21 @@ There is no strict microsecond pass limit in this stage. A maximum above one
 5 ms protocol period is a diagnostic trigger, not an automatic rejection based
 on one sample. UART error injection may remain `NOT_RUN` if it is not convenient.
 No raw per-event trace or evidence bundle is required for a normal pass.
+
+## P5-S4-T03 ADXL345 EXTI extension
+
+PB4/EXTI4 uses the same `NVIC_PRIORITYGROUP_4` and priority 6/subpriority 0
+boundary. `EXTI4_IRQHandler()` only dispatches the pin to the HAL callback.
+The callback validates `ADXL345_INT1_Pin`, increments saturating counters and
+calls a registered notifier; it contains no SPI, copy, feature calculation,
+delay, queue, mutex, logging or recovery work.
+
+The notifier uses `vTaskNotifyGiveFromISR()`, so repeated DATA_READY events
+arrive as a count. `acquisition_task` clears one batch, performs at most one
+six-byte XYZ transaction and records `count-1` as a dropped-sample lower
+bound. It then rechecks the existing 20 ms absolute release, preventing an IRQ
+storm from moving BME280/VEML7700 progress indefinitely.
+
+The path is `PASS_HOST + PASS_CROSS_BUILD + PASS_ISR_CONTRACT`, but remains
+`LINKED_NOT_EXECUTED`; IRQ-to-task latency, real coalescing, INT polarity and
+100 Hz timing are `NOT_MEASURED` until hardware arrives.
