@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the P5 Modbus register contract without claiming runtime support."""
+"""Validate the P5 Modbus candidate without claiming hardware support."""
 
 from __future__ import annotations
 
@@ -166,7 +166,7 @@ def validate_contract(contract: dict[str, Any]) -> tuple[list[str], int]:
     checked += add_check(document.get("project") == "freertos_modbus_can_node", "wrong project", errors)
     checked += add_check(document.get("task_id") == "P5-S5-T01", "wrong task_id", errors)
     checked += add_check(document.get("status") == "candidate_validated", "status must be candidate_validated", errors)
-    checked += add_check(document.get("runtime_status") == "not_implemented", "runtime must remain not_implemented", errors)
+    checked += add_check(document.get("runtime_status") == "candidate_implemented", "runtime must be candidate_implemented", errors)
     checked += add_check(document.get("hardware_status") == "waiting_for_hardware", "hardware must remain waiting", errors)
 
     protocol = contract.get("protocol", {})
@@ -182,9 +182,9 @@ def validate_contract(contract: dict[str, Any]) -> tuple[list[str], int]:
         "register_byte_order": "big_endian",
         "multi_register_word_order": "high_word_first",
         "crc_wire_order": "low_byte_first",
-        "crc_runtime_status": "not_implemented",
-        "parser_runtime_status": "not_implemented",
-        "handler_runtime_status": "not_implemented",
+        "crc_runtime_status": "candidate_validated",
+        "parser_runtime_status": "candidate_implemented",
+        "handler_runtime_status": "candidate_implemented",
     }
     for key, value in protocol_expectations.items():
         checked += add_check(protocol.get(key) == value, f"protocol.{key} must be {value!r}", errors)
@@ -234,7 +234,7 @@ def validate_contract(contract: dict[str, Any]) -> tuple[list[str], int]:
         "mutex_policy": "copy_then_unlock_before_lookup_crc_or_encoding",
         "multi_request_consistency": "compare_register_image_generation",
         "unavailable_snapshot_policy": "server_device_failure",
-        "runtime_status": "not_implemented",
+        "runtime_status": "candidate_implemented",
     }
     for key, value in atomicity_expectations.items():
         checked += add_check(atomicity.get(key) == value, f"atomicity.{key} mismatch", errors)
@@ -291,7 +291,7 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
     checks = {
         Path("docs/modbus_contract.md"): (
             "CANDIDATE_VALIDATED",
-            "Runtime: `NOT_IMPLEMENTED`",
+            "Runtime: `CANDIDATE_IMPLEMENTED`",
             "Hardware: `WAITING_FOR_HARDWARE`",
             "`0x0000..0x0079`",
             "122",
@@ -301,12 +301,12 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
         Path("protocol/README.md"): (
             "register map contract",
             "CRC/parser/handler",
-            "`NOT_IMPLEMENTED`",
+            "`CANDIDATE_IMPLEMENTED`",
         ),
         Path("README.md"): (
             "P5-S5-T01",
             "默认 Modbus slave address contract 为 `4`",
-            "runtime 仍为 `NOT_IMPLEMENTED`",
+            "runtime 为 `CANDIDATE_IMPLEMENTED`",
         ),
     }
     for relative, markers in checks.items():
@@ -430,7 +430,7 @@ def main() -> int:
     else:
         print(
             f"P5 MODBUS CONTRACT: PASS ({checked} facts, 122 input + 4 holding, "
-            "runtime not implemented, hardware waiting)"
+            "candidate implemented, hardware waiting)"
         )
     return 0
 

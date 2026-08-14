@@ -1,7 +1,7 @@
 # 项目五教程索引
 
-> P5-S5-T03 tutorial is now `READY_FOR_CONTENT_REVIEW`:
-> `p5_s5_t03_rs485接收状态机与半双工时序.md`. This note supersedes the older
+> P5-S5-T04 tutorial is now `READY_FOR_CONTENT_REVIEW`:
+> `p5_s5_t04_功能码异常响应与配置写入.md`. This note supersedes the older
 > `PLANNED` status in the frozen index row until the next index normalization.
 
 > 版本：1.0.0  
@@ -32,9 +32,9 @@
 | S4 | P5-S4-T04 | 统一采样、质量、新鲜度与时间戳 | `p5_s4_t04_统一采样质量新鲜度与时间戳.md` | FROZEN |
 | S4 | P5-S4-T05 | 多传感器调度与故障注入 | `p5_s4_t05_多传感器调度与故障注入.md` | FROZEN |
 | S5 | P5-S5-T01 | Modbus 从站合同与寄存器映射 | `p5_s5_t01_modbus从站合同与寄存器映射.md` | FROZEN |
-| S5 | P5-S5-T02 | Modbus CRC、组帧与静默间隔 | `p5_s5_t02_modbus_crc组帧与静默间隔.md` | READY_FOR_CONTENT_REVIEW |
-| S5 | P5-S5-T03 | RS485 接收状态机与半双工时序 | `p5_s5_t03_rs485接收状态机与半双工时序.md` | PLANNED |
-| S5 | P5-S5-T04 | 功能码、异常响应与配置写入 | `p5_s5_t04_功能码异常响应与配置写入.md` | PLANNED |
+| S5 | P5-S5-T02 | Modbus CRC、组帧与静默间隔 | `p5_s5_t02_modbus_crc组帧与静默间隔.md` | FROZEN |
+| S5 | P5-S5-T03 | RS485 接收状态机与半双工时序 | `p5_s5_t03_rs485接收状态机与半双工时序.md` | FROZEN |
+| S5 | P5-S5-T04 | 功能码、异常响应与配置写入 | `p5_s5_t04_功能码异常响应与配置写入.md` | READY_FOR_CONTENT_REVIEW |
 | S5 | P5-S5-T05 | 项目三联调与主从站证据 | `p5_s5_t05_项目三联调与主从站证据.md` | PLANNED |
 | S6 | P5-S6-T01 | CAN 物理层、仲裁与报文合同 | `p5_s6_t01_can物理层仲裁与报文合同.md` | PLANNED |
 | S6 | P5-S6-T02 | bxCAN 过滤器、中断与发送队列 | `p5_s6_t02_bxcan过滤器中断与发送队列.md` | PLANNED |

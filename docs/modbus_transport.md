@@ -1,9 +1,9 @@
 # P5-S5-T03 Modbus RTU transport candidate
 
-> Software status: `PASS_HOST + PASS_CROSS_BUILD + READY_FOR_CONTENT_REVIEW`  
+> Software status: `PASS_HOST + PASS_CROSS_BUILD + CANDIDATE_IMPLEMENTED`
 > Hardware status: `WAITING_FOR_HARDWARE`  
 > Implemented scope: stream assembly, RX chunk metadata, bounded half-duplex TX  
-> Deferred scope: function handlers, responses, register writes and physical timing validation
+> T04 extension: function handlers, responses and volatile address writes implemented; physical validation deferred
 
 ## Runtime path
 
@@ -17,7 +17,10 @@ USART1/DMA IRQ
   -> reconstruct candidate byte-end timestamps
   -> HAL/RTOS-free RTU stream state machine
   -> CRC-valid synchronous consumer
-  -> unhandled_valid_frames++ (T04 handoff)
+  -> HAL/RTOS-free function server
+  -> request-local register image when required
+  -> bsp_rs485_send()
+  -> TX-complete commit or link-failure cancel
 ```
 
 `P5_RS485_LOOPBACK_SMOKE=ON` selects the legacy bounded ASCII loopback path.
@@ -39,8 +42,8 @@ RS485 bus.
   counters; no raw-frame history or heap allocation is retained.
 
 The consumer is synchronous in `protocol_task` context. At T03 a CRC-valid ADU
-is deliberately not answered: it increments `unhandled_valid_frames` and is
-released. Function-code admission and response construction belong to T04.
+was deliberately not answered. T04 replaces that handoff with address/function
+admission and bounded response construction; see [`modbus_server.md`](modbus_server.md).
 
 ## Normal-DMA timestamp adapter
 
@@ -78,6 +81,8 @@ queue, mutex or heap object was added.
 
 Host tests cover valid frames, CRC/short/overlong rejection, exact t1.5,
 inter-character invalidation, t3.5 splitting, timestamp wrap, 256 B TX and
-RX-stop failure. Debug/Release ARM builds prove only compile/link closure.
+RX-stop failure. T04 additionally covers functions, exceptions, 249 B response,
+register image and delayed address commit. Debug/Release ARM builds prove only
+compile/link closure.
 Oscilloscope or logic-analyzer evidence for DE, first/last bit timing and real
 bus gaps remains `NOT_RUN` until hardware arrives.

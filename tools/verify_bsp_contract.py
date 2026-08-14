@@ -162,6 +162,8 @@ CHECKS: CheckTable = {
         ("cm4f port source", "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.c"),
         ("rs485 irq event source", "bsp/src/bsp_rs485_irq_event.c"),
         ("modbus transport source", "app/src/app_modbus_transport.c"),
+        ("modbus register image source", "app/src/app_modbus_register_image.c"),
+        ("modbus server source", "protocol/src/p5_modbus_server.c"),
         ("modbus stream source", "protocol/src/p5_modbus_rtu_stream.c"),
         ("transport policy source", "app/src/app_transport_policy.c"),
         ("health policy source", "app/src/app_health_policy.c"),
@@ -218,6 +220,8 @@ CHECKS: CheckTable = {
         ("veml7700 host test", "add_test(NAME p5.host.veml7700"),
         ("adxl345 host test", "add_test(NAME p5.host.adxl345"),
         ("modbus stream host test", "add_test(NAME p5.host.modbus_stream"),
+        ("modbus server host test", "add_test(NAME p5.host.modbus_server"),
+        ("modbus register image host test", "add_test(NAME p5.host.modbus_register_image"),
         ("sensor matrix host test", "add_test(NAME p5.host.sensor_matrix"),
     ],
     Path("docs/bsp_contract.md"): [
@@ -235,7 +239,7 @@ CHECKS: CheckTable = {
         ("runtime stress not run", "Runtime queue/mutex stress: `NOT_RUN`"),
         ("hardware waiting", "Hardware status: `WAITING_FOR_HARDWARE`"),
         ("measurement candidate implemented", "system and S4 measurement candidate implemented"),
-        ("command deferred", "schema and instance deferred to S5"),
+        ("address write local", "active-address write remains protocol-task local"),
     ],
     Path("docs/health_recovery_report.md"): [
         (
@@ -316,6 +320,8 @@ CHECKS: CheckTable = {
         ("sensor monitor owner update", "app_sensor_monitor_update("),
         ("sensor monitor complete copy", "app_rtos_sensor_monitor_snapshot"),
         ("sensor monitor task getter", "app_rtos_get_sensor_monitor_snapshot("),
+        ("modbus aggregate getter", "app_rtos_get_modbus_register_source("),
+        ("modbus image generation", "app_rtos_modbus_image_generation"),
         ("health sensor unavailable input", "input.sensor_unavailable_mask ="),
         ("health sensor stale input", "input.sensor_stale_mask ="),
         ("health sensor recovery input", "input.sensor_recovery_mask ="),
@@ -329,8 +335,16 @@ CHECKS: CheckTable = {
         ("legacy smoke compile switch", "#if P5_RS485_LOOPBACK_SMOKE_ENABLE"),
     ],
     Path("app/include/app_modbus_transport.h"): [
-        ("unhandled valid frame counter", "unhandled_valid_frames"),
+        ("server diagnostics", "p5_modbus_server_diagnostics_t server"),
         ("partial frame query", "app_modbus_transport_has_partial_frame"),
+        ("server irq feedback", "app_modbus_transport_on_irq_events"),
+    ],
+    Path("app/src/app_modbus_transport.c"): [
+        ("server process", "p5_modbus_server_process("),
+        ("register image provider", "app_modbus_register_image_build("),
+        ("response send", "bsp_rs485_send(frame, frame_length)"),
+        ("tx complete commit", "p5_modbus_server_on_tx_complete("),
+        ("link failure cancel", "p5_modbus_server_on_link_failure("),
     ],
     Path("protocol/include/p5_modbus_rtu_stream.h"): [
         ("stream idle state", "P5_MODBUS_STREAM_IDLE"),

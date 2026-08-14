@@ -236,3 +236,23 @@ chunk buffers. Legacy smoke storage is not retained by the default call graph.
 Both RAM deltas are below the T03 768 B review threshold and the unchanged
 96 KiB linked-RAM gate. Runtime stack watermark and physical timing remain
 `NOT_MEASURED`.
+
+## S5-T04 function server and register image regression
+
+T04 adds one HAL/RTOS-free function server, one 122-register input image, four
+holding registers and a 256 B response buffer. The protocol task remains the
+only server/configuration owner. No task, stack, queue, mutex, heap or frame
+history is added; the existing snapshot mutex only protects one aggregate copy.
+
+| Build | text | data | bss | Flash | Linked RAM | Change from A0 `[027]` |
+|---|---:|---:|---:|---:|---:|---:|
+| Debug | 45400 B | 160 B | 12560 B | 45560 B | 12720 B | Flash +3148 B, RAM +912 B |
+| Release | 37684 B | 156 B | 12560 B | 37840 B | 12716 B | Flash +2284 B, RAM +912 B |
+
+Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM stage
+gates. The 912 B RAM delta is bounded by the response/image/server storage and
+remains below the T04 1 KiB review threshold. The five 256-word task stacks,
+queue depth 8, one snapshot mutex and linker heap 0 are unchanged. The legacy
+RS485 loopback smoke also links with the function-server path excluded from its
+call graph, then the build option is restored to default `OFF`. Runtime stack
+watermark, 249 B response timing, address migration on a real master and

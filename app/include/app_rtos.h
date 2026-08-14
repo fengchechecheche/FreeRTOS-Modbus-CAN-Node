@@ -6,6 +6,7 @@
 
 #include "app_health_policy.h"
 #include "app_measurement.h"
+#include "app_modbus_register_image.h"
 #include "app_reset_reason.h"
 #include "app_sensor_monitor.h"
 #include "app_task_model.h"
@@ -90,6 +91,8 @@ bool app_rtos_get_measurement_snapshot(
     app_measurement_snapshot_t *snapshot);
 bool app_rtos_get_sensor_monitor_snapshot(
     app_sensor_monitor_snapshot_t *snapshot);
+bool app_rtos_get_modbus_register_source(
+    app_modbus_register_source_t *source);
 bool app_rtos_get_transport_counters(app_transport_counters_t *counters);
 bool app_rtos_get_transport_snapshot(app_rtos_transport_snapshot_t *snapshot);
 bool app_rtos_get_reset_reason(app_reset_decoded_t *decoded);

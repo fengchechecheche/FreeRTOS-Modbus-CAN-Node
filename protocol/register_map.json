@@ -5,7 +5,7 @@
     "task_id": "P5-S5-T01",
     "status": "candidate_validated",
     "map_revision": 1,
-    "runtime_status": "not_implemented",
+    "runtime_status": "candidate_implemented",
     "hardware_status": "waiting_for_hardware"
   },
   "protocol": {
@@ -21,9 +21,9 @@
     "register_byte_order": "big_endian",
     "multi_register_word_order": "high_word_first",
     "crc_wire_order": "low_byte_first",
-    "crc_runtime_status": "not_implemented",
-    "parser_runtime_status": "not_implemented",
-    "handler_runtime_status": "not_implemented"
+    "crc_runtime_status": "candidate_validated",
+    "parser_runtime_status": "candidate_implemented",
+    "handler_runtime_status": "candidate_implemented"
   },
   "data_types": {
     "uint16": {"register_count": 1, "signed": false},
@@ -40,7 +40,7 @@
     "mutex_policy": "copy_then_unlock_before_lookup_crc_or_encoding",
     "multi_request_consistency": "compare_register_image_generation",
     "unavailable_snapshot_policy": "server_device_failure",
-    "runtime_status": "not_implemented"
+    "runtime_status": "candidate_implemented"
   },
   "invalid_value_policy": {
     "sentinel_used": false,

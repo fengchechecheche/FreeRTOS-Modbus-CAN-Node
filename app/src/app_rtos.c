@@ -89,6 +89,7 @@ static app_measurement_inputs_t app_rtos_measurement_inputs;
 static app_measurement_snapshot_t app_rtos_measurement_snapshot;
 static app_sensor_monitor_t app_rtos_sensor_monitor;
 static app_sensor_monitor_snapshot_t app_rtos_sensor_monitor_snapshot;
+static uint32_t app_rtos_modbus_image_generation;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
 static bsp_rs485_irq_latency_summary_t app_rtos_irq_latency_summary;
 static StaticQueue_t app_rtos_event_queue_control;
@@ -251,6 +252,7 @@ static void app_rtos_update_measurement_snapshot(uint32_t now_ms)
                                        &app_rtos_measurement_snapshot);
     (void)app_sensor_monitor_get_snapshot(
         &app_rtos_sensor_monitor, &app_rtos_sensor_monitor_snapshot);
+    ++app_rtos_modbus_image_generation;
     app_rtos_snapshot_give();
   }
 }
@@ -276,10 +278,15 @@ static void app_rtos_acquisition_event_service(uint32_t event_count)
 
 static void app_rtos_protocol_service(void)
 {
-  (void)bsp_rs485_poll();
+  const bsp_rs485_result_t result = bsp_rs485_poll();
 #if P5_RS485_LOOPBACK_SMOKE_ENABLE
+  (void)result;
   app_rs485_smoke_poll();
 #else
+  if (result != BSP_RS485_RESULT_OK)
+  {
+    app_modbus_transport_on_link_failure();
+  }
   app_modbus_transport_poll();
 #endif
 }
@@ -297,6 +304,7 @@ static void app_rtos_protocol_event_service(void)
   {
     app_modbus_transport_reset_partial();
   }
+  app_modbus_transport_on_irq_events(event_mask);
   app_modbus_transport_service_received();
   app_modbus_transport_poll();
 #endif
@@ -472,6 +480,7 @@ static void app_rtos_health_service(void)
   if (app_rtos_snapshot_take(true))
   {
     app_rtos_health_snapshot = snapshot;
+    ++app_rtos_modbus_image_generation;
     app_rtos_snapshot_give();
   }
 
@@ -690,6 +699,7 @@ app_rtos_status_t app_rtos_initialize(void)
 
   app_transport_counters_initialize(&app_rtos_transport_counters);
   app_rtos_event_queue_maximum_pending = 0U;
+  app_rtos_modbus_image_generation = 0U;
   app_health_policy_initialize(&app_rtos_health_policy);
   app_measurement_model_initialize(&app_rtos_measurement_model);
   app_sensor_monitor_initialize(&app_rtos_sensor_monitor);
@@ -858,6 +868,82 @@ bool app_rtos_get_sensor_monitor_snapshot(
   *snapshot = app_rtos_sensor_monitor_snapshot;
   app_rtos_snapshot_give();
   return snapshot->schema_revision == APP_SENSOR_MONITOR_SCHEMA_REVISION;
+}
+
+bool app_rtos_get_modbus_register_source(
+    app_modbus_register_source_t *source)
+{
+  if (source == NULL)
+  {
+    return false;
+  }
+  if (!app_rtos_snapshot_take(false))
+  {
+    return false;
+  }
+
+  source->register_image_generation = app_rtos_modbus_image_generation;
+  source->measurement = app_rtos_measurement_snapshot;
+  source->sensor_monitor_schema_revision =
+      app_rtos_sensor_monitor_snapshot.schema_revision;
+  source->sensor_unavailable_mask =
+      app_rtos_sensor_monitor_snapshot.unavailable_device_mask;
+  source->source_stale_mask =
+      app_rtos_sensor_monitor_snapshot.stale_source_mask;
+  source->sensor_recovery_mask =
+      app_rtos_sensor_monitor_snapshot.recovery_device_mask;
+  source->adxl345_irq_event_count =
+      app_rtos_sensor_monitor_snapshot.adxl345_irq_event_count;
+  source->adxl345_dropped_sample_lower_bound =
+      app_rtos_sensor_monitor_snapshot.adxl345_dropped_sample_lower_bound;
+  for (size_t index = 0U; index < APP_SENSOR_DEVICE_COUNT; ++index)
+  {
+    source->device[index].fault_class =
+        app_rtos_sensor_monitor_snapshot.device[index].fault_class;
+    source->device[index].fault_episode_count =
+        app_rtos_sensor_monitor_snapshot.device[index].fault_episode_count;
+    source->device[index].recovery_request_count =
+        app_rtos_sensor_monitor_snapshot.device[index].recovery_request_count;
+    source->device[index].recovery_success_count =
+        app_rtos_sensor_monitor_snapshot.device[index].recovery_success_count;
+  }
+  source->health_state = app_rtos_health_snapshot.decision.state;
+  source->health_warning_mask = app_rtos_health_snapshot.decision.warning_mask;
+  source->rs485_error_count = app_rtos_health_snapshot.rs485_error_count;
+  app_rtos_snapshot_give();
+
+  if (!app_measurement_refresh_snapshot(
+          &source->measurement, (uint32_t)xTaskGetTickCount()))
+  {
+    return false;
+  }
+  source->source_stale_mask = 0U;
+  if (source->measurement.bme280.metadata.state ==
+      APP_MEASUREMENT_STATE_STALE)
+  {
+    source->source_stale_mask |=
+        UINT32_C(1) << APP_MEASUREMENT_SOURCE_BME280;
+  }
+  if (source->measurement.veml7700.metadata.state ==
+      APP_MEASUREMENT_STATE_STALE)
+  {
+    source->source_stale_mask |=
+        UINT32_C(1) << APP_MEASUREMENT_SOURCE_VEML7700;
+  }
+  if (source->measurement.adxl345_sample.metadata.state ==
+      APP_MEASUREMENT_STATE_STALE)
+  {
+    source->source_stale_mask |=
+        UINT32_C(1) << APP_MEASUREMENT_SOURCE_ADXL345_SAMPLE;
+  }
+  if (source->measurement.adxl345_feature.metadata.state ==
+      APP_MEASUREMENT_STATE_STALE)
+  {
+    source->source_stale_mask |=
+        UINT32_C(1) << APP_MEASUREMENT_SOURCE_ADXL345_FEATURE;
+  }
+  return source->sensor_monitor_schema_revision ==
+         APP_SENSOR_MONITOR_SCHEMA_REVISION;
 }
 
 bool app_rtos_get_transport_counters(app_transport_counters_t *counters)

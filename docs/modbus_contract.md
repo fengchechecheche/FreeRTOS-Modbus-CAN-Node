@@ -2,8 +2,8 @@
 
 > Contract status: `CANDIDATE_VALIDATED`  
 > CRC/complete-ADU/timing: `CANDIDATE_VALIDATED`
-> Stream parser/handlers/runtime: `NOT_IMPLEMENTED`
-> Runtime: `NOT_IMPLEMENTED`  
+> Stream parser/handlers/runtime: `CANDIDATE_IMPLEMENTED`
+> Runtime: `CANDIDATE_IMPLEMENTED`
 > Hardware: `WAITING_FOR_HARDWARE`  
 > Register-map revision: 1  
 > Machine-readable authority: [`../protocol/register_map.json`](../protocol/register_map.json)
@@ -15,11 +15,11 @@ master, ASCII, TCP, broadcast, multiple-register write or a custom function.
 The candidate subset is `0x03` read holding registers, `0x04` read input
 registers and `0x06` write one whitelisted holding register.
 
-This document and the JSON map freeze application semantics. P5-S5-T02 adds
-HAL/RTOS-free CRC16, complete-ADU envelope encoding/validation and 8E1 timing
-math. Stream segmentation, exception response, function handlers and
-UART/RS485 runtime remain `NOT_IMPLEMENTED`; PA9/PA10/PA8 hardware remains
-untested.
+This document and the JSON map freeze application semantics. T02 implements
+CRC/ADU/timing, T03 implements bounded stream/transport and T04 implements
+exception response, function handlers, request-local register image and
+volatile address writes. These are software candidates; PA9/PA10/PA8 hardware
+remains untested.
 
 ## Link and address contract
 
@@ -44,9 +44,9 @@ interpret address, function or register semantics. At 19200 8E1 its integer
 timing oracle is tchar=573 us, t1.5=860 us and t3.5=2006 us. See
 [`modbus_codec.md`](modbus_codec.md).
 
-The current BSP frame limit remains 64 B. A complete 122-register input
-response requires 249 B, so full-size transport, buffer ownership and
-DMA/DE-RE integration are explicitly deferred to P5-S5-T03.
+The runtime keeps a 64 B RX DMA chunk but separates it from the 256 B stream
+and TX limits. A complete 122-register input response is 249 B and is covered
+by Host/ARM candidate checks, not by physical bus evidence.
 
 ## Data and validity
 
@@ -110,13 +110,13 @@ sensor conversion start, IRQ edge, UTC or RTC time.
 
 ## Request-local atomicity
 
-Every future `0x04` response must use one request-local fixed image. The
-handler first copies the complete required snapshots, releases the existing
+Every `0x04` response uses one request-local fixed image. The aggregate getter
+copies the complete required projection once, releases the existing
 zero-tick mutex, and only then performs register lookup, encoding and CRC. It
 must not combine objects obtained before and after a failed snapshot read.
 
-If a complete snapshot is unavailable, the future handler returns server
-device failure; that behavior is not yet implemented. A successful image
+If a complete snapshot is unavailable, the handler returns server device
+failure. A successful image
 publication increments `register_image_generation`. A client that splits the
 region across requests compares generation and retries if it changed.
 
@@ -133,7 +133,7 @@ Only `active_slave_address` is in the `0x06` whitelist. A valid changed address
 is committed after the normal echo response reaches TX complete, so that
 response still uses the old address. The setting is volatile and resets to 4;
 there is no Flash/EEPROM persistence. Rewriting the active value succeeds but
-does not increment generation. The actual handler is deferred to T04.
+does not increment generation. UART error, timeout or direction conflict cancels a pending write.
 
 ## Sensor and system diagnostics
 
@@ -170,8 +170,9 @@ python3 tools/verify_modbus_contract.py --self-test
 The validator checks JSON structure, duplicate keys, spans, overlap, type
 width, 122-register continuity, the exact 17-field oracle, metadata, access,
 write whitelist and scope boundaries. A pass proves only that the candidate
-contract is internally consistent. It does not prove a request can be parsed,
-a response can be encoded or the RS485 hardware can exchange a frame.
+contract and runtime status are internally consistent. Host tests separately
+prove parsing/response behavior. Neither result proves the RS485 hardware can
+exchange a frame.
 
 Current software result:
 
@@ -179,10 +180,10 @@ Current software result:
 |---|---|
 | Modbus contract validator | 852 facts PASS |
 | in-memory negative self-test | 12 mutant classes rejected |
-| Host Debug / Release | 14/14 PASS in each preset |
-| BSP contract / self-test | 489 facts PASS / PASS |
-| Firmware Debug | unchanged `40648/160/11184 B` text/data/bss |
-| Firmware Release | unchanged `34064/156/11176 B` text/data/bss |
-| static resource contract | PASS; linker heap 0 |
+| Host Debug / Release | 18/18 PASS in each preset |
+| BSP contract | 532 stable facts PASS |
+| Firmware Debug | `45400/160/12560 B` text/data/bss |
+| Firmware Release | `37684/156/12560 B` text/data/bss |
+| static resource contract | PASS; linker heap 0; +912 B RAM from `[027]` |
 
-Unchanged firmware size is expected because T01 adds no runtime C source.
+These checks prove the software candidate only; physical UART/RS485 remains waiting for hardware.

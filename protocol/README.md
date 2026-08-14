@@ -1,9 +1,9 @@
 # protocol
 
-> P5-S5-T03 supersedes the older capacity note below: the runtime candidate
-> now has one 256 B RTU stream buffer, a 64 B Normal-DMA RX chunk and a 256 B
-> TX copy. CRC-valid ADUs are assembled but deliberately remain unhandled until
-> T04. See [`../docs/modbus_transport.md`](../docs/modbus_transport.md).
+> P5-S5-T04 adds the HAL/RTOS-free function server above the 256 B RTU stream.
+> CRC-valid ADUs now receive bounded `0x03/0x04/0x06` or exception responses;
+> physical UART/RS485 validation remains pending. See
+> [`../docs/modbus_server.md`](../docs/modbus_server.md).
 
 项目自有 Modbus RTU 与 CAN 协议纯逻辑边界。P5-S4-T04 冻结的 17 个
 `app_measurement` logical field ID、source、quality 和整数单位是两种协议后续映射的
@@ -20,14 +20,13 @@ P5-S5-T01 已定义 Modbus RTU slave register map contract：默认地址 4、�
 [`register_map.json`](register_map.json)，人类合同位于
 [`../docs/modbus_contract.md`](../docs/modbus_contract.md)。
 
-该 map 当前为 `CANDIDATE_VALIDATED`。P5-S5-T02 已增加 HAL/RTOS-free CRC16、完整 ADU
-envelope encode/decode 和 8E1 tchar/t1.5/t3.5 纯整数计算；Host 与 ARM 编译结果只证明完整
-caller buffer 上的纯逻辑。
+该 map 合同为 `CANDIDATE_VALIDATED`，runtime 为 `CANDIDATE_IMPLEMENTED`。P5-S5-T02 提供
+HAL/RTOS-free CRC16、ADU 和 timing；T03 提供 stream/RS485 transport；T04 提供纯 C function
+server 与 register image。Host 与 ARM 编译结果只证明软件候选。
 
-流式 parser、分片/粘连、DMA/IDLE、DE/RE、功能码 handler 和 UART/RS485 runtime 仍为
-`NOT_IMPLEMENTED`。当前 BSP 上限仍为 64 B，不能承载完整 249 B input-image response；CAN
-filter/message/encoder 也仍为 `NOT_IMPLEMENTED`。详见
-[`../docs/modbus_codec.md`](../docs/modbus_codec.md)。
+默认路径支持地址 4、广播/外站静默、`0x03/0x04/0x06`、exception `01/02/03/04`、249 B
+最大应答和 TX-complete 后地址提交。CRC/parser/handler 均已接入候选 runtime；DE 波形、DMA
+丢失、真实主站请求和项目三联调保持 `WAITING_FOR_HARDWARE / NOT_RUN`。CAN
+filter/message/encoder 仍为 `NOT_IMPLEMENTED`。
 
-兼容 T01 状态标记 `CRC/parser/handler` 时必须按层解释：CRC complete-buffer core 已实现，
-parser/handler/runtime 仍未实现。
+`CRC/parser/handler` 的 `CANDIDATE_IMPLEMENTED` 不等于物理总线通过；硬件状态必须单独解释。

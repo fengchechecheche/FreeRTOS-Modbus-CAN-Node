@@ -13,7 +13,7 @@
 | USART1/DMA ISR event | T03 notification plus fixed mailbox | unchanged; ISR does not use the new queue |
 | task diagnostic event | one static FreeRTOS queue | 8 items, 12 B by-value records |
 | system/measurement state | latest snapshot plus short mutex copy | system and S4 measurement candidate implemented |
-| future Modbus command | separate static command queue | reject-new policy frozen; schema and instance deferred to S5 |
+| active Modbus address write | protocol-task local pending slot | TX-complete commit; no cross-task queue |
 | SPI1 and I²C2 | single runtime owner | `acquisition_task`; no bus mutex |
 
 The primitives are intentionally separate. A wake-up bit, an ordered event, a
@@ -86,7 +86,8 @@ Real board queue watermark, contention and recovery behavior remain `NOT_RUN`.
 S4-T04 now instantiates one four-source measurement snapshot with sequence,
 software-admission monotonic time, normalized quality and freshness. It reuses
 the same zero-wait mutex and does not create a measurement queue. S5 defines
-command IDs and Modbus write semantics before instantiating the command queue.
+write semantics; the T04 active-address write remains protocol-task local, so
+no command queue is instantiated. A future cross-task writable item requires a new review.
 
 No raw queue trace, per-item CSV/JSON, mutex timeline or evidence bundle is
 required for a normal pass.
@@ -114,6 +115,17 @@ copies only, and no HAL, transport transaction, retry, encoding or logging is
 performed while the mutex is held.
 
 Sensor fault changes reuse bounded health-transition diagnostics. Per-sample
+
+## S5-T04 Modbus projection and write ownership
+
+The protocol task owns server state, the pending active address and final
+TX-complete commit. No other task reads or writes that configuration, so a
+one-slot local pending value is sufficient. UART error, timeout, recovery
+failure or RX/TX conflict cancels it.
+
+The input-image provider takes the existing snapshot mutex once, copies a
+fixed projection and unlocks before freshness refresh, mapping, CRC or TX.
+No new queue, mutex, semaphore, task, stack or heap object is introduced.
 and per-transaction events are intentionally absent. The combined Host test
 keeps diagnostic draining bounded by 2 and maximum pending at or below the
 existing depth 8. Real queue high-water and mutex contention remain `NOT_RUN`.

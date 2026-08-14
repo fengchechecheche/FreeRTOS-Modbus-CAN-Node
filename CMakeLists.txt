@@ -47,6 +47,24 @@ else()
     p5_apply_project_warnings(p5_host_modbus_stream)
     add_test(NAME p5.host.modbus_stream COMMAND p5_host_modbus_stream)
 
+    add_executable(p5_host_modbus_server
+        test/host/modbus_server_main.c
+        protocol/src/p5_modbus_crc16.c
+        protocol/src/p5_modbus_rtu_adu.c
+        protocol/src/p5_modbus_server.c)
+    target_include_directories(p5_host_modbus_server PRIVATE protocol/include)
+    p5_apply_project_warnings(p5_host_modbus_server)
+    add_test(NAME p5.host.modbus_server COMMAND p5_host_modbus_server)
+
+    add_executable(p5_host_modbus_register_image
+        test/host/modbus_register_image_main.c
+        app/src/app_modbus_register_image.c)
+    target_include_directories(p5_host_modbus_register_image PRIVATE
+        app/include protocol/include sensors/include)
+    p5_apply_project_warnings(p5_host_modbus_register_image)
+    add_test(NAME p5.host.modbus_register_image
+             COMMAND p5_host_modbus_register_image)
+
     add_executable(p5_host_rs485
         test/host/rs485_main.c
         bsp/src/bsp_rs485_state.c

@@ -1,8 +1,9 @@
 # FreeRTOS Modbus CAN Node
 
-> P5-S5-T03 update: the default firmware now includes the bounded Modbus RTU
-> stream/RS485 transport candidate. Function handlers and physical validation
-> remain deferred. See [`docs/modbus_transport.md`](docs/modbus_transport.md).
+> P5-S5-T04 update: the default firmware now includes the bounded Modbus RTU
+> function server, 122-register request-local image and delayed address commit.
+> Physical validation remains deferred. See
+> [`docs/modbus_server.md`](docs/modbus_server.md).
 
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
 汇总为 BSP 软件候选合同；当前状态为 `BSP_CONTRACT_CANDIDATE_FROZEN + WAITING_FOR_HARDWARE`。
@@ -14,7 +15,8 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 质量和新鲜度的软件候选。P5-S4-T05 已增加固定大小的多传感器监测摘要与确定性
 联合故障矩阵，内容已审核冻结。P5-S5-T01 已形成地址 4 的 Modbus register contract 和机器可读
 map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻辑候选；stream parser、
-function handler、RS485 runtime 和 CAN 业务仍未实现。
+RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响应、122-register image 和
+易失地址写入候选。CAN 业务仍未实现。
 
 ## 当前边界
 
@@ -23,7 +25,8 @@ function handler、RS485 runtime 和 CAN 业务仍未实现。
   STM32CubeF4 1.28.3 建立。
 - USART1 为 PA9/PA10、19200、8E1；RX 使用 DMA2 Stream2/Channel4，TX 使用 DMA2 Stream7/Channel4，
   PA8/RS485_DE 上电为低。
-- 默认 smoke 不主动发包；只有收到 ASCII `P5T03` 才异步返回 `P5T03OK`。它不是 Modbus 帧。
+- 默认路径只应答地址 4 的合法 Modbus 请求；ASCII `P5T03/P5T03OK` 仅在显式
+  `P5_RS485_LOOPBACK_SMOKE=ON` 时启用，它不是 Modbus 帧。
 - DE 只在最终 USART `TC` 对应的 `HAL_UART_TxCpltCallback()` 后拉低；start failure、timeout 和 UART
   error 均有有界恢复路径。
 - 候选时钟为 HSI 16 MHz、SYSCLK/HCLK 180 MHz、PCLK1 45 MHz、PCLK2 90 MHz；HAL 1 ms tick
@@ -60,9 +63,9 @@ function handler、RS485 runtime 和 CAN 业务仍未实现。
 - NUCLEO-F446RE 尚未到货，ST-LINK、VCP、UART loopback、RS485 physical layer 和全部板级接口均保持
   `WAITING_FOR_HARDWARE`。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
-  holding map 和 0x03/0x04/0x06 应用合同。T02 的 CRC/完整 ADU/timing 纯逻辑已通过 Host 候选，
-  但现有 BSP 上限仍为 64 B，不能承载完整 249 B input-image response；stream/handler/runtime
-  仍为 `NOT_IMPLEMENTED`，UART/RS485 runtime 仍为 `NOT_IMPLEMENTED`。
+  holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
+  T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。真实 249 B response、地址迁移和 UART/RS485 总线仍为
+  `WAITING_FOR_HARDWARE`。
 - license、copyright line 和 public scope 为 `TBD_USER_REVIEW`，当前没有 `LICENSE`。
 - repository remote name 为 `FreeRTOS-Modbus-CAN-Node`。
 
@@ -75,7 +78,7 @@ DMA/IRQ 或 safe-state 时，必须同步合同、配置和相关回归；后续
 ./tools/verify_host.sh
 ```
 
-权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 15 项 CTest，包括
+权威开发环境为 WSL2 `Ubuntu-24.04-STM32`。该入口运行 host Debug/Release 的 18 项 CTest，包括
 BME280 calibration/compensation、VEML7700 word/range/state-machine 和 ADXL345
 parse/config/feature/recovery、统一 sample schema/quality/freshness、三驱动联合故障矩阵，以及
 Modbus CRC/完整 ADU/8E1 timing 回归。
@@ -96,8 +99,8 @@ python3 tools/verify_modbus_contract.py
 python3 tools/verify_modbus_contract.py --self-test
 ```
 
-该入口只验证 map、类型、地址、metadata 和范围。可运行的 CRC/完整 ADU/timing 合同见
-[`docs/modbus_codec.md`](docs/modbus_codec.md)；它不代表 stream parser 或 UART runtime 已实现。
+该入口验证 map、类型、地址、metadata、范围和候选 runtime 状态。CRC/ADU/timing、stream
+和 function server 分别见 [`docs/modbus_codec.md`](docs/modbus_codec.md)、[`docs/modbus_transport.md`](docs/modbus_transport.md) 与 [`docs/modbus_server.md`](docs/modbus_server.md)。软件通过不代表 UART/RS485 实物已运行。
 
 ## 固件构建
 

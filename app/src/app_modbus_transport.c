@@ -2,6 +2,8 @@
 
 #include <stddef.h>
 
+#include "app_modbus_register_image.h"
+#include "app_rtos.h"
 #include "bsp_clock.h"
 #include "bsp_rs485.h"
 #include "p5_modbus_rtu_timing.h"
@@ -9,8 +11,13 @@
 #define APP_MODBUS_BAUD_RATE UINT32_C(19200)
 
 static p5_modbus_rtu_stream_t app_modbus_stream;
+static p5_modbus_server_t app_modbus_server;
 static app_modbus_transport_diagnostics_t app_modbus_diagnostics;
 static uint32_t app_modbus_character_cycles;
+static uint8_t app_modbus_response_buffer[P5_MODBUS_RTU_MAX_ADU_SIZE];
+static uint16_t
+    app_modbus_input_registers[P5_MODBUS_SERVER_INPUT_REGISTER_COUNT];
+static app_modbus_register_source_t app_modbus_register_source;
 
 static uint32_t app_modbus_increment(uint32_t value)
 {
@@ -23,6 +30,25 @@ static uint32_t app_modbus_add(uint32_t value, uint32_t increment)
                                              : (value + increment);
 }
 
+static bool app_modbus_input_provider(void *context,
+                                      uint16_t *registers,
+                                      size_t register_count)
+{
+  (void)context;
+  return app_rtos_get_modbus_register_source(&app_modbus_register_source) &&
+         app_modbus_register_image_build(&app_modbus_register_source,
+                                         registers,
+                                         register_count);
+}
+
+static bool app_modbus_tx_sink(void *context,
+                               const uint8_t *frame,
+                               size_t frame_length)
+{
+  (void)context;
+  return bsp_rs485_send(frame, frame_length) == BSP_RS485_RESULT_OK;
+}
+
 static void app_modbus_consume(void *context,
                                const uint8_t *frame,
                                size_t frame_length,
@@ -31,9 +57,7 @@ static void app_modbus_consume(void *context,
   (void)context;
   (void)frame;
   (void)frame_length;
-  (void)view;
-  app_modbus_diagnostics.unhandled_valid_frames = app_modbus_increment(
-      app_modbus_diagnostics.unhandled_valid_frames);
+  (void)p5_modbus_server_process(&app_modbus_server, view);
 }
 
 bool app_modbus_transport_initialize(void)
@@ -55,7 +79,18 @@ bool app_modbus_transport_initialize(void)
       .consumer_context = NULL,
   };
   app_modbus_diagnostics = (app_modbus_transport_diagnostics_t){0};
-  return p5_modbus_rtu_stream_initialize(&app_modbus_stream, &config);
+  const p5_modbus_server_config_t server_config = {
+      .input_context = NULL,
+      .input_provider = app_modbus_input_provider,
+      .tx_context = NULL,
+      .tx_sink = app_modbus_tx_sink,
+      .response_buffer = app_modbus_response_buffer,
+      .response_capacity = sizeof(app_modbus_response_buffer),
+      .input_registers = app_modbus_input_registers,
+      .input_register_capacity = P5_MODBUS_SERVER_INPUT_REGISTER_COUNT,
+  };
+  return p5_modbus_server_initialize(&app_modbus_server, &server_config) &&
+         p5_modbus_rtu_stream_initialize(&app_modbus_stream, &config);
 }
 
 void app_modbus_transport_service_received(void)
@@ -115,6 +150,26 @@ void app_modbus_transport_poll(void)
   p5_modbus_rtu_stream_poll(&app_modbus_stream, bsp_clock_cycle_now());
 }
 
+void app_modbus_transport_on_irq_events(uint32_t event_mask)
+{
+  const uint32_t direction_conflict =
+      BSP_RS485_IRQ_EVENT_RX_FRAME | BSP_RS485_IRQ_EVENT_TX_COMPLETE;
+  if (((event_mask & BSP_RS485_IRQ_EVENT_UART_ERROR) != 0U) ||
+      ((event_mask & direction_conflict) == direction_conflict))
+  {
+    p5_modbus_server_on_link_failure(&app_modbus_server);
+  }
+  else if ((event_mask & BSP_RS485_IRQ_EVENT_TX_COMPLETE) != 0U)
+  {
+    p5_modbus_server_on_tx_complete(&app_modbus_server);
+  }
+}
+
+void app_modbus_transport_on_link_failure(void)
+{
+  p5_modbus_server_on_link_failure(&app_modbus_server);
+}
+
 void app_modbus_transport_reset_partial(void)
 {
   p5_modbus_rtu_stream_reset(&app_modbus_stream);
@@ -129,5 +184,6 @@ app_modbus_transport_diagnostics_t app_modbus_transport_get_diagnostics(void)
 {
   app_modbus_transport_diagnostics_t diagnostics = app_modbus_diagnostics;
   diagnostics.stream = p5_modbus_rtu_stream_counters(&app_modbus_stream);
+  diagnostics.server = p5_modbus_server_diagnostics(&app_modbus_server);
   return diagnostics;
 }
