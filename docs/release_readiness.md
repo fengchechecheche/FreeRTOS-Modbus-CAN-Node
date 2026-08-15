@@ -3,7 +3,7 @@
 > Ledger schema: `P5_RELEASE_LEDGER_V1`
 > Baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > Software source candidate gate: `PASS`
-> Binary reproduction gate: `HISTORICAL_PASS_CURRENT_REPLAY_REQUIRED`
+> Binary reproduction gate: `REPLAY_HARNESS_READY_CURRENT_REPLAY_NOT_RUN`
 > Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`
 > Learning documentation gate: `PASS_35_FROZEN`
 > Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`
@@ -24,7 +24,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | PRIV-001 | PRIV | CLOSED | SOURCE,BINARY,HARDWARE | Tracked CubeMX problem report no longer exposes a Windows user-profile path | `docs/device_probe_report.md`; release-readiness path scan |
 | SW-001 | SW | CLOSED | SOURCE,BINARY,HARDWARE | Current Host, contracts, ARM builds, and static resource gate pass without firmware changes | P5-S7-T01 final validation summary |
 | REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
-| REPRO-002 | REPRO | OPEN | BINARY,HARDWARE | Current IWDG source differs from the frozen `[036]` replay manifest | After the user commits the current candidate, run a new tracked-file-only clean replay and refresh the candidate manifest in a separately authorized release task |
+| REPRO-002 | REPRO | OPEN | BINARY,HARDWARE | The independent REPRO-002 harness is ready, but the current committed candidate has not completed its tracked-file-only clean replay | After the user commits and synchronizes this harness change, execute the new replay and admit its separate bundle |
 | HW-001 | HW | OPEN | HARDWARE | NUCLEO board admission and `WDG-01` passed; physical BME280, VEML7700 and ADXL345 checks are not complete | Run the frozen S4 sensor supplements when the sensors arrive |
 | HW-002 | HW | OPEN | HARDWARE | Physical USB-RS485 and Project Three interoperability are not complete | Run S5 hardware/integration supplement |
 | HW-003 | HW | OPEN | HARDWARE | Physical CAN, candleLight, bus-off, and dual-bus concurrency are not complete | Run S6 hardware supplements |
@@ -66,11 +66,15 @@ ARM Debug/Release and the resource gate passed without network access or prior
 build cache, so `REPRO-001` remains closed for that historical software binary
 candidate.
 
-The current post-`[045]` IWDG source is not covered by the frozen `[036]`
-manifest. The unchanged historical manifest therefore rejects the current
-`.ioc` hash as intended; `REPRO-002` keeps the current binary/hardware release
-candidate open until a separately authorized clean replay is completed. This
-supplement does not weaken or rewrite the earlier replay evidence.
+The frozen `[036]` JSON and manifest are now validated as an immutable
+historical pair: their exact file hashes, schema, source commit, required
+labels, replay JSON digest and artifact mappings remain checked. Historical
+source hashes are no longer incorrectly compared with the current worktree.
+
+The independent REPRO-002 harness writes new `p5_repro_002_*` evidence names
+and does not overwrite the T02 bundle. `REPRO-002` remains open because the
+new clean replay must run only after this harness change is committed and
+synchronized. No current-source clean-reproduction PASS is claimed yet.
 
 A second independent Release build produced different BIN/HEX bytes because
 linked FreeRTOS assert strings retain absolute source paths. The clean build is
@@ -115,7 +119,9 @@ P5-S7-T05 keeps intended version `v0.1.0` in `UNRELEASED` state and preserves
 the historical `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE` collateral. The
 candidate note distinguishes the `[039]` documentation baseline from the
 `[036]` clean replay source. The later IWDG source and hardware supplement are
-not relabeled as clean-replayed; `REPRO-002` is the current replay gate.
+not relabeled as clean-replayed. The REPRO-002 harness is prepared, but
+`REPRO-002` remains the current replay gate until its separate bundle passes
+admission.
 
 `docs/demo_guide.md` provides one software-only demonstration path and a
 separate hardware sequence marked `NOT_RUN`. The six role-specific candidate

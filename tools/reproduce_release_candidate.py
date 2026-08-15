@@ -18,10 +18,13 @@ import time
 from typing import Any
 
 
-SCHEMA = "P5_RELEASE_REPLAY_V1"
+SCHEMA = "P5_RELEASE_REPLAY_V2"
 LOG_TAIL_LIMIT = 8192
 COMMAND_TIMEOUT_SECONDS = 900
-TEMP_PREFIX = "p5-s7-t02-"
+TEMP_PREFIX = "p5-repro-002-"
+PUBLIC_REPLAY_NAME = "p5_repro_002_replay.json"
+PUBLIC_MANIFEST_NAME = "p5_repro_002_candidate_manifest.sha256"
+PUBLIC_REPLAY_LABEL = f"evidence/{PUBLIC_REPLAY_NAME}"
 
 
 class ReplayError(RuntimeError):
@@ -151,6 +154,13 @@ def clean_temp_root(path: pathlib.Path) -> None:
     shutil.rmtree(resolved)
 
 
+def validate_private_output(path: pathlib.Path) -> None:
+    if path.exists():
+        raise ReplayError(
+            "private output already exists; choose a new path to avoid stale evidence"
+        )
+
+
 def first_line(argv: list[str], cwd: pathlib.Path) -> str:
     try:
         output = run_text(argv, cwd)
@@ -272,6 +282,7 @@ def perform_replay(args: argparse.Namespace) -> int:
     source_repo = args.source_repo.resolve()
     private_output = args.private_output.resolve()
     head, subject = validate_source_repo(source_repo, args.expected_commit)
+    validate_private_output(private_output)
     versions = tool_versions(source_repo)
 
     temp_root = pathlib.Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
@@ -337,6 +348,7 @@ def perform_replay(args: argparse.Namespace) -> int:
 
         replay = {
             "schema": SCHEMA,
+            "evidence_id": "REPRO-002",
             "source": {
                 "commit": head,
                 "subject": subject,
@@ -359,9 +371,9 @@ def perform_replay(args: argparse.Namespace) -> int:
                 "repeat_release": repeat_result,
             },
             "hardware": {
-                "flash": "WAITING_FOR_HARDWARE",
-                "representative_replay": "NOT_RUN",
-                "release_gate": "BLOCKED_WAITING_FOR_HARDWARE",
+                "flash": "NOT_RUN_IN_THIS_SOFTWARE_REPLAY",
+                "representative_replay": "OUT_OF_SCOPE_REFERENCE_BSP_02_WDG_01_PASS",
+                "release_gate": "BLOCKED_PENDING_HARDWARE",
             },
             "artifacts": artifacts,
             "limitations": limitations,
@@ -374,11 +386,11 @@ def perform_replay(args: argparse.Namespace) -> int:
             "commands": raw_results,
         }
         write_json(private_output / "replay_raw.json", raw)
-        public_path = private_output / "p5_s7_t02_replay.json"
+        public_path = private_output / PUBLIC_REPLAY_NAME
         write_json(public_path, replay)
         manifest_records = dict(artifacts)
-        manifest_records["evidence/p5_s7_t02_replay.json"] = artifact_record(public_path)
-        write_manifest(private_output / "p5_s7_t02_candidate_manifest.sha256", manifest_records)
+        manifest_records[PUBLIC_REPLAY_LABEL] = artifact_record(public_path)
+        write_manifest(private_output / PUBLIC_MANIFEST_NAME, manifest_records)
 
         print(
             f"P5 CLEAN REPLAY: PASS ({len(raw_results)} commands, "
@@ -405,6 +417,20 @@ def perform_replay(args: argparse.Namespace) -> int:
 
 def run_self_test() -> int:
     checks = 0
+    assert SCHEMA == "P5_RELEASE_REPLAY_V2"
+    assert PUBLIC_REPLAY_NAME == "p5_repro_002_replay.json"
+    assert PUBLIC_MANIFEST_NAME == "p5_repro_002_candidate_manifest.sha256"
+    checks += 1
+    with tempfile.TemporaryDirectory(prefix="p5-repro-002-output-test-") as directory:
+        output = pathlib.Path(directory) / "new-output"
+        validate_private_output(output)
+        output.mkdir()
+        try:
+            validate_private_output(output)
+        except ReplayError:
+            checks += 1
+        else:
+            raise AssertionError("existing private output was accepted")
     assert bounded_tail("abc", 3) == "abc"
     checks += 1
     assert bounded_tail("abcdef", 3) == "[truncated]\ndef"
@@ -419,7 +445,7 @@ def run_self_test() -> int:
         else:
             raise AssertionError(f"unsafe member accepted: {unsafe}")
 
-    with tempfile.TemporaryDirectory(prefix="p5-s7-t02-self-test-") as directory:
+    with tempfile.TemporaryDirectory(prefix="p5-repro-002-self-test-") as directory:
         root = pathlib.Path(directory)
         sample = root / "sample.txt"
         sample.write_bytes(b"p5\n")

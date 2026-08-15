@@ -9,11 +9,20 @@ import json
 import pathlib
 import re
 import sys
+import tempfile
 from typing import Iterable
 
 PACKAGE_LICENSE_SHA256 = (
     "2fe52ca80ec3d84064631a051a914b418aa65b9126ae5131ea323213a8be5aa2"
 )
+HISTORICAL_REPLAY_SHA256 = (
+    "b71181e434387a4f5a3c8b30348413d9d6027f63ed2e4e348e95348938d78634"
+)
+HISTORICAL_MANIFEST_SHA256 = (
+    "72254162346c3925375d5ab322185f5216549e54f21aaa8daecb8aae3faf870e"
+)
+CURRENT_REPLAY_NAME = "p5_repro_002_replay.json"
+CURRENT_MANIFEST_NAME = "p5_repro_002_candidate_manifest.sha256"
 REQUIRED_FILES = (
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
@@ -264,14 +273,38 @@ def validate_candidate_projection(root: pathlib.Path, ledger_text: str) -> list[
     return errors
 
 
-def validate_replay_bundle(root: pathlib.Path) -> list[str]:
+def parse_manifest(path: pathlib.Path) -> tuple[dict[str, str], list[str]]:
+    errors: list[str] = []
+    entries: dict[str, str] = {}
+    try:
+        lines = read_text(path).splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        return entries, [f"cannot read manifest {path.name}: {exc}"]
+    for line in lines:
+        fields = line.split("  ", 1)
+        if len(fields) != 2 or not re.fullmatch(r"[0-9a-f]{64}", fields[0]):
+            errors.append(f"invalid manifest line: {line}")
+            continue
+        digest, label = fields
+        if label in entries:
+            errors.append(f"duplicate manifest label: {label}")
+        entries[label] = digest
+    return entries, errors
+
+
+def validate_historical_replay_bundle(root: pathlib.Path) -> list[str]:
+    """Validate the frozen [036] bundle without comparing it to current sources."""
     errors: list[str] = []
     replay_path = root / "artifacts/release/p5_s7_t02_replay.json"
     manifest_path = root / "artifacts/release/p5_s7_t02_candidate_manifest.sha256"
+    if sha256_file(replay_path) != HISTORICAL_REPLAY_SHA256:
+        errors.append("historical replay JSON hash mismatch")
+    if sha256_file(manifest_path) != HISTORICAL_MANIFEST_SHA256:
+        errors.append("historical replay manifest hash mismatch")
     try:
         replay = json.loads(read_text(replay_path))
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        return [f"invalid replay JSON: {exc}"]
+        return errors + [f"invalid historical replay JSON: {exc}"]
 
     expected_values = (
         ("schema", replay.get("schema"), "P5_RELEASE_REPLAY_V1"),
@@ -283,18 +316,12 @@ def validate_replay_bundle(root: pathlib.Path) -> list[str]:
     )
     for label, actual, expected in expected_values:
         if actual != expected:
-            errors.append(f"replay {label} mismatch: {actual!r} != {expected!r}")
+            errors.append(
+                f"historical replay {label} mismatch: {actual!r} != {expected!r}"
+            )
 
-    entries: dict[str, str] = {}
-    for line in read_text(manifest_path).splitlines():
-        fields = line.split("  ", 1)
-        if len(fields) != 2 or not re.fullmatch(r"[0-9a-f]{64}", fields[0]):
-            errors.append(f"invalid manifest line: {line}")
-            continue
-        digest, label = fields
-        if label in entries:
-            errors.append(f"duplicate manifest label: {label}")
-        entries[label] = digest
+    entries, manifest_errors = parse_manifest(manifest_path)
+    errors.extend(manifest_errors)
 
     required_labels = (
         "source/git_archive.tar",
@@ -310,13 +337,104 @@ def validate_replay_bundle(root: pathlib.Path) -> list[str]:
 
     replay_digest = sha256_file(replay_path)
     if entries.get("evidence/p5_s7_t02_replay.json") != replay_digest:
-        errors.append("manifest replay JSON hash mismatch")
+        errors.append("historical manifest replay JSON hash mismatch")
+    artifacts = replay.get("artifacts")
+    if not isinstance(artifacts, dict):
+        errors.append("historical replay artifacts must be an object")
+    else:
+        for label, record in artifacts.items():
+            digest = record.get("sha256") if isinstance(record, dict) else None
+            if entries.get(label) != digest:
+                errors.append(f"historical manifest artifact mismatch: {label}")
+    return errors
+
+
+def validate_current_replay_bundle(root: pathlib.Path, *, required: bool) -> list[str]:
+    """Validate the REPRO-002 bundle when present, and require it after closure."""
+    errors: list[str] = []
+    replay_path = root / f"artifacts/release/{CURRENT_REPLAY_NAME}"
+    manifest_path = root / f"artifacts/release/{CURRENT_MANIFEST_NAME}"
+    replay_exists = replay_path.is_file()
+    manifest_exists = manifest_path.is_file()
+    if not replay_exists and not manifest_exists:
+        return ["REPRO-002 bundle is required after closure"] if required else []
+    if replay_exists != manifest_exists:
+        return ["REPRO-002 bundle is incomplete"]
+
+    try:
+        replay = json.loads(read_text(replay_path))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        return [f"invalid REPRO-002 replay JSON: {exc}"]
+
+    expected_values = (
+        ("schema", replay.get("schema"), "P5_RELEASE_REPLAY_V2"),
+        ("evidence ID", replay.get("evidence_id"), "REPRO-002"),
+        ("clean reproduction", replay.get("software", {}).get("clean_reproduction"), "PASS"),
+        ("network used", replay.get("environment", {}).get("network_used"), False),
+        ("prior build cache used", replay.get("environment", {}).get("prior_build_cache_used"), False),
+        ("hardware flash", replay.get("hardware", {}).get("flash"), "NOT_RUN_IN_THIS_SOFTWARE_REPLAY"),
+    )
+    for label, actual, expected in expected_values:
+        if actual != expected:
+            errors.append(
+                f"REPRO-002 replay {label} mismatch: {actual!r} != {expected!r}"
+            )
+    source = replay.get("source")
+    source_commit = source.get("commit") if isinstance(source, dict) else None
+    if not isinstance(source_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", source_commit):
+        errors.append("REPRO-002 source commit must be a full lowercase Git SHA")
+
+    commands = replay.get("software", {}).get("commands")
+    if not isinstance(commands, list) or not commands:
+        errors.append("REPRO-002 command results are missing")
+    else:
+        for command in commands:
+            if not isinstance(command, dict):
+                errors.append("REPRO-002 command result must be an object")
+                continue
+            if command.get("exit_code") != 0 or command.get("timed_out") is not False:
+                errors.append(f"REPRO-002 command did not pass: {command.get('name')}")
+
+    entries, manifest_errors = parse_manifest(manifest_path)
+    errors.extend(manifest_errors)
+    artifact_labels = (
+        "source/git_archive.tar",
+        "source/CMakePresets.json",
+        "source/freertos_modbus_can_node.ioc",
+        "build/debug/freertos_modbus_can_node.elf",
+        "build/debug/freertos_modbus_can_node.hex",
+        "build/debug/freertos_modbus_can_node.bin",
+        "build/release/freertos_modbus_can_node.elf",
+        "build/release/freertos_modbus_can_node.hex",
+        "build/release/freertos_modbus_can_node.bin",
+    )
+    replay_label = f"evidence/{CURRENT_REPLAY_NAME}"
+    required_labels = set(artifact_labels) | {replay_label}
+    for label in sorted(required_labels - set(entries)):
+        errors.append(f"REPRO-002 manifest missing label: {label}")
+    for label in sorted(set(entries) - required_labels):
+        errors.append(f"REPRO-002 manifest has unexpected label: {label}")
+
+    if entries.get(replay_label) != sha256_file(replay_path):
+        errors.append("REPRO-002 manifest replay JSON hash mismatch")
+    artifacts = replay.get("artifacts")
+    if not isinstance(artifacts, dict):
+        errors.append("REPRO-002 replay artifacts must be an object")
+    else:
+        for label in artifact_labels:
+            record = artifacts.get(label)
+            digest = record.get("sha256") if isinstance(record, dict) else None
+            if entries.get(label) != digest:
+                errors.append(f"REPRO-002 manifest artifact mismatch: {label}")
+    archive_digest = source.get("archive_sha256") if isinstance(source, dict) else None
+    if entries.get("source/git_archive.tar") != archive_digest:
+        errors.append("REPRO-002 source archive hash mismatch")
     for label, relative in (
         ("source/CMakePresets.json", "CMakePresets.json"),
         ("source/freertos_modbus_can_node.ioc", "freertos_modbus_can_node.ioc"),
     ):
         if entries.get(label) != sha256_file(root / relative):
-            errors.append(f"manifest source hash mismatch: {label}")
+            errors.append(f"REPRO-002 current source hash mismatch: {label}")
     return errors
 
 
@@ -442,7 +560,7 @@ def check_repository(root: pathlib.Path) -> list[str]:
     errors.extend(validate_project_license(read_text(root / "LICENSE")))
     errors.extend(validate_notice(read_text(root / "THIRD_PARTY_NOTICES.md")))
     errors.extend(validate_readme(read_text(root / "README.md")))
-    errors.extend(validate_replay_bundle(root))
+    errors.extend(validate_historical_replay_bundle(root))
 
     package_path = root / "LICENSES/STM32CubeF4-1.28.3-Package_license.md"
     package_hash = sha256_file(package_path)
@@ -463,6 +581,25 @@ def check_repository(root: pathlib.Path) -> list[str]:
     rows, ledger_errors = parse_ledger(ledger_text)
     errors.extend(ledger_errors)
     errors.extend(source_gate_errors(rows))
+    repro_rows = [row for row in rows if row["id"] == "REPRO-002"]
+    if len(repro_rows) != 1:
+        errors.append("release ledger must contain exactly one REPRO-002 row")
+    else:
+        repro_status = repro_rows[0]["status"]
+        errors.extend(
+            validate_current_replay_bundle(root, required=repro_status == "CLOSED")
+        )
+        if repro_status == "OPEN":
+            marker = (
+                "Binary reproduction gate: "
+                "`REPLAY_HARNESS_READY_CURRENT_REPLAY_NOT_RUN`"
+            )
+            if marker not in ledger_text:
+                errors.append("open REPRO-002 ledger has incorrect binary gate")
+        elif repro_status == "CLOSED":
+            marker = "Binary reproduction gate: `PASS_CURRENT_CLEAN_REPRODUCTION`"
+            if marker not in ledger_text:
+                errors.append("closed REPRO-002 ledger has incorrect binary gate")
     if "Software source candidate gate: `PASS`" not in ledger_text:
         errors.append("ledger software source candidate gate is not PASS")
     if "Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`" not in ledger_text:
@@ -552,6 +689,136 @@ def run_self_test() -> int:
     assert privacy_findings([("doc.md", "C:" + "\\Users\\person\\file")])
     assert privacy_findings([("doc.md", "/home/person/project")])
     checks += 2
+
+    repository_root = pathlib.Path(__file__).resolve().parents[1]
+    assert not validate_historical_replay_bundle(repository_root)
+    checks += 1
+
+    with tempfile.TemporaryDirectory(prefix="p5-release-self-test-") as directory:
+        root = pathlib.Path(directory)
+        release_dir = root / "artifacts/release"
+        release_dir.mkdir(parents=True)
+        historical_replay = repository_root / "artifacts/release/p5_s7_t02_replay.json"
+        historical_manifest = (
+            repository_root
+            / "artifacts/release/p5_s7_t02_candidate_manifest.sha256"
+        )
+        (release_dir / historical_replay.name).write_bytes(historical_replay.read_bytes())
+        manifest_copy = release_dir / historical_manifest.name
+        manifest_copy.write_bytes(historical_manifest.read_bytes())
+        manifest_text = read_text(manifest_copy)
+        replacement = "0" if manifest_text[0] != "0" else "1"
+        manifest_copy.write_text(
+            replacement + manifest_text[1:], encoding="utf-8", newline="\n"
+        )
+        assert any(
+            "historical replay manifest hash mismatch" in item
+            for item in validate_historical_replay_bundle(root)
+        )
+        checks += 1
+
+    with tempfile.TemporaryDirectory(prefix="p5-repro-002-self-test-") as directory:
+        root = pathlib.Path(directory)
+        release_dir = root / "artifacts/release"
+        release_dir.mkdir(parents=True)
+        (root / "CMakePresets.json").write_text(
+            "presets\n", encoding="utf-8", newline="\n"
+        )
+        ioc_path = root / "freertos_modbus_can_node.ioc"
+        ioc_path.write_text("ioc\n", encoding="utf-8", newline="\n")
+        assert not validate_current_replay_bundle(root, required=False)
+        assert validate_current_replay_bundle(root, required=True)
+        checks += 2
+
+        artifact_labels = (
+            "source/git_archive.tar",
+            "source/CMakePresets.json",
+            "source/freertos_modbus_can_node.ioc",
+            "build/debug/freertos_modbus_can_node.elf",
+            "build/debug/freertos_modbus_can_node.hex",
+            "build/debug/freertos_modbus_can_node.bin",
+            "build/release/freertos_modbus_can_node.elf",
+            "build/release/freertos_modbus_can_node.hex",
+            "build/release/freertos_modbus_can_node.bin",
+        )
+        digests = {
+            label: hashlib.sha256(label.encode("utf-8")).hexdigest()
+            for label in artifact_labels
+        }
+        digests["source/CMakePresets.json"] = sha256_file(
+            root / "CMakePresets.json"
+        )
+        digests["source/freertos_modbus_can_node.ioc"] = sha256_file(ioc_path)
+        replay = {
+            "schema": "P5_RELEASE_REPLAY_V2",
+            "evidence_id": "REPRO-002",
+            "source": {
+                "commit": "1" * 40,
+                "archive_sha256": digests["source/git_archive.tar"],
+            },
+            "environment": {
+                "network_used": False,
+                "prior_build_cache_used": False,
+            },
+            "software": {
+                "clean_reproduction": "PASS",
+                "commands": [
+                    {"name": "gate", "exit_code": 0, "timed_out": False}
+                ],
+            },
+            "hardware": {"flash": "NOT_RUN_IN_THIS_SOFTWARE_REPLAY"},
+            "artifacts": {
+                label: {"sha256": digest, "bytes": 1}
+                for label, digest in digests.items()
+            },
+        }
+        replay_path = release_dir / CURRENT_REPLAY_NAME
+        replay_path.write_text(
+            json.dumps(replay, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        manifest_entries = dict(digests)
+        manifest_entries[f"evidence/{CURRENT_REPLAY_NAME}"] = sha256_file(
+            replay_path
+        )
+        manifest_path = release_dir / CURRENT_MANIFEST_NAME
+        manifest_path.write_text(
+            "\n".join(
+                f"{manifest_entries[label]}  {label}"
+                for label in sorted(manifest_entries)
+            )
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        assert not validate_current_replay_bundle(root, required=True)
+        checks += 1
+
+        ioc_path.write_text("mutated\n", encoding="utf-8", newline="\n")
+        assert any(
+            "current source hash mismatch" in item
+            for item in validate_current_replay_bundle(root, required=True)
+        )
+        checks += 1
+        ioc_path.write_text("ioc\n", encoding="utf-8", newline="\n")
+
+        manifest_lines = read_text(manifest_path).splitlines()
+        manifest_path.write_text(
+            "\n".join(
+                line
+                for line in manifest_lines
+                if not line.endswith("  build/release/freertos_modbus_can_node.bin")
+            )
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        assert any(
+            "manifest missing label" in item
+            for item in validate_current_replay_bundle(root, required=True)
+        )
+        checks += 1
 
     header = LEDGER_HEADER + "\n|---|---|---|---|---|---|\n"
     hardware_row = "| HW-001 | HW | OPEN | HARDWARE | waiting | run later |\n"
