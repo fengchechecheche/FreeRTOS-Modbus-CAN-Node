@@ -1,10 +1,10 @@
 # 项目五学习路线
 
 > 路线状态：`FROZEN`
-> 路线基线：`[038] a8950b5d506d4b02b65c72aa1ec4d7fc6b85da9b`
+> 路线基线：`[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > 路线总数：35
-> 当前可用教程：34
-> 未来计划：P5-S7-T05（不创建空壳文件）
+> 当前可用教程：35
+> 当前候选：P5-S7-T05
 
 本目录面向第一次系统学习 STM32、FreeRTOS、传感器和工业总线的读者。教程用于解释设计与复盘，
 不是硬件验收证据；当前可声明能力必须以 [`../evidence_matrix.md`](../evidence_matrix.md) 为准。
@@ -50,17 +50,17 @@
 | P5-S7-T02 | 清洁构建、烧录与复现演练 | P5-S7-T01 | `p5_s7_t02_清洁构建烧录与复现演练.md` | FROZEN | CLEAN_BUILD |
 | P5-S7-T03 | 硬件证据矩阵与结论边界 | P5-S7-T02 | `p5_s7_t03_硬件证据矩阵与结论边界.md` | FROZEN | EVIDENCE_MATRIX |
 | P5-S7-T04 | 初学者学习路线与问题复盘 | P5-S7-T03 | `p5_s7_t04_初学者学习路线与问题复盘.md` | FROZEN | DOCUMENTATION |
-| P5-S7-T05 | v0.1.0 发布与求职材料 | P5-S7-T04 | `p5_s7_t05_v0_1_0发布与求职材料.md` | PLANNED | NOT_RUN |
+| P5-S7-T05 | v0.1.0 发布与求职材料 | P5-S7-T04 | `p5_s7_t05_v0_1_0发布与求职材料.md` | FROZEN | SOFTWARE_CANDIDATE |
 
 ## 三条快速路线
 
 - STM32/RTOS：P5-S1-T03 → P5-S1-T04 → P5-S2-T01～T05 → P5-S3-T01～T05。
 - 传感器与数据链：P5-S2-T04 → P5-S4-T01～T05 → P5-S5-T01/T04 → P5-S6-T01。
-- 工业通信与排障：P5-S1-T05 → P5-S2-T03 → P5-S5 → P5-S6 → P5-S7-T02～T04。
+- 工业通信与排障：P5-S1-T05 → P5-S2-T03 → P5-S5 → P5-S6 → P5-S7-T02～T05。
 
 快速路线只提供导航，状态仍以上面的 35 项主表和 [`index.md`](index.md) 为准。
 
-## `[038]` 当前锚点
+## `[039]` 当前导航锚点
 
 | Anchor | Current value | Repository source |
 |---|---|---|

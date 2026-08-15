@@ -39,7 +39,12 @@ REQUIRED_FILES = (
     "docs/learning/p5_s1_t03_仓库结构与嵌入式构建测试.md",
     "docs/learning/p5_s1_t04_引脚复用时钟与接口合同.md",
     "docs/learning/p5_s7_t04_初学者学习路线与问题复盘.md",
+    "docs/learning/p5_s7_t05_v0_1_0发布与求职材料.md",
     "tools/check_learning_docs.py",
+    "docs/v0_1_0_software_candidate.md",
+    "docs/demo_guide.md",
+    "docs/recruitment_claim_ledger.md",
+    "tools/check_release_candidate.py",
 )
 NOTICE_MARKERS = (
     "CMSIS Core | 5.9.0",
@@ -96,6 +101,10 @@ def validate_readme(text: str) -> list[str]:
         if marker in text:
             errors.append(f"README contains stale license claim: {marker}")
     required = (
+        "P5-S7-T05 update",
+        "docs/v0_1_0_software_candidate.md",
+        "docs/demo_guide.md",
+        "docs/recruitment_claim_ledger.md",
         "P5-S7-T04 update",
         "docs/learning/README.md",
         "docs/learning/problem_ledger.md",
@@ -169,7 +178,7 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
 
 
 def validate_learning_projection(root: pathlib.Path, ledger_text: str) -> list[str]:
-    """Check T04 release markers without duplicating the deep learning checker."""
+    """Check T05 learning markers without duplicating the deep learning checker."""
     errors: list[str] = []
     route_text = read_text(root / "docs/learning/README.md")
     index_text = read_text(root / "docs/learning/index.md")
@@ -177,30 +186,81 @@ def validate_learning_projection(root: pathlib.Path, ledger_text: str) -> list[s
     tutorial_text = read_text(
         root / "docs/learning/p5_s7_t04_初学者学习路线与问题复盘.md"
     )
+    t05_tutorial_text = read_text(
+        root / "docs/learning/p5_s7_t05_v0_1_0发布与求职材料.md"
+    )
     route_markers = (
         "路线状态：`FROZEN`",
         "路线总数：35",
-        "当前可用教程：34",
-        "未来计划：P5-S7-T05",
+        "当前可用教程：35",
+        "当前候选：P5-S7-T05",
         "problem_ledger.md",
         "12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED",
     )
     for marker in route_markers:
         if marker not in route_text:
             errors.append(f"learning route missing marker: {marker}")
-    if "P5-S7-T04 `FROZEN`" not in index_text:
+    if not any(
+        line.startswith("| S7 | P5-S7-T04 |") and line.endswith("| FROZEN |")
+        for line in index_text.splitlines()
+    ):
         errors.append("learning index does not identify T04 as frozen")
     if "教程状态：`FROZEN`" not in tutorial_text:
         errors.append("T04 tutorial is not frozen after content review")
+    if not any(
+        line.startswith("| S7 | P5-S7-T05 |")
+        and line.endswith("| FROZEN |")
+        for line in index_text.splitlines()
+    ):
+        errors.append("learning index does not identify T05 as review candidate")
+    if "教程状态：`FROZEN`" not in t05_tutorial_text:
+        errors.append("T05 tutorial is not frozen after content review")
     problem_rows = sum(
         line.startswith("| PRB-") for line in problem_text.splitlines()
     )
     if problem_rows != 12:
         errors.append(f"problem ledger row count mismatch: {problem_rows} != 12")
-    if (root / "docs/learning/p5_s7_t05_v0_1_0发布与求职材料.md").exists():
-        errors.append("P5-S7-T05 PLANNED tutorial must not exist")
-    if "Learning documentation gate: `PASS_34_AVAILABLE_1_PLANNED`" not in ledger_text:
+    if "Learning documentation gate: `PASS_35_FROZEN`" not in ledger_text:
         errors.append("release ledger learning documentation gate is not PASS")
+    return errors
+
+
+def validate_candidate_projection(root: pathlib.Path, ledger_text: str) -> list[str]:
+    """Check only the top-level T05 collateral markers."""
+    errors: list[str] = []
+    candidate_text = read_text(root / "docs/v0_1_0_software_candidate.md")
+    demo_text = read_text(root / "docs/demo_guide.md")
+    claim_text = read_text(root / "docs/recruitment_claim_ledger.md")
+    markers = (
+        ("software candidate", candidate_text, "Release state: `UNRELEASED`"),
+        (
+            "software candidate",
+            candidate_text,
+            "Candidate state: `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`",
+        ),
+        (
+            "software candidate",
+            candidate_text,
+            "Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`",
+        ),
+        ("demo guide", demo_text, "Guide state: `SOFTWARE_DEMO_READY`"),
+        (
+            "demo guide",
+            demo_text,
+            "Hardware demo: `NOT_RUN / BLOCKED_WAITING_FOR_HARDWARE`",
+        ),
+        ("claim ledger", claim_text, "Publication: `NOT_PUBLISHED`"),
+        (
+            "claim ledger",
+            claim_text,
+            "Hardware claims: `INELIGIBLE_WHILE_NOT_RUN`",
+        ),
+    )
+    for label, text, marker in markers:
+        if marker not in text:
+            errors.append(f"{label} missing marker: {marker}")
+    if "Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`" not in ledger_text:
+        errors.append("release ledger software candidate collateral gate is not PASS")
     return errors
 
 
@@ -360,6 +420,7 @@ def public_text_files(root: pathlib.Path) -> Iterable[pathlib.Path]:
                 "check_release_readiness.py",
                 "check_evidence_matrix.py",
                 "check_learning_docs.py",
+                "check_release_candidate.py",
             }:
                 continue
             yield path
@@ -398,6 +459,7 @@ def check_repository(root: pathlib.Path) -> list[str]:
     ledger_text = read_text(root / "docs/release_readiness.md")
     errors.extend(validate_evidence_projection(root, ledger_text))
     errors.extend(validate_learning_projection(root, ledger_text))
+    errors.extend(validate_candidate_projection(root, ledger_text))
     rows, ledger_errors = parse_ledger(ledger_text)
     errors.extend(ledger_errors)
     errors.extend(source_gate_errors(rows))
@@ -435,6 +497,10 @@ def run_self_test() -> int:
     checks += 1
 
     valid_readme = (
+        "P5-S7-T05 update\n"
+        "docs/v0_1_0_software_candidate.md\n"
+        "docs/demo_guide.md\n"
+        "docs/recruitment_claim_ledger.md\n"
         "P5-S7-T04 update\n"
         "docs/learning/README.md\n"
         "docs/learning/problem_ledger.md\n"
@@ -450,7 +516,7 @@ def run_self_test() -> int:
 
     valid_learning_route = (
         "路线状态：`FROZEN`\n"
-        "路线总数：35\n当前可用教程：34\n未来计划：P5-S7-T05\n"
+        "路线总数：35\n当前可用教程：35\n当前候选：P5-S7-T05\n"
         "problem_ledger.md\n12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED\n"
     )
     assert all(
@@ -458,8 +524,8 @@ def run_self_test() -> int:
         for marker in (
             "路线状态：`FROZEN`",
             "路线总数：35",
-            "当前可用教程：34",
-            "未来计划：P5-S7-T05",
+            "当前可用教程：35",
+            "当前候选：P5-S7-T05",
             "problem_ledger.md",
             "12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED",
         )

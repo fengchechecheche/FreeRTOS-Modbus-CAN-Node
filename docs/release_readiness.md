@@ -1,11 +1,12 @@
 # P5-S7-T01 release readiness and blocker ledger
 
 > Ledger schema: `P5_RELEASE_LEDGER_V1`
-> Baseline: `[038] a8950b5d506d4b02b65c72aa1ec4d7fc6b85da9b`
+> Baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > Software source candidate gate: `PASS`
 > Binary reproduction gate: `PASS_CLEAN_REPRODUCTION`
 > Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`
-> Learning documentation gate: `PASS_34_AVAILABLE_1_PLANNED`
+> Learning documentation gate: `PASS_35_FROZEN`
+> Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`
 > Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `NOT_AUTHORIZED / NOT_RUN`
 
@@ -96,3 +97,21 @@ gate, all 34 available tutorials through T04 are `FROZEN`; T05 remains the only
 problems. Hardware and integration `NOT_RUN` items remain in the evidence
 matrix rather than being represented as fixed problems. This documentation
 gate closes no HW blocker and does not authorize T05, a tag, or a Release.
+
+## Software candidate and recruitment result
+
+P5-S7-T05 keeps intended version `v0.1.0` in `UNRELEASED` state and produces a
+`SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`. The candidate note distinguishes the
+current `[039]` documentation baseline from the `[036]` clean replay source;
+product, build and test inputs are unchanged between those commits, but `[039]`
+is not relabeled as clean-replayed.
+
+`docs/demo_guide.md` provides one software-only demonstration path and a
+separate hardware sequence marked `NOT_RUN`. The six role-specific candidate
+sentences in `docs/recruitment_claim_ledger.md` cite only matrix `PASS` rows and
+remain `NOT_PUBLISHED`; physical sensors, Project Three, physical CAN,
+simultaneous physical buses and hardware soak stay ineligible.
+
+All 35 tutorials now exist and are `FROZEN` after user content review. This
+collateral gate closes no hardware blocker and does not create a
+tag, binary attachment, final v0.1.0 release note or remote Release.

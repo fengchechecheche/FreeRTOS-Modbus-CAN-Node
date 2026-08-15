@@ -1,7 +1,15 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S7-T05 update: intended version `v0.1.0` remains `UNRELEASED`. The current
+> result is a `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`, with a software demo and
+> matrix-bound recruitment wording that are not published. All four hardware
+> blockers remain open; no tag, binary attachment or remote Release exists. See
+> [`docs/v0_1_0_software_candidate.md`](docs/v0_1_0_software_candidate.md),
+> [`docs/demo_guide.md`](docs/demo_guide.md), and
+> [`docs/recruitment_claim_ledger.md`](docs/recruitment_claim_ledger.md).
+
 > P5-S7-T04 update: the beginner route now covers all 35 work blocks while
-> truthfully exposing 34 available tutorials and one planned T05 file. Four
+> truthfully exposing all 35 tutorials, with T05 pending content review. Four
 > reviewed S1 tutorials are restored, and a bounded ledger keeps 12 real
 > engineering problems without converting hardware `NOT_RUN` gaps into fixes.
 > See [`docs/learning/README.md`](docs/learning/README.md) and

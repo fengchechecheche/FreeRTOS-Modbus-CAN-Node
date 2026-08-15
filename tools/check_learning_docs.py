@@ -22,8 +22,7 @@ EXPECTED_IDS = tuple(
     for task in range(1, 6)
 )
 EXPECTED_STATUS_COUNTS = {
-    "FROZEN": 34,
-    "PLANNED": 1,
+    "FROZEN": 35,
 }
 ALLOWED_TASK_STATUSES = set(EXPECTED_STATUS_COUNTS)
 ALLOWED_PROBLEM_STATUSES = {
@@ -259,6 +258,7 @@ def check_repository(root: pathlib.Path) -> list[str]:
         ROUTE_PATH,
         LEDGER_PATH,
         pathlib.Path("docs/learning/p5_s7_t04_初学者学习路线与问题复盘.md"),
+        pathlib.Path("docs/learning/p5_s7_t05_v0_1_0发布与求职材料.md"),
         pathlib.Path("freertos_modbus_can_node.ioc"),
         pathlib.Path("protocol/register_map.json"),
         pathlib.Path("protocol/can_message_map.json"),
@@ -359,7 +359,7 @@ def main() -> int:
         for error in errors:
             print(f"P5 LEARNING DOCS: FAIL: {error}", file=sys.stderr)
         return 1
-    print("P5 LEARNING DOCS: PASS (35 route entries, 34 tutorials, 12 real problems, 8 official sources)")
+    print("P5 LEARNING DOCS: PASS (35 route entries, 35 tutorials, 12 real problems, 8 official sources)")
     return 0
 
 
