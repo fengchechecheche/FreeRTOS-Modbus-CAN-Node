@@ -40,10 +40,12 @@ source archive SHA  = 650c213d778822ab2f6025151260b1e8d5e54cc2281d7c54b90fa0b444
 | clang-format / clang-tidy | 18.1.3 |
 | Cppcheck | 2.13.0 |
 
-The tracked legacy `tools/capture_tool_versions.sh` contains CRLF line endings
-and cannot be executed directly by Ubuntu's `/usr/bin/env`. T02 did not hide
-that failure or rewrite the helper outside the approved allowlist; the replay
-runner captures the same versions directly without a shell wrapper.
+The T02 baseline exposed CRLF line endings in
+`tools/capture_tool_versions.sh`, so Ubuntu could not execute its shebang.
+The follow-up normalized project-owned shell scripts to LF, added an
+`*.sh text eol=lf` Git attribute and placed an LF-only check at the start of
+the Host verification entry. The replay runner continues to capture the same
+versions directly without depending on this shell wrapper.
 
 ## Clean replay result
 
