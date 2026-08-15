@@ -73,6 +73,26 @@ else()
     p5_apply_project_warnings(p5_host_modbus_server)
     add_test(NAME p5.host.modbus_server COMMAND p5_host_modbus_server)
 
+    if(UNIX)
+      find_package(Python3 REQUIRED COMPONENTS Interpreter)
+      add_executable(p5_host_modbus_pty_slave
+          test/host/modbus_pty_slave_main.c
+          app/src/app_modbus_register_image.c
+          protocol/src/p5_modbus_crc16.c
+          protocol/src/p5_modbus_rtu_adu.c
+          protocol/src/p5_modbus_rtu_stream.c
+          protocol/src/p5_modbus_rtu_timing.c
+          protocol/src/p5_modbus_server.c)
+      target_include_directories(p5_host_modbus_pty_slave PRIVATE
+          app/include protocol/include sensors/include)
+      p5_apply_project_warnings(p5_host_modbus_pty_slave)
+      add_test(NAME p5.host.modbus_pty
+          COMMAND ${Python3_EXECUTABLE}
+                  ${CMAKE_SOURCE_DIR}/tools/modbus_pty_test.py
+                  --server $<TARGET_FILE:p5_host_modbus_pty_slave>)
+      set_tests_properties(p5.host.modbus_pty PROPERTIES TIMEOUT 15)
+    endif()
+
     add_executable(p5_host_modbus_register_image
         test/host/modbus_register_image_main.c
         app/src/app_modbus_register_image.c)
