@@ -11,8 +11,8 @@
   "summary": {
     "FAIL": 0,
     "NOT_CLAIMED": 1,
-    "NOT_RUN": 9,
-    "PASS": 14,
+    "NOT_RUN": 8,
+    "PASS": 15,
     "REVIEW_REQUIRED": 0
   },
   "rows": [
@@ -247,21 +247,22 @@
       "domain": "BSP",
       "capability": "IWDG feed, reset and reset-record persistence on target",
       "execution_layer": "HARDWARE",
-      "result": "NOT_RUN",
-      "evidence_commit": "591f60516afa50511c70bd53f985ce0ccbb4a018",
-      "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "result": "PASS",
+      "evidence_commit": "433225e7d8694fac7e22a5425350336b4ed483f5",
+      "regression_anchor": "433225e7d8694fac7e22a5425350336b4ed483f5",
+      "firmware_sha256": "d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca",
+      "hardware_identity": "NUCLEO-F446RE / STM32F446RE / ST-LINK V2J48M35 (serial omitted)",
       "config_refs": [
-        "config/FreeRTOSConfig.h",
-        "app/src/app_health_policy.c",
-        "app/src/app_reset_reason.c"
+        "freertos_modbus_can_node.ioc",
+        "bsp/src/bsp_watchdog.c",
+        "app/src/app_rtos.c"
       ],
       "evidence_refs": [
         "docs/health_recovery_report.md",
-        "docs/resource_budget.md"
+        "docs/resource_budget.md",
+        "docs/scheduler_report.md"
       ],
-      "allowed_claim": "未执行 IWDG、目标复位或复位记录持久化检查。"
+      "allowed_claim": "NUCLEO-F446RE 上完成默认健康喂狗、一次受控 IWDG 复位、复位原因识别及软件/IWDG 复位间 .noinit 记录保持；不声明断电保持或严格 LSI 超时精度。"
     },
     {
       "id": "RS485-01",

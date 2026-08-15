@@ -1,6 +1,6 @@
 # P5-S3-T01 task model
 
-> Status: `TASK_MODEL_CANDIDATE + WAITING_FOR_HARDWARE`
+> Status: `TASK_MODEL_CANDIDATE + BOUNDED_HARDWARE_SUPPLEMENT`
 > Content review: `FROZEN` (approved 2026-08-14)
 
 | Task | Priority | Period | Deadline | Design budget | T01 service |
@@ -8,7 +8,7 @@
 | `protocol_task` | 5 | 5 ms | 5 ms | 1 ms | bounded RS485 poll/smoke; no Modbus parser |
 | `acquisition_task` | 4 | 20 ms | 20 ms | 2 ms | ADXL DATA_READY notification plus absolute BME280/VEML7700 release |
 | `can_task` | 3 | 100 ms | 100 ms | 2 ms | release/health skeleton; CAN remains stopped |
-| `health_task` | 2 | 1000 ms | 1000 ms | 5 ms | per-task progress and bounded feed decision; IWDG not armed |
+| `health_task` | 2 | 1000 ms | 1000 ms | 5 ms | per-task progress, bounded decision and sole IWDG refresh owner |
 | `diagnostic_task` | 1 | 200 ms | 200 ms | 2 ms | drain at most 2 diagnostic events, then bounded heartbeat/smoke |
 
 Idle priority is 0. The periods, deadlines and budgets are scheduler design
@@ -23,8 +23,9 @@ overload and independent task state.
 P5-S3-T02 gives each task a separately named 256-word static stack. These are
 explicit candidate allocations rather than a shared provisional constant.
 Linked RAM/Flash limits and a read-only watermark snapshot are documented in
-`docs/resource_budget.md`. Runtime watermarks remain `NOT_MEASURED` until the
-bounded hardware smoke, and later real workloads must remeasure affected tasks.
+`docs/resource_budget.md`. The bare-board supplement measured minimum-free
+words `215 / 168 / 115 / 53 / 215`; later sensor and physical-bus workloads
+must remeasure affected tasks.
 
 NVIC uses `NVIC_PRIORITYGROUP_4`, with all four implemented priority bits used
 as preemption priority. P5-S3-T03 sets USART1, DMA2 Stream2 and DMA2 Stream7 to
@@ -66,8 +67,9 @@ checks progress from `protocol_task`, `acquisition_task`, `can_task` and
 One no-progress epoch enters `DEGRADED` while feed remains allowed. Two
 consecutive no-progress epochs enter `RESET_REQUIRED` and withhold feed.
 Warning counters alone do not request reset. Recovery is bounded to three
-attempts per episode and never deletes a task. The current firmware only
-computes this decision: no IWDG is configured, armed or refreshed.
+attempts per episode and never deletes a task. The final default firmware arms
+an approximately 8 s IWDG; only this health path refreshes it when the decision
+allows. A default-OFF smoke proved one controlled reset and stable recovery.
 
 ## S4-T05 combined sensor service contract
 
@@ -95,5 +97,5 @@ independent state: a link error does not delete, reset or globally stop a task.
 These release counters are deterministic contract observations. They are not
 FreeRTOS trace data, measured preemption latency, WCET or deadline evidence.
 No sixth task, queue, mutex, semaphore, notification channel or heap allocation
-was added for T04. Physical task progress, deadline misses and stack watermarks
-remain `WAITING_FOR_HARDWARE`.
+was added for T04. Bare-board progress and stack watermarks now have bounded
+evidence; physical bus workload timing and deadline behavior remain deferred.

@@ -65,10 +65,12 @@ CHECKS: CheckTable = {
         ("hal timebase irq", "NVIC.TimeBase=TIM6_DAC_IRQn"),
         ("hal timebase ip", "NVIC.TimeBaseIP=TIM6"),
         ("tim6 virtual mode", "VP_SYS_VS_tim6.Mode=TIM6"),
+        ("iwdg prescaler", "IWDG.Prescaler=IWDG_PRESCALER_256"),
+        ("iwdg reload", "IWDG.Reload=999"),
     ],
     Path("Core/Inc/stm32f4xx_hal_conf.h"): [
         ("tim hal enabled", "#define HAL_TIM_MODULE_ENABLED"),
-        ("iwdg hal disabled", "/* #define HAL_IWDG_MODULE_ENABLED */"),
+        ("iwdg hal enabled", "#define HAL_IWDG_MODULE_ENABLED"),
     ],
     Path("Core/Src/stm32f4xx_hal_msp.c"): [
         ("nvic priority group", "HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);"),
@@ -96,6 +98,8 @@ CHECKS: CheckTable = {
         ("spi init", "MX_SPI1_Init();"),
         ("usart1 init", "MX_USART1_UART_Init();"),
         ("usart2 init", "MX_USART2_UART_Init();"),
+        ("lsi enabled", "RCC_OscInitStruct.LSIState = RCC_LSI_ON;"),
+        ("iwdg init", "MX_IWDG_Init();"),
         ("app init", "app_boot_initialize()"),
     ],
     Path("Core/Src/gpio.c"): [
@@ -168,6 +172,9 @@ CHECKS: CheckTable = {
         ("transport policy source", "app/src/app_transport_policy.c"),
         ("health policy source", "app/src/app_health_policy.c"),
         ("reset reason source", "app/src/app_reset_reason.c"),
+        ("generated iwdg source", "Core/Src/iwdg.c"),
+        ("iwdg hal source", "Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_iwdg.c"),
+        ("watchdog bsp source", "bsp/src/bsp_watchdog.c"),
         ("adxl driver source", "sensors/src/adxl345.c"),
         ("adxl adapter source", "app/src/app_adxl345.c"),
         ("adxl irq source", "bsp/src/bsp_adxl345_irq.c"),
@@ -214,6 +221,10 @@ CHECKS: CheckTable = {
             "irq notification smoke default off",
             'option(P5_IRQ_NOTIFICATION_SMOKE "Enable bounded DWT IRQ latency summaries" OFF)',
         ),
+        (
+            "iwdg reset smoke default off",
+            'option(P5_IWDG_RESET_SMOKE "Enable one controlled IWDG reset smoke" OFF)',
+        ),
         ("ownership host test", "add_test(NAME p5.host.ownership"),
         ("health host test", "add_test(NAME p5.host.health"),
         ("bme280 host test", "add_test(NAME p5.host.bme280"),
@@ -243,15 +254,15 @@ CHECKS: CheckTable = {
     ],
     Path("docs/health_recovery_report.md"): [
         (
-            "s3 software gate",
-            "S3 software gate: `PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE`",
+            "s3 bounded hardware gate",
+            "S3 bounded hardware gate: `PASS_WDG_01`",
         ),
-        ("iwdg not configured", "IWDG runtime: `NOT_CONFIGURED / NOT_RUN`"),
+        ("iwdg bounded hardware pass", "IWDG runtime: `PASS_HARDWARE_BOUNDED`"),
         (
-            "reset persistence not implemented",
-            "Reset-record persistence: `NOT_IMPLEMENTED / NOT_RUN`",
+            "reset-only persistence boundary",
+            "Reset-record persistence: `PASS_RESET_ONLY / NOT_CLAIMED_POWER_LOSS`",
         ),
-        ("health hardware waiting", "Hardware status: `WAITING_FOR_HARDWARE`"),
+        ("health partial hardware pass", "Hardware status: `PARTIAL_PASS`"),
         ("single feed owner", "the only owner of the watchdog feed decision"),
     ],
     Path("docs/s4_validation.md"): [
@@ -304,6 +315,9 @@ CHECKS: CheckTable = {
         ("queue maximum pending", "app_rtos_event_queue_maximum_pending"),
         ("reset reason capture", "app_rtos_capture_reset_reason("),
         ("reset flags cleared after capture", "__HAL_RCC_CLEAR_RESET_FLAGS();"),
+        ("retained reset record", ".noinit.app_reset_record"),
+        ("reset loop health input", "app_reset_record_loop_latched(&app_rtos_reset_record)"),
+        ("health watchdog service", "app_rtos_watchdog_service(&snapshot.decision);"),
         ("shared acquisition timestamp", "const uint32_t now_ms = (uint32_t)xTaskGetTickCount();"),
         ("bme acquisition service", "app_bme280_service(now_ms);"),
         ("bme initialized before scheduler", "app_bme280_initialize();"),
@@ -328,11 +342,14 @@ CHECKS: CheckTable = {
         ("modbus transport poll", "app_modbus_transport_poll();"),
         ("partial frame one tick bound", "wait_ticks > (TickType_t)1U"),
         ("legacy smoke compile switch", "#if P5_RS485_LOOPBACK_SMOKE_ENABLE"),
+        ("iwdg reset smoke compile switch", "#if P5_IWDG_RESET_SMOKE_ENABLE"),
     ],
     Path("app/src/app_boot.c"): [
         ("cycle counter startup", "bsp_clock_cycle_counter_initialize()"),
         ("default modbus transport", "app_modbus_transport_initialize()"),
         ("legacy smoke compile switch", "#if P5_RS485_LOOPBACK_SMOKE_ENABLE"),
+        ("iwdg withhold marker", "P5 S3 T05 IWDG WITHHOLD"),
+        ("iwdg reset marker", "P5 S3 T05 IWDG RESET OK"),
     ],
     Path("app/include/app_modbus_transport.h"): [
         ("server diagnostics", "p5_modbus_server_diagnostics_t server"),
@@ -445,6 +462,19 @@ CHECKS: CheckTable = {
         ("reset record magic", "#define APP_RESET_RECORD_MAGIC UINT32_C(0x50355252)"),
         ("reset loop limit", "#define APP_RESET_LOOP_LIMIT (3U)"),
         ("reset record checksum field", "uint32_t checksum;"),
+        ("reset fault persistence", "app_reset_record_note_fault("),
+    ],
+    Path("bsp/include/bsp_watchdog.h"): [
+        ("watchdog refresh api", "bool bsp_watchdog_refresh(void);"),
+        ("watchdog debug freeze api", "void bsp_watchdog_enable_debug_freeze(void);"),
+    ],
+    Path("bsp/src/bsp_watchdog.c"): [
+        ("watchdog hal owner", "HAL_IWDG_Refresh(&hiwdg)"),
+        ("watchdog debug freeze", "__HAL_DBGMCU_FREEZE_IWDG();"),
+    ],
+    Path("STM32F446xx_FLASH.ld"): [
+        ("retained noinit output", ".noinit (NOLOAD)"),
+        ("retained reset input", "KEEP(*(.noinit.app_reset_record))"),
     ],
     Path("sensors/include/bme280.h"): [
         ("bme280 chip identity", "#define BME280_CHIP_ID UINT8_C(0x60)"),
@@ -553,7 +583,6 @@ FORBIDDEN_CHECKS: CheckTable = {
     Path("freertos_modbus_can_node.ioc"): [
         ("legacy systick timebase", "VP_SYS_VS_Systick.Mode=SysTick"),
         ("non-rtos priority group", "NVIC.PriorityGroup=NVIC_PRIORITYGROUP_0"),
-        ("iwdg cubemx configuration", "IWDG."),
     ],
     Path("Core/Src/stm32f4xx_it.c"): [
         ("hal tick in systick irq file", "HAL_IncTick();"),
@@ -564,6 +593,7 @@ FORBIDDEN_CHECKS: CheckTable = {
     Path("CMakeLists.txt"): [
         ("scheduler smoke default on", "P5_RTOS_SCHEDULER_SMOKE \"Enable the bounded scheduler-start smoke\" ON"),
         ("irq notification smoke default on", "P5_IRQ_NOTIFICATION_SMOKE \"Enable bounded DWT IRQ latency summaries\" ON"),
+        ("iwdg reset smoke default on", "P5_IWDG_RESET_SMOKE \"Enable one controlled IWDG reset smoke\" ON"),
         ("production fault injection option", "P5_FAULT_INJECTION"),
     ],
     Path("config/FreeRTOSConfig.h"): [
@@ -581,18 +611,13 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("ordinary event queue from ISR", "xQueueSendFromISR("),
         ("event overwrite", "xQueueOverwrite("),
         ("direct iwdg refresh", "HAL_IWDG_Refresh("),
-        ("watchdog adapter refresh", "bsp_watchdog_refresh("),
         ("task delete", "vTaskDelete("),
         ("direct system reset", "NVIC_SystemReset("),
         ("second spi runtime owner", "bsp_spi_bus_"),
         ("second i2c runtime owner", "bsp_i2c_bus_"),
     ],
     Path("Core/Src/main.c"): [
-        ("generated iwdg init", "MX_IWDG_Init("),
         ("main iwdg refresh", "HAL_IWDG_Refresh("),
-    ],
-    Path("Core/Inc/stm32f4xx_hal_conf.h"): [
-        ("iwdg hal enabled", "#define HAL_IWDG_MODULE_ENABLED\n"),
     ],
     Path("app/src/app_health_policy.c"): [
         ("unbounded recovery loop", "for (;;)")
@@ -809,6 +834,33 @@ def verify(
             "xSemaphoreCreateMutexStatic call"
         )
 
+    checked += 1
+    if rtos_source.count("bsp_watchdog_refresh()") != 1:
+        errors.append(
+            f"{rtos_path}: single watchdog refresh: expected exactly one "
+            "bsp_watchdog_refresh call"
+        )
+    watchdog_body = function_body(rtos_source, "app_rtos_watchdog_service")
+    checked += 1
+    if (watchdog_body is None) or (
+        watchdog_body.count("bsp_watchdog_refresh()") != 1
+    ):
+        errors.append(
+            f"{rtos_path}: health-owned watchdog refresh: expected one call "
+            "inside app_rtos_watchdog_service"
+        )
+    health_service_body = function_body(rtos_source, "app_rtos_health_service")
+    checked += 1
+    if (health_service_body is None) or (
+        health_service_body.count(
+            "app_rtos_watchdog_service(&snapshot.decision);"
+        ) != 1
+    ):
+        errors.append(
+            f"{rtos_path}: health task watchdog ownership: expected one "
+            "watchdog service call from app_rtos_health_service"
+        )
+
     periodic_body = function_body(
         rtos_source, "app_rtos_acquisition_periodic_service"
     )
@@ -969,7 +1021,7 @@ def print_result(errors: list[str], checked: int) -> int:
 
     print(
         "P5 BSP CONTRACT: PASS "
-        f"({checked} stable facts, candidate-only, hardware waiting)"
+        f"({checked} stable facts, bounded hardware partial)"
     )
     return 0
 
@@ -1259,30 +1311,31 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
-    hal_config_path = Path("Core/Inc/stm32f4xx_hal_conf.h")
-    original_hal_config = (root / hal_config_path).read_text(encoding="utf-8")
-    iwdg_mutant = original_hal_config.replace(
-        "/* #define HAL_IWDG_MODULE_ENABLED */",
-        "#define HAL_IWDG_MODULE_ENABLED",
+    expected_iwdg_smoke = (
+        'option(P5_IWDG_RESET_SMOKE "Enable one controlled IWDG reset smoke" OFF)'
+    )
+    iwdg_mutant = original.replace(
+        expected_iwdg_smoke,
+        expected_iwdg_smoke[:-4] + "ON)",
         1,
     )
-    if iwdg_mutant == original_hal_config:
+    if iwdg_mutant == original:
         print(
             "P5 BSP CONTRACT SELF-TEST: FAIL "
-            "(could not create default-IWDG mutant)"
+            "(could not create default-on IWDG smoke mutant)"
         )
         return 2
-    iwdg_errors, _ = verify(root, {hal_config_path: iwdg_mutant})
-    if not any("iwdg hal enabled" in item for item in iwdg_errors):
+    iwdg_errors, _ = verify(root, {cmake_path: iwdg_mutant})
+    if not any("iwdg reset smoke default on" in item for item in iwdg_errors):
         print(
             "P5 BSP CONTRACT SELF-TEST: FAIL "
-            "(default IWDG enable was not detected)"
+            "(default-on IWDG smoke was not detected)"
         )
         return 2
 
-    second_feed_mutant = original_rtos + "\nHAL_IWDG_Refresh(0);\n"
+    second_feed_mutant = original_rtos + "\nbsp_watchdog_refresh();\n"
     second_feed_errors, _ = verify(root, {rtos_path: second_feed_mutant})
-    if not any("direct iwdg refresh" in item for item in second_feed_errors):
+    if not any("single watchdog refresh" in item for item in second_feed_errors):
         print(
             "P5 BSP CONTRACT SELF-TEST: FAIL "
             "(second/direct feed owner was not detected)"
@@ -1628,7 +1681,7 @@ def run_self_test(root: Path) -> int:
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
         "callback-work, queue-depth, blocking-wait, dynamic-queue and "
         "callback-queue, one-epoch-stall, recovery-budget, degraded-feed, "
-        "task-delete, default-IWDG, second-feed, BME-HAL-delay, BME-loop, "
+        "task-delete, default-on-reset-smoke, second-feed, BME-HAL-delay, BME-loop, "
         "second-SPI-owner, BME-mutex, VEML-HAL-delay, VEML-loop, "
         "second-I2C-owner, VEML-mutex, ADXL-priority, ADXL-recovery, "
         "ADXL-loop, ADXL-multibyte, ADXL-callback, measurement-field-ID, "

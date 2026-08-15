@@ -64,6 +64,8 @@ bool app_reset_record_is_valid(const app_reset_record_t *record);
 bool app_reset_record_note_boot(app_reset_record_t *record,
                                 const app_reset_decoded_t *decoded,
                                 uint32_t fault_code);
+bool app_reset_record_note_fault(app_reset_record_t *record,
+                                 uint32_t fault_code);
 bool app_reset_record_note_stable(app_reset_record_t *record);
 bool app_reset_record_loop_latched(const app_reset_record_t *record);
 

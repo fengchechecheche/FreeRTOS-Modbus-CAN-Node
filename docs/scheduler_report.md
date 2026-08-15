@@ -2,7 +2,7 @@
 
 > Software status: `PASS_HOST + PASS_CROSS_BUILD`  
 > Content status: `CONTENT_FROZEN` (approved 2026-08-14)  
-> Hardware status: `WAITING_FOR_HARDWARE`
+> Hardware status: `PASS_BARE_BOARD_LIMITED`
 
 ## Implemented
 
@@ -42,13 +42,10 @@ contract, linker heap removal, limits and exact accounting are maintained in
 
 ## Deferred
 
-No scheduler execution, task jitter, WCET, stack watermark, ISR latency,
-queue/mutex stress or health transition has been measured because the board is
-unavailable. The watermark API is compiled in, but its snapshot reports values
-as unmeasured until called by a running task. IWDG is deliberately not
-configured or armed, and reset-record persistence is not implemented. Hardware
-acceptance remains a separate limited smoke after the BSP hardware gate; no
-trace bundle is required for a normal pass.
+At the original software-only gate, scheduler execution, task jitter, WCET,
+stack watermark, ISR latency, queue/mutex stress and IWDG behavior were not
+measured. The later bounded supplements below preserve that historical boundary
+while adding only the observations actually executed on the board.
 
 ## 2026-08-15 limited hardware supplement
 
@@ -78,6 +75,21 @@ fixed minimally: DWT access ordering and an unacknowledged-CAN LEC interrupt
 storm. The latter fix retains warning, passive, bus-off and general error
 notifications while avoiding one interrupt for every automatic retransmission.
 
-This limited smoke proves scheduler start and bounded diagnostic-task progress
-only. Task jitter, WCET, stack watermarks, ISR latency, queue/mutex stress,
-IWDG behavior and long-duration recovery remain `NOT_RUN`/`NOT_MEASURED`.
+This first limited smoke proves scheduler start and bounded diagnostic-task
+progress only. A later resource/watchdog supplement sampled the same five
+static tasks under the default bare-board load:
+
+| Task | Configured words | Minimum free words |
+|---|---:|---:|
+| protocol | 256 | 215 |
+| acquisition | 256 | 168 |
+| CAN | 256 | 115 |
+| health | 256 | 53 |
+| diagnostic | 256 | 215 |
+
+All exceed the 32-word review threshold, so no stack was resized. Queue maximum
+pending, drop and snapshot-contention counters were zero. These are bare-board
+watermarks, not sensor/RS485/CAN workload sizing evidence. The same supplement
+also passed normal IWDG feed and one controlled reset; details and hashes are in
+`docs/health_recovery_report.md`. Task jitter, WCET, ISR latency, queue/mutex
+stress under load and long-duration recovery remain `NOT_RUN`/`NOT_MEASURED`.

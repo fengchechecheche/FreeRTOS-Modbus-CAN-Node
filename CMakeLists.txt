@@ -7,6 +7,7 @@ option(P5_RS485_LOOPBACK_SMOKE "Enable the bounded PA9/PA10 loopback smoke" OFF)
 option(P5_DEVICE_PROBE_SMOKE "Enable the one-shot SPI/I2C device probe" OFF)
 option(P5_RTOS_SCHEDULER_SMOKE "Enable the bounded scheduler-start smoke" OFF)
 option(P5_IRQ_NOTIFICATION_SMOKE "Enable bounded DWT IRQ latency summaries" OFF)
+option(P5_IWDG_RESET_SMOKE "Enable one controlled IWDG reset smoke" OFF)
 
 if(CMAKE_CROSSCOMPILING)
   if(P5_BUILD_HOST_TESTS)

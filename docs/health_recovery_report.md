@@ -2,11 +2,12 @@
 
 > Software status: `PASS_HOST + PASS_CROSS_BUILD + PASS_STATIC_CONTRACT`  
 > Content status: `READY_FOR_CONTENT_REVIEW`  
-> S3 software gate: `PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE`  
-> IWDG runtime: `NOT_CONFIGURED / NOT_RUN`  
-> Reset-record persistence: `NOT_IMPLEMENTED / NOT_RUN`  
-> Hardware status: `WAITING_FOR_HARDWARE`  
+> S3 bounded hardware gate: `PASS_WDG_01`
+> IWDG runtime: `PASS_HARDWARE_BOUNDED`
+> Reset-record persistence: `PASS_RESET_ONLY / NOT_CLAIMED_POWER_LOSS`
+> Hardware status: `PARTIAL_PASS`
 > Input baseline: `662695e7ce361f32f6f2d73c7fdae8ac76ecf6eb` (`[ 017 ]`)
+> Hardware supplement base: `433225e7d8694fac7e22a5425350336b4ed483f5` (`[ 045 ]`)
 
 ## Health and feed contract
 
@@ -18,7 +19,7 @@ stops, no later feed decision can be produced.
 
 | State | Meaning | Feed decision |
 |---|---|---|
-| `BOOTSTRAP` | establish the first delta baseline | withheld; target IWDG is not armed |
+| `BOOTSTRAP` | establish the first delta baseline | withheld; armed IWDG has about 8 s nominal margin |
 | `SERVICEABLE` | all monitored tasks progressed | allowed |
 | `DEGRADED` | bounded warning while tasks still progress | allowed |
 | `RECOVERY_REQUIRED` | owner-local recovery remains inside its budget | allowed |
@@ -61,7 +62,7 @@ At RTOS initialization, the target reads the RCC reset flags, preserves the raw
 `RCC->CSR` value, normalizes power-on, brown-out, pin, software, IWDG, WWDG and
 low-power reasons, then clears the hardware flags. Multiple known reasons keep
 all bits and use a documented primary-reason precedence for the compact summary.
-This path compiles and links on ARM; no real reset reason has been observed yet.
+The target run observed and decoded a real IWDG reset reason.
 
 The HAL-free reset-record codec defines a fixed magic/version/size, saturating
 boot and consecutive-recovery-reset counts, last reason/raw flags/fault and a
@@ -69,64 +70,85 @@ checksum. Corrupt records return to a safe initialized record. Three consecutive
 software/watchdog recovery resets latch the policy; a stable mark clears the
 streak.
 
-No target retention backend is selected. The record is not placed in `.noinit`,
-backup registers or backup SRAM, so persistence is honestly
-`NOT_IMPLEMENTED / NOT_RUN`. The Host codec test is not evidence of data
-surviving an STM32 reset or power loss.
+The fixed 32 B record is placed in `.noinit.app_reset_record`, outside the
+startup-cleared BSS. It survived the deliberate IWDG reset with a valid
+checksum and carried the smoke fault marker into the next boot. This establishes
+retention across the tested reset path only. Backup registers/SRAM are not used,
+and persistence across USB removal or other power loss is not claimed.
 
 ## Software verification
 
-- Host Debug: 9/9 PASS;
-- Host Release: 9/9 PASS;
+- Host Debug/Release: 22/22 PASS each;
+- default Firmware Debug: PASS, `text/data/bss = 53992/160/13280` B;
+- reset-smoke Firmware Debug: PASS, `text/data/bss = 54216/216/13280` B;
 - health injection covers bootstrap, normal progress, one/two-epoch task stall,
   warning storm, bounded recovery, counter saturation and reset-loop latch;
 - reset tests cover single/multiple/unknown reasons, checksum corruption,
   three recovery resets and stable-clear;
-- Firmware Debug: PASS, `text/data/bss = 25192/160/9288` B;
-- Firmware Release: PASS, `text/data/bss = 21908/156/9284` B;
-- static resource contract: PASS; Debug RAM 9448 B, Release RAM 9440 B;
+- `.noinit` is 32 B at `0x2000305c` in the default ELF and is outside `.bss`;
 - ELF contains `app_health_policy_evaluate`, `app_reset_reason_decode`, T03
   task-notification and T04 queue send/receive symbols;
 - extended static self-test rejects one-epoch reset, invalid recovery budget,
-  degraded-feed regression, task delete, default IWDG and a second/direct feed;
+  degraded-feed regression, task delete, default-on reset smoke and a second
+  feed owner;
 - allocator calls and allocator ELF symbols remain absent;
 - existing newlib nosys warnings remain unchanged and do not fail linking.
 
 These checks prove the software state machine, source boundaries and ARM
-linkage. They do not prove scheduler execution, IWDG timing/reset, reset-record
-retention, queue/mutex runtime pressure or real peripheral recovery.
+linkage. The bounded target supplement below additionally proves normal feed,
+one IWDG reset and reset-only record retention. It does not prove strict LSI
+timing, power-loss retention, queue/mutex stress or real peripheral recovery.
 
 ## S3 evidence matrix
 
 | Task | Software result | Hardware result | Remaining boundary |
 |---|---|---|---|
-| T01 scheduler/task model | PASS Host + ARM | `WAITING_FOR_HARDWARE` | periods, jitter and deadlines not measured |
-| T02 static memory/stack | PASS resource gate | `NOT_MEASURED` | task stack watermarks not measured |
+| T01 scheduler/task model | PASS Host + ARM | `PASS_LIMITED` | scheduler progress observed; jitter/WCET not measured |
+| T02 static memory/stack | PASS resource gate | `PASS_BARE_BOARD_LIMITED` | five stack watermarks sampled; sensor/bus workloads must remeasure |
 | T03 IRQ/DMA notification | PASS Host + ARM + static contract | `LINKED_NOT_EXECUTED` | real IRQ, switch and latency not measured |
 | T04 queue/mutex/ownership | PASS Host + ARM + static contract | `NOT_RUN` | watermark, contention and slow consumer not exercised |
-| T05 health/reset policy | PASS Host + ARM + static contract | `NOT_RUN` | IWDG, retention and recovery not exercised |
+| T05 health/reset policy | PASS Host + ARM + static contract | `PASS_WDG_01` | default feed and one reset passed; power-loss retention not claimed |
 
 Therefore the allowed stage conclusion is:
 
 ```text
-S3_software_gate = PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE
-S3_hardware_gate = WAITING_FOR_HARDWARE
+S3_software_gate = PASS_HOST + PASS_CROSS_BUILD
+S3_hardware_gate = PASS_BOUNDED_WATCHDOG_AND_RESOURCE_SUPPLEMENT
 ```
 
-S4 HAL-free and cross-build work may proceed. S3 must not be labelled complete
-or `PASS_HARDWARE` until the deferred hardware gate is run.
+This does not promote IRQ latency, WCET, queue stress, sensors, physical buses
+or long-soak work that remains deferred.
 
 ## Hardware supplement
 
-After board admission, use a separately reviewed, default-OFF fault option and
-a deliberately loose IWDG timeout. Confirm normal feed ownership first, then
-withhold one feed, observe reset, read the IWDG reset reason and verify that the
-device does not enter an unbounded reset loop. In the same bounded run, sample
-task stack watermarks, diagnostic queue maximum/drop and snapshot contention.
+On 2026-08-15, STM32CubeProgrammer 2.17.0 and ST-LINK V2J48M35 were used with a
+bare NUCLEO-F446RE; the full probe serial was not retained. The default Debug
+ELF SHA-256 was
+`d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca`.
+Program/verify passed, and a 25 s VCP window contained one boot, five heartbeat
+lines and no IWDG marker or reset. A Hot Plug snapshot then showed stable mark
+1 and 46 successful feeds.
 
-Only compact before/after summaries are required. Raw per-epoch logs, queue
-traces, mutex timelines and reset evidence bundles are created only for a
-failure that needs reproduction.
+The temporary default-OFF smoke ELF SHA-256 was
+`243ea87fe6d601bc336717d9386e4a657d118dad40ded35a279bef4ae85c6955`.
+After three normal feeds, `P5 S3 T05 IWDG WITHHOLD` appeared at about 4.10 s.
+The next boot appeared at 11.69 s, a 7.59 s interval within the deliberately
+loose 4--20 s gate, followed once by `P5 S3 T05 IWDG RESET OK`. No third boot
+occurred during the remaining 28 s observation.
+
+The post-reset state was `withholding=0`, `completed=1`, `stable=1` with 42
+feeds. The retained record reported magic `0x50355252`, version 1, size 32,
+boot count 2, zero consecutive recovery resets, an IWDG-containing reason,
+fault 0 and checksum `0x984e27d0`; independent recomputation matched. The
+default ELF was then reflashed and a final 20 s window again showed one boot,
+five heartbeats and no smoke marker.
+
+The bare-board resource snapshots measured minimum-free stack words of
+`215 / 168 / 115 / 53 / 215` for protocol/acquisition/CAN/health/diagnostic.
+All exceed the 32-word gate. Queue maximum pending, drops and snapshot
+contention were zero. One historical acquisition miss/deadline/budget sample
+did not grow across a second read and is not promoted into a timing guarantee.
+No raw per-epoch or programmer log is retained.
 
 ## S4-T05 sensor-local degradation
 
@@ -139,8 +161,8 @@ reset-loop rules remain the only reset escalation paths.
 
 The combined Host oracle covers persistent single-device failure and recovery
 while the other sources continue. This is a pure-policy/software result. The
-IWDG is still not configured, and real sensor disconnect, feed timing and
-reset behavior remain `NOT_RUN`.
+IWDG result is now bounded PASS. Real sensor disconnect and recovery remain
+`NOT_RUN`; sensor warnings still allow feed by contract.
 
 ## S6-T05 long-soak observation boundary
 
@@ -150,7 +172,7 @@ fault/reset indicators and missing-duration coverage. Isolated events may
 require review; persistent stalls, capacity violations, reset/fault, rollback
 or a measured stack watermark below 32 free words fail the session.
 
-This adds no firmware instrumentation and does not claim that the existing
-health or reset paths ran on target. Real IWDG feed/reset, retained reset
-records, task watermarks, bus recovery and the 10-minute/60-minute/8-hour runs
-remain `NOT_RUN` pending hardware and a separately reviewed collector.
+The watchdog path, reset-only record retention and bare-board task watermarks
+now have bounded target evidence. Bus recovery, workload watermarks and the
+10-minute/60-minute/8-hour runs remain `NOT_RUN` pending the relevant hardware
+and a separately reviewed collector.

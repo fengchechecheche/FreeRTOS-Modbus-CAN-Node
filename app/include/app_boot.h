@@ -9,5 +9,7 @@ typedef enum
 
 app_boot_status_t app_boot_initialize(void);
 void app_boot_diagnostic_service(void);
+void app_boot_report_iwdg_withhold(void);
+void app_boot_report_iwdg_reset_ok(void);
 
 #endif

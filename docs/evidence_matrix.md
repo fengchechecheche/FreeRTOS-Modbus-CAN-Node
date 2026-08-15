@@ -6,7 +6,8 @@
 > PTY evidence update: `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
 > Clean replay source: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`
 > Board supplement base: `807f85ce43240e94fc4aea3bd07e31c40a81d236`
-> Row summary: `24 = 14 PASS + 9 NOT_RUN + 1 NOT_CLAIMED`
+> Watchdog supplement base: `[045] 433225e7d8694fac7e22a5425350336b4ed483f5`
+> Row summary: `24 = 15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
 ## Purpose
@@ -35,6 +36,10 @@ That retained Release candidate was not used for the board supplement.
 `4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7`.
 The tested working tree used `807f85ce43240e94fc4aea3bd07e31c40a81d236`
 as its Git base plus the two reviewed minimal fixes recorded in the BSP report.
+`WDG-01` uses the separately built default Debug ELF
+`d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca`;
+the temporary reset-smoke hash remains in the health report and is not the
+final installed image.
 Evidence precedence is: executed hardware supplement, T02 clean replay,
 domain report, release blocker ledger, then README navigation. A historical
 header or tutorial state never upgrades a runtime result.
@@ -70,7 +75,7 @@ Cross-build PASS does not establish flashing, startup, timing or communication.
 | SNS-01 | HARDWARE | NOT_RUN | `docs/bme280_report.md` | BME280 identity, SPI sampling and accuracy were not run |
 | SNS-02 | HARDWARE | NOT_RUN | `docs/veml7700_report.md` | VEML7700 ACK, sampling, range and accuracy were not run |
 | SNS-03 | HARDWARE | NOT_RUN | `docs/adxl345_report.md` | ADXL345 identity, DATA_READY, axis and vibration checks were not run |
-| WDG-01 | HARDWARE | NOT_RUN | `docs/health_recovery_report.md` | IWDG, reset and persistence were not run |
+| WDG-01 | HARDWARE | PASS | `docs/health_recovery_report.md` | default health feed, one IWDG reset, reset-reason decode and reset-only `.noinit` retention passed; no power-loss claim |
 
 The three sensor drivers also have Host/cross-build software evidence inside
 `SW-01` and the domain reports. The rows above intentionally describe only the
@@ -115,14 +120,15 @@ real-time resource-trend evidence.
 
 | Blocker | Matrix rows | Current state |
 |---|---|---|
-| HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | OPEN; BSP-02 passed, sensors and IWDG remain |
+| HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | OPEN; BSP-02 and WDG-01 passed, three sensors remain |
 | HW-002 RS485 and Project Three | RS485-03, P3-01 | OPEN |
 | HW-003 CAN and physical dual bus | CAN-03, BUS-02 | OPEN |
 | HW-004 hardware soak | SOAK-02 | OPEN |
 
 The software source and clean-reproduction blockers remain closed. `BSP-02`
-now passes at its narrow board-admission layer, but `HW-001` remains open for
-the three sensors and IWDG. No other hardware blocker is closed.
+now passes at its narrow board-admission layer and `WDG-01` passes at its
+bounded reset-only layer, but `HW-001` remains open for the three sensors. No
+other hardware blocker is closed.
 
 ## Public and local evidence
 

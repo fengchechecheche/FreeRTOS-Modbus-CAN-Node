@@ -28,6 +28,10 @@ static uint8_t app_clock_marker[] =
     "PCLK1=45000000 PCLK2=90000000 HALTICK=TIM6/1MS\r\n";
 static uint8_t app_heartbeat_marker[] = "P5 S2 T02 HEARTBEAT OK\r\n";
 static uint8_t app_scheduler_marker[] = "P5 S3 T01 SCHEDULER OK\r\n";
+static uint8_t app_iwdg_withhold_marker[] =
+    "P5 S3 T05 IWDG WITHHOLD\r\n";
+static uint8_t app_iwdg_reset_ok_marker[] =
+    "P5 S3 T05 IWDG RESET OK\r\n";
 
 static uint32_t app_heartbeat_last_tick_ms;
 static uint32_t app_heartbeat_count;
@@ -125,4 +129,20 @@ void app_boot_diagnostic_service(void)
       app_heartbeat_enabled = app_heartbeat_count < APP_HEARTBEAT_REPEAT_COUNT;
     }
   }
+}
+
+void app_boot_report_iwdg_withhold(void)
+{
+  (void)HAL_UART_Transmit(&huart2,
+                          app_iwdg_withhold_marker,
+                          (uint16_t)(sizeof(app_iwdg_withhold_marker) - 1U),
+                          APP_BOOT_UART_TIMEOUT_MS);
+}
+
+void app_boot_report_iwdg_reset_ok(void)
+{
+  (void)HAL_UART_Transmit(&huart2,
+                          app_iwdg_reset_ok_marker,
+                          (uint16_t)(sizeof(app_iwdg_reset_ok_marker) - 1U),
+                          APP_BOOT_UART_TIMEOUT_MS);
 }

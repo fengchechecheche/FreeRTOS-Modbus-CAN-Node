@@ -146,9 +146,10 @@ CubeMX、引脚、时钟、BSP API、协议或数据结构。
 断电补验中还确认：无 CAN 收发器/ACK 时，控制器最终进入限定恢复并停止，CPU 保持在线程态，
 不再困于 CAN1 SCE ISR。最终默认固件已恢复全部 smoke 为 `OFF` 并重新烧入。
 
-本次只证明板卡准入、ST-LINK、烧录/校验/复位、VCP 启动、运行时时钟、GPIO 寄存器状态和有限
-调度器启动。没有测量排针电压、HSI 精度、严格毫秒抖动、栈水位、ISR latency、IWDG、传感器、
-UART loopback、RS485、CAN 物理层或长稳趋势。
+本节只证明板卡准入、ST-LINK、烧录/校验/复位、VCP 启动、运行时时钟、GPIO 寄存器状态和有限
+调度器启动。随后独立执行的 S3 补验已测得裸板栈水位，并通过默认 IWDG 喂狗、一次受控复位与
+复位记录保持；详见 `docs/health_recovery_report.md`。排针电压、HSI 精度、严格毫秒抖动、ISR
+latency、传感器、UART loopback、RS485、CAN 物理层或长稳趋势仍未测量。
 
 ```text
 BSP-02 = PASS

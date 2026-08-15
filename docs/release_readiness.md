@@ -3,7 +3,7 @@
 > Ledger schema: `P5_RELEASE_LEDGER_V1`
 > Baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > Software source candidate gate: `PASS`
-> Binary reproduction gate: `PASS_CLEAN_REPRODUCTION`
+> Binary reproduction gate: `HISTORICAL_PASS_CURRENT_REPLAY_REQUIRED`
 > Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`
 > Learning documentation gate: `PASS_35_FROZEN`
 > Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`
@@ -24,7 +24,8 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | PRIV-001 | PRIV | CLOSED | SOURCE,BINARY,HARDWARE | Tracked CubeMX problem report no longer exposes a Windows user-profile path | `docs/device_probe_report.md`; release-readiness path scan |
 | SW-001 | SW | CLOSED | SOURCE,BINARY,HARDWARE | Current Host, contracts, ARM builds, and static resource gate pass without firmware changes | P5-S7-T01 final validation summary |
 | REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
-| HW-001 | HW | OPEN | HARDWARE | NUCLEO board admission passed at `BSP-02`; physical BME280, VEML7700, ADXL345 and IWDG checks are not complete | Run the frozen S4 sensor and S3-T05 IWDG supplements when hardware is available |
+| REPRO-002 | REPRO | OPEN | BINARY,HARDWARE | Current IWDG source differs from the frozen `[036]` replay manifest | After the user commits the current candidate, run a new tracked-file-only clean replay and refresh the candidate manifest in a separately authorized release task |
+| HW-001 | HW | OPEN | HARDWARE | NUCLEO board admission and `WDG-01` passed; physical BME280, VEML7700 and ADXL345 checks are not complete | Run the frozen S4 sensor supplements when the sensors arrive |
 | HW-002 | HW | OPEN | HARDWARE | Physical USB-RS485 and Project Three interoperability are not complete | Run S5 hardware/integration supplement |
 | HW-003 | HW | OPEN | HARDWARE | Physical CAN, candleLight, bus-off, and dual-bus concurrency are not complete | Run S6 hardware supplements |
 | HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
@@ -62,29 +63,36 @@ and raw diagnostics remain outside the public source candidate.
 P5-S7-T02 reproduced `[036]` from a tracked-file-only local archive in a new
 temporary directory. Host Debug/Release, the release/Modbus/CAN/BSP checks,
 ARM Debug/Release and the resource gate passed without network access or prior
-build cache, so `REPRO-001` is closed for the software binary candidate.
+build cache, so `REPRO-001` remains closed for that historical software binary
+candidate.
+
+The current post-`[045]` IWDG source is not covered by the frozen `[036]`
+manifest. The unchanged historical manifest therefore rejects the current
+`.ioc` hash as intended; `REPRO-002` keeps the current binary/hardware release
+candidate open until a separately authorized clean replay is completed. This
+supplement does not weaken or rewrite the earlier replay evidence.
 
 A second independent Release build produced different BIN/HEX bytes because
 linked FreeRTOS assert strings retain absolute source paths. The clean build is
 repeatable as a procedure, but bit-for-bit output across differently named
 directories is `NOT_CLAIMED`; no CMake or firmware flags were changed in T02.
 
-The four hardware blockers remain open. A later NUCLEO-F446RE supplement passed
-the narrow `BSP-02` board-admission row, including flashing, VCP boot, runtime
-clock, GPIO register state and limited scheduler smoke. `HW-001` remains open
-for sensors and IWDG; representative sensor replay, physical buses and the
-8-hour soak are not inferred from that board result.
+The four hardware blockers remain open. NUCLEO-F446RE supplements passed the
+narrow `BSP-02` board-admission row and `WDG-01`, including normal health feed,
+one controlled IWDG reset and reset-only `.noinit` retention. `HW-001` remains
+open for the three sensors; physical buses and the 8-hour soak are not inferred
+from those bounded board results.
 
 ## Evidence matrix result
 
-P5-S7-T03 projects the current baseline into 24 bounded evidence rows: 14
-`PASS`, 9 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
+P5-S7-T03 projects the current baseline into 24 bounded evidence rows: 15
+`PASS`, 8 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
 `artifacts/release/p5_s7_t03_evidence_matrix.json`; the curated public view and
 claim boundaries are in `docs/evidence_matrix.md`.
 
 The matrix schema, result counts, public references, full Git identities, and
 hardware-claim restrictions pass `tools/check_evidence_matrix.py`. `BSP-02`
-passes only at the bounded board-admission layer; sensors/IWDG, physical RS485,
+passes only at the bounded board-admission layer; sensors, physical RS485,
 physical CAN, and the 10-minute/60-minute/8-hour sessions remain open exactly
 as listed above.
 
@@ -103,11 +111,11 @@ gate closes no HW blocker and does not authorize T05, a tag, or a Release.
 
 ## Software candidate and recruitment result
 
-P5-S7-T05 keeps intended version `v0.1.0` in `UNRELEASED` state and produces a
-`SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`. The candidate note distinguishes the
-current `[039]` documentation baseline from the `[036]` clean replay source;
-product, build and test inputs are unchanged between those commits, but `[039]`
-is not relabeled as clean-replayed.
+P5-S7-T05 keeps intended version `v0.1.0` in `UNRELEASED` state and preserves
+the historical `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE` collateral. The
+candidate note distinguishes the `[039]` documentation baseline from the
+`[036]` clean replay source. The later IWDG source and hardware supplement are
+not relabeled as clean-replayed; `REPRO-002` is the current replay gate.
 
 `docs/demo_guide.md` provides one software-only demonstration path and a
 separate hardware sequence marked `NOT_RUN`. The six role-specific candidate

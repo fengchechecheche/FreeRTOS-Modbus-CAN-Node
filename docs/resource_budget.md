@@ -2,8 +2,8 @@
 
 > Software status: `PASS_HOST + PASS_CROSS_BUILD + PASS_RESOURCE_BUDGET`  
 > Content status: `FROZEN` (approved 2026-08-14)
-> Hardware watermark: `NOT_MEASURED`  
-> Hardware status: `WAITING_FOR_HARDWARE`  
+> Hardware watermark: `PASS_BARE_BOARD_LIMITED`
+> Hardware status: `PARTIAL_PASS`
 > Baseline: `2e25df3c65c62dfd7b212a144381f42f33d5f7ab` (`[ 013 ]`)
 
 ## Static allocation contract
@@ -77,8 +77,9 @@ five task stacks are unchanged.
 
 Both builds remain far below the existing 384 KiB Flash and 96 KiB linked-RAM
 limits. The increase is accepted without reducing any provisional task stack.
-The diagnostic queue item area is fixed at 8 × 12 B; runtime watermark and
-mutex-contention measurements remain `NOT_MEASURED`/`NOT_RUN` until hardware.
+The diagnostic queue item area is fixed at 8 × 12 B. Bare-board queue maximum
+pending and mutex-contention measurements are now zero; workload stress remains
+deferred.
 
 ### T05 health and recovery regression
 
@@ -134,13 +135,10 @@ largest symbols only until the unexpected object or library is found.
 
 ## Hardware follow-up
 
-When the board is available, run the bounded scheduler smoke for about 10
-seconds and query the five-task resource snapshot once. A task below 32 free
-words is enlarged by 64 words and the smoke is repeated. Do not shrink a stack
-from the empty-skeleton result. Sensor, Modbus, CAN, recovery and soak workloads
-must remeasure their affected tasks in later stages.
-
-No task watermark has been measured in this report.
+The initial bare-board snapshot is now complete. A task below 32 free words
+would still be enlarged by 64 words and retested; none crossed that threshold.
+Do not shrink a stack from this light-load result. Sensor, Modbus, CAN, recovery
+and soak workloads must remeasure their affected tasks in later stages.
 
 ## S4-T01 BME280 regression
 
@@ -155,7 +153,8 @@ added.
 | Release | 26196 B | 156 B | 9500 B | 26352 B | 9656 B | Flash +4288 B, RAM +216 B |
 
 Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM gates.
-Runtime acquisition watermark and SPI WCET remain `NOT_MEASURED` until hardware.
+The BME280 workload watermark and SPI WCET remain `NOT_MEASURED` until the
+sensor is available.
 
 ## S4-T02 VEML7700 regression
 
@@ -169,8 +168,8 @@ task, stack, queue, mutex, dynamic heap or periodic evidence buffer.
 | Release | 29408 B | 156 B | 9628 B | 29564 B | 9784 B | Flash +3212 B, RAM +128 B |
 
 Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM gates. The
-five application stacks and queue depth remain unchanged. Hardware acquisition
-watermark and the combined SPI/I²C WCET remain `NOT_MEASURED`.
+five application stacks and queue depth remain unchanged. The combined sensor
+SPI/I²C workload watermark and WCET remain `NOT_MEASURED`.
 
 ## S4-T03 ADXL345 regression
 
@@ -186,8 +185,8 @@ and adds no task, stack, queue, mutex, semaphore, DMA, dynamic heap or trace.
 The RAM increment holds the driver, owner-local snapshot, window sums/squares,
 latest feature and compact IRQ counters. Both builds remain far below the
 unchanged 384 KiB Flash and 96 KiB linked-RAM gates. All five application
-stacks remain 256 words and linker heap remains zero. Runtime stack watermark,
-IRQ latency and combined bus WCET remain `NOT_MEASURED`.
+stacks remain 256 words and linker heap remains zero. Sensor-workload stack
+watermark, IRQ latency and combined bus WCET remain `NOT_MEASURED`.
 
 ## S4-T04 unified measurement regression
 
@@ -203,8 +202,9 @@ adds no task, stack, queue, mutex, semaphore, DMA, heap or history buffer.
 The 600 B RAM increment remains below the T04 1 KiB review threshold. Owner
 inputs are static so the three driver snapshots are not simultaneously placed
 on the 256-word acquisition stack. The five application stacks, queue depth 8,
-linker heap 0 and 384 KiB/96 KiB stage gates remain unchanged. Runtime stack
-watermark, snapshot contention and real timestamp jitter remain `NOT_MEASURED`.
+linker heap 0 and 384 KiB/96 KiB stage gates remain unchanged. Sensor-workload
+stack watermark, snapshot contention and real timestamp jitter remain
+`NOT_MEASURED`.
 
 ## S4-T05 sensor monitor regression
 
@@ -219,8 +219,8 @@ three health masks. It adds no task, stack, queue, mutex, heap or raw history.
 Both builds pass the unchanged 384 KiB Flash and 96 KiB linked-RAM gates. The
 RAM changes stay below the 1 KiB T05 review threshold. The five 256-word task
 stacks, queue depth 8, one snapshot mutex and linker heap 0 are unchanged.
-Runtime stack watermark, combined bus WCET and real sample interval envelope
-remain `NOT_MEASURED`.
+Sensor-workload stack watermark, combined bus WCET and real sample interval
+envelope remain `NOT_MEASURED`.
 
 ## S5-T03 Modbus stream and RS485 transport regression
 
@@ -288,6 +288,30 @@ objects or linker scripts. The `[034]` resource values therefore remain:
 
 FreeRTOS dynamic allocation is disabled, no `heap_x.c` is linked and linker
 heap reserve remains zero. The soak schema records this static heap policy
-instead of inventing a free-heap trend. Real task stack watermarks, queue
-pressure and runtime timing remain `NOT_MEASURED` until a reviewed hardware
-collector is available.
+instead of inventing a free-heap trend. Workload queue pressure and runtime
+timing remain `NOT_MEASURED` until the relevant hardware is available.
+
+## 2026-08-15 bare-board resource and IWDG supplement
+
+The final default Debug build reports `text/data/bss = 53992/160/13280` B and
+keeps all five 256-word stacks, queue depth 8, one snapshot mutex and zero
+linker heap. A separate 32 B `.noinit` reset record is retained across the
+tested software/IWDG reset path; it is not a dynamic allocation or a power-loss
+retention claim.
+
+Two Hot Plug snapshots taken ten seconds apart reported:
+
+| Task | Configured words | Minimum free words | Gate |
+|---|---:|---:|---|
+| protocol | 256 | 215 | PASS |
+| acquisition | 256 | 168 | PASS |
+| CAN | 256 | 115 | PASS |
+| health | 256 | 53 | PASS |
+| diagnostic | 256 | 215 | PASS |
+
+All values stayed unchanged and exceed the 32-word threshold. Queue maximum
+pending and transport drop/contention counters remained zero. The acquisition
+task had one historical miss/deadline/budget event, but those counters did not
+increase in the second read; this is recorded for troubleshooting and is not a
+WCET or deadline guarantee. No stack was resized and no periodic trace was
+introduced.

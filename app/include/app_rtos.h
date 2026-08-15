@@ -29,7 +29,9 @@ typedef enum
   APP_RTOS_FAULT_MUTEX_CREATE = 0x5305U,
   APP_RTOS_FAULT_ASSERT = 0x5310U,
   APP_RTOS_FAULT_STACK_OVERFLOW = 0x5320U,
-  APP_RTOS_FAULT_SCHEDULER_RETURN = 0x5330U
+  APP_RTOS_FAULT_SCHEDULER_RETURN = 0x5330U,
+  APP_RTOS_FAULT_IWDG_REFRESH = 0x5340U,
+  APP_RTOS_FAULT_IWDG_SMOKE = 0x5350U
 } app_rtos_fault_t;
 
 typedef struct
@@ -98,6 +100,7 @@ bool app_rtos_get_modbus_register_source(
 bool app_rtos_get_transport_counters(app_transport_counters_t *counters);
 bool app_rtos_get_transport_snapshot(app_rtos_transport_snapshot_t *snapshot);
 bool app_rtos_get_reset_reason(app_reset_decoded_t *decoded);
+bool app_rtos_get_reset_record(app_reset_record_t *record);
 uint32_t app_rtos_fault_code(void);
 _Noreturn void app_rtos_fail_stop(uint32_t fault_code);
 

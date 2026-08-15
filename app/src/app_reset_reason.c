@@ -170,6 +170,18 @@ bool app_reset_record_note_boot(app_reset_record_t *record,
   return true;
 }
 
+bool app_reset_record_note_fault(app_reset_record_t *record,
+                                 uint32_t fault_code)
+{
+  if (!app_reset_record_is_valid(record))
+  {
+    return false;
+  }
+  record->last_fault_code = fault_code;
+  record->checksum = app_reset_record_checksum(record);
+  return true;
+}
+
 bool app_reset_record_note_stable(app_reset_record_t *record)
 {
   if (!app_reset_record_is_valid(record))

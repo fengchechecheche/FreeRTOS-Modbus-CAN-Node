@@ -6,6 +6,7 @@ set(P5_CUBEMX_APPLICATION_SOURCES
     Core/Src/dma.c
     Core/Src/can.c
     Core/Src/i2c.c
+    Core/Src/iwdg.c
     Core/Src/spi.c
     Core/Src/usart.c
     Core/Src/stm32f4xx_it.c
@@ -27,6 +28,7 @@ set(P5_STM32F4_HAL_SOURCES
     Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.c
     Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.c
     Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c_ex.c
+    Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_iwdg.c
     Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr.c
     Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr_ex.c
     Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c
@@ -61,6 +63,7 @@ set(P5_PROJECT_FIRMWARE_SOURCES
     bsp/src/bsp_adxl345_irq.c
     bsp/src/bsp_spi_bus.c
     bsp/src/bsp_i2c_bus.c
+    bsp/src/bsp_watchdog.c
     bsp/src/bsp_rs485.c
     bsp/src/bsp_rs485_irq_event.c
     bsp/src/bsp_rs485_state.c
@@ -113,7 +116,8 @@ target_compile_definitions(${P5_FIRMWARE_TARGET} PRIVATE
     $<$<BOOL:${P5_RS485_LOOPBACK_SMOKE}>:P5_RS485_LOOPBACK_SMOKE_ENABLE=1>
     $<$<BOOL:${P5_DEVICE_PROBE_SMOKE}>:P5_DEVICE_PROBE_SMOKE_ENABLE=1>
     $<$<BOOL:${P5_RTOS_SCHEDULER_SMOKE}>:P5_RTOS_SCHEDULER_SMOKE_ENABLE=1>
-    $<$<BOOL:${P5_IRQ_NOTIFICATION_SMOKE}>:P5_IRQ_NOTIFICATION_SMOKE_ENABLE=1>)
+    $<$<BOOL:${P5_IRQ_NOTIFICATION_SMOKE}>:P5_IRQ_NOTIFICATION_SMOKE_ENABLE=1>
+    $<$<BOOL:${P5_IWDG_RESET_SMOKE}>:P5_IWDG_RESET_SMOKE_ENABLE=1>)
 
 target_compile_options(${P5_FIRMWARE_TARGET} PRIVATE
     -ffunction-sections

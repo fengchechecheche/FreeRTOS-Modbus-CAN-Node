@@ -31,7 +31,7 @@ qualification and exclusion boundaries must remain intact.
 
 | Restriction ID | Matrix rows | Boundary | Eligibility |
 |---|---|---|---|
-| LIM-HW-01 | BSP-02,SNS-01,SNS-02,SNS-03,WDG-01 | Board startup, physical sensors and watchdog behavior were not run. | NOT_ELIGIBLE |
+| LIM-HW-01 | BSP-02,SNS-01,SNS-02,SNS-03,WDG-01 | Board startup and bounded watchdog reset passed; physical sensor sampling and full hardware release remain incomplete. | NOT_ELIGIBLE |
 | LIM-RS485-01 | RS485-03,P3-01 | USB-RS485 and Project Three interoperability were not run. | NOT_ELIGIBLE |
 | LIM-CAN-01 | CAN-03,BUS-02 | Physical CAN and simultaneous physical RS485/CAN were not run. | NOT_ELIGIBLE |
 | LIM-SOAK-01 | SOAK-02 | Hardware smoke, pre-run and formal soak were not run. | NOT_ELIGIBLE |

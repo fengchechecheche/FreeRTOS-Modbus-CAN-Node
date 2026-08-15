@@ -6,9 +6,11 @@
 > limited FreeRTOS scheduler smoke and one USB power cycle passed. The tested
 > default ELF SHA-256 is
 > `4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7`.
-> Sensors, IWDG, RS485, physical CAN and hardware soak remain `NOT_RUN`, so
-> `HW-001` and the Hardware Release gate remain open. See
-> [`docs/bsp_validation.md`](docs/bsp_validation.md).
+> A later S3 supplement passed bare-board stack watermarks, default health feed,
+> one controlled IWDG reset and reset-only `.noinit` retention. Sensors, RS485,
+> physical CAN and hardware soak remain `NOT_RUN`, so `HW-001` and the Hardware
+> Release gate remain open. See [`docs/bsp_validation.md`](docs/bsp_validation.md)
+> and [`docs/health_recovery_report.md`](docs/health_recovery_report.md).
 
 > P5-S7-T05 update: intended version `v0.1.0` remains `UNRELEASED`. The current
 > result is a `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`, with a software demo and
@@ -26,7 +28,7 @@
 > [`docs/learning/problem_ledger.md`](docs/learning/problem_ledger.md).
 
 > P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
-> 14 `PASS`, 9 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
+> 15 `PASS`, 8 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
 > software, board, RS485, or CAN evidence layer; no software result is promoted
 > to a physical-hardware claim. The hardware Release gate remains
 > `BLOCKED_WAITING_FOR_HARDWARE`. See
@@ -123,7 +125,11 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - FreeRTOS 任务使用静态分配，`protocol_task` 接管有限 RS485 poll，`diagnostic_task` 接管有限
   heartbeat；`acquisition_task` 保持 20 ms 绝对释放推进 BME280/VEML7700，并接收 ADXL345
   DATA_READY 计数通知；每批通知最多读取一帧。
-- 五个应用任务栈各为 256 words，Host/ARM 资源门已通过；硬件 watermark 仍为 `NOT_MEASURED`。
+- 五个应用任务栈各为 256 words，Host/ARM 资源门已通过；裸板最小剩余为
+  `215/168/115/53/215` words，均高于 32-word 门限，传感器和物理总线负载仍需重测。
+- 默认固件启用约 8 s 标称 IWDG，只有 `health_task` 根据健康策略刷新；
+  `P5_IWDG_RESET_SMOKE` 默认关闭。实板已通过正常喂狗、一次 7.59 s 受控超时复位、IWDG
+  原因识别和软件/IWDG 复位间 `.noinit` 保持，不声明断电保持或严格 LSI 超时精度。
 - SPI/I²C 候选不使用 DMA、RTOS 或动态内存；timeout/bus error 最多请求一次 recovery，当前 HAL
   adapter 不伪造未实测的 SCL pulse 或重新初始化。
 - BME280 使用 1 Hz forced mode、T/P/H x1、filter off 和 5 ms SPI timeout；raw 与整数工程量保存在
@@ -141,8 +147,8 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
   不触发全局恢复或复位。Host 虚拟故障矩阵不是实物断线或 60 分钟运行证据。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 已完成 ST-LINK、烧录/校验/复位、VCP、运行时时钟、GPIO 寄存器状态、有限
-  scheduler smoke 和断电重连补验；UART loopback、传感器、IWDG、RS485/CAN physical layer 与
-  长稳仍保持 `WAITING_FOR_HARDWARE / NOT_RUN`。
+  scheduler smoke、裸板栈水位、IWDG 单次恢复和断电重连补验；UART loopback、传感器、
+  RS485/CAN physical layer 与长稳仍保持 `WAITING_FOR_HARDWARE / NOT_RUN`。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。

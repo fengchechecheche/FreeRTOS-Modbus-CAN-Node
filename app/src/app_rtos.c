@@ -21,6 +21,7 @@
 #include "bsp_can.h"
 #include "bsp_clock.h"
 #include "bsp_rs485.h"
+#include "bsp_watchdog.h"
 #include "queue.h"
 #include "semphr.h"
 #include "stm32f4xx.h"
@@ -35,12 +36,18 @@
 #define P5_RS485_LOOPBACK_SMOKE_ENABLE (0)
 #endif
 
+#ifndef P5_IWDG_RESET_SMOKE_ENABLE
+#define P5_IWDG_RESET_SMOKE_ENABLE (0)
+#endif
+
 #define APP_CAN_TELEMETRY_PERIOD_MS UINT32_C(1000)
 #define APP_CAN_RX_DRAIN_BUDGET UINT32_C(2)
 #define APP_CAN_EVENT_SOURCE UINT8_C(5)
 #define APP_CAN_EVENT_START_FAILED UINT16_C(0x0301)
 #define APP_CAN_EVENT_BUS_OFF UINT16_C(0x0302)
 #define APP_CAN_EVENT_RECOVERED UINT16_C(0x0303)
+#define APP_IWDG_SMOKE_PRIME_FEEDS UINT32_C(3)
+#define APP_IWDG_STABLE_FEEDS UINT32_C(5)
 
 _Static_assert(sizeof(StackType_t) == APP_RESOURCE_STACK_WORD_BYTES,
                "resource budget assumes 32-bit FreeRTOS stack words");
@@ -111,6 +118,14 @@ static app_transport_counters_t app_rtos_transport_counters;
 static uint32_t app_rtos_event_queue_maximum_pending;
 static app_health_policy_t app_rtos_health_policy;
 static app_reset_decoded_t app_rtos_reset_reason;
+app_reset_record_t app_rtos_reset_record
+    __attribute__((section(".noinit.app_reset_record"), used));
+static uint32_t app_rtos_watchdog_feed_count;
+static bool app_rtos_reset_record_stable;
+#if P5_IWDG_RESET_SMOKE_ENABLE
+static bool app_rtos_iwdg_smoke_completed;
+static bool app_rtos_iwdg_smoke_withholding;
+#endif
 static app_can_tx_scheduler_t app_rtos_can_scheduler;
 static app_can_controller_t app_rtos_can_controller;
 static app_can_runtime_snapshot_t app_rtos_can_snapshot;
@@ -156,8 +171,12 @@ static uint32_t app_rtos_rs485_error_count(
   return count;
 }
 
-static void app_rtos_capture_reset_reason(void)
+static bool app_rtos_capture_reset_reason(void)
 {
+  const bool previous_smoke_request =
+      app_reset_record_is_valid(&app_rtos_reset_record) &&
+      (app_rtos_reset_record.last_fault_code ==
+       APP_RTOS_FAULT_IWDG_SMOKE);
   app_reset_observation_t observation = {RCC->CSR, 0U};
   if (__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) != RESET)
   {
@@ -189,7 +208,21 @@ static void app_rtos_capture_reset_reason(void)
   }
 
   app_rtos_reset_reason = app_reset_reason_decode(&observation);
+  if (!app_reset_record_note_boot(&app_rtos_reset_record,
+                                  &app_rtos_reset_reason,
+                                  APP_RTOS_FAULT_NONE))
+  {
+    return false;
+  }
+#if P5_IWDG_RESET_SMOKE_ENABLE
+  app_rtos_iwdg_smoke_completed =
+      previous_smoke_request &&
+      (app_rtos_reset_reason.primary == APP_RESET_PRIMARY_IWDG);
+#else
+  (void)previous_smoke_request;
+#endif
   __HAL_RCC_CLEAR_RESET_FLAGS();
+  return true;
 }
 
 static void app_rtos_update_queue_watermark(void)
@@ -704,6 +737,53 @@ static void app_rtos_update_resource_snapshot(void)
   }
 }
 
+static void app_rtos_watchdog_service(
+    const app_health_decision_t *decision)
+{
+  const bool feed_allowed =
+      decision->feed_decision == APP_WATCHDOG_FEED_ALLOWED;
+
+#if P5_IWDG_RESET_SMOKE_ENABLE
+  if (feed_allowed && !app_rtos_iwdg_smoke_completed &&
+      !app_rtos_iwdg_smoke_withholding &&
+      (app_rtos_watchdog_feed_count >= APP_IWDG_SMOKE_PRIME_FEEDS))
+  {
+    app_rtos_current_fault_code = APP_RTOS_FAULT_IWDG_SMOKE;
+    if (!app_reset_record_note_fault(&app_rtos_reset_record,
+                                     APP_RTOS_FAULT_IWDG_SMOKE))
+    {
+      app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
+    }
+    app_boot_report_iwdg_withhold();
+    app_rtos_iwdg_smoke_withholding = true;
+  }
+  if (app_rtos_iwdg_smoke_withholding)
+  {
+    return;
+  }
+#endif
+
+  if (!feed_allowed)
+  {
+    return;
+  }
+  if (!bsp_watchdog_refresh())
+  {
+    app_rtos_fail_stop(APP_RTOS_FAULT_IWDG_REFRESH);
+  }
+  app_rtos_watchdog_feed_count = app_rtos_saturating_add(
+      app_rtos_watchdog_feed_count, 1U);
+  if (!app_rtos_reset_record_stable &&
+      (app_rtos_watchdog_feed_count >= APP_IWDG_STABLE_FEEDS))
+  {
+    if (!app_reset_record_note_stable(&app_rtos_reset_record))
+    {
+      app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
+    }
+    app_rtos_reset_record_stable = true;
+  }
+}
+
 static void app_rtos_health_service(void)
 {
   app_rtos_health_snapshot_t snapshot = {0};
@@ -763,7 +843,8 @@ static void app_rtos_health_service(void)
     input.sensor_recovery_mask = sensor_monitor.recovery_device_mask;
   }
   input.recovery_result = APP_HEALTH_RECOVERY_NONE;
-  input.reset_loop_latched = false;
+  input.reset_loop_latched =
+      app_reset_record_loop_latched(&app_rtos_reset_record);
 
   if (!app_health_policy_evaluate(
           &app_rtos_health_policy, &input, &snapshot.decision))
@@ -771,6 +852,7 @@ static void app_rtos_health_service(void)
     app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
   }
   snapshot.rs485_error_count = input.rs485_error_count;
+  app_rtos_watchdog_service(&snapshot.decision);
 
   if (app_rtos_snapshot_take(true))
   {
@@ -1052,6 +1134,24 @@ app_rtos_status_t app_rtos_initialize(void)
     return APP_RTOS_ERROR;
   }
 
+  app_rtos_watchdog_feed_count = 0U;
+  app_rtos_reset_record_stable = false;
+#if P5_IWDG_RESET_SMOKE_ENABLE
+  app_rtos_iwdg_smoke_completed = false;
+  app_rtos_iwdg_smoke_withholding = false;
+#endif
+  bsp_watchdog_enable_debug_freeze();
+  if (!app_rtos_capture_reset_reason())
+  {
+    return APP_RTOS_ERROR;
+  }
+#if P5_IWDG_RESET_SMOKE_ENABLE
+  if (app_rtos_iwdg_smoke_completed)
+  {
+    app_boot_report_iwdg_reset_ok();
+  }
+#endif
+
   app_transport_counters_initialize(&app_rtos_transport_counters);
   app_rtos_event_queue_maximum_pending = 0U;
   app_rtos_modbus_image_generation = 0U;
@@ -1071,7 +1171,6 @@ app_rtos_status_t app_rtos_initialize(void)
   app_bme280_initialize();
   app_veml7700_initialize();
   app_rtos_update_measurement_snapshot(0U);
-  app_rtos_capture_reset_reason();
   app_rtos_event_queue = xQueueCreateStatic(
       APP_TRANSPORT_EVENT_QUEUE_DEPTH,
       sizeof(app_transport_event_t),
@@ -1365,6 +1464,22 @@ bool app_rtos_get_reset_reason(app_reset_decoded_t *decoded)
   return true;
 }
 
+bool app_rtos_get_reset_record(app_reset_record_t *record)
+{
+  if (record == NULL)
+  {
+    return false;
+  }
+  taskENTER_CRITICAL();
+  const bool valid = app_reset_record_is_valid(&app_rtos_reset_record);
+  if (valid)
+  {
+    *record = app_rtos_reset_record;
+  }
+  taskEXIT_CRITICAL();
+  return valid;
+}
+
 uint32_t app_rtos_fault_code(void)
 {
   return app_rtos_current_fault_code;
@@ -1373,6 +1488,7 @@ uint32_t app_rtos_fault_code(void)
 _Noreturn void app_rtos_fail_stop(uint32_t fault_code)
 {
   app_rtos_current_fault_code = fault_code;
+  (void)app_reset_record_note_fault(&app_rtos_reset_record, fault_code);
   __disable_irq();
   __DSB();
   __ISB();

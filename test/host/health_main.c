@@ -236,11 +236,14 @@ static int test_reset_reason_and_loop_record(void)
   }
   CHECK(record.boot_count == APP_RESET_LOOP_LIMIT);
   CHECK(app_reset_record_loop_latched(&record));
+  CHECK(app_reset_record_note_fault(&record, UINT32_C(0x5350)));
+  CHECK(record.last_fault_code == UINT32_C(0x5350));
   CHECK(app_reset_record_note_stable(&record));
   CHECK(!app_reset_record_loop_latched(&record));
 
   record.checksum ^= UINT32_C(1);
   CHECK(!app_reset_record_is_valid(&record));
+  CHECK(!app_reset_record_note_fault(&record, UINT32_C(0x5350)));
   CHECK(app_reset_record_note_boot(&record, &decoded, 0U));
   CHECK(app_reset_record_is_valid(&record));
   CHECK(record.boot_count == 1U);
