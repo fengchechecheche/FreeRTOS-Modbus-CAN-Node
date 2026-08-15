@@ -154,8 +154,8 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
             {
                 "FAIL": 0,
                 "NOT_CLAIMED": 1,
-                "NOT_RUN": 10,
-                "PASS": 13,
+                "NOT_RUN": 9,
+                "PASS": 14,
                 "REVIEW_REQUIRED": 0,
             },
         ),
@@ -167,7 +167,7 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
     matrix_doc = read_text(matrix_doc_path)
     for marker in (
         "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`",
-        "Row summary: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`",
+        "Row summary: `24 = 14 PASS + 9 NOT_RUN + 1 NOT_CLAIMED`",
         "BLOCKED_WAITING_FOR_HARDWARE",
     ):
         if marker not in matrix_doc:
@@ -536,14 +536,14 @@ def run_self_test() -> int:
 
     valid_projection_doc = (
         "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`\n"
-        "Row summary: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`\n"
+        "Row summary: `24 = 14 PASS + 9 NOT_RUN + 1 NOT_CLAIMED`\n"
         "BLOCKED_WAITING_FOR_HARDWARE\n"
     )
     assert all(
         marker in valid_projection_doc
         for marker in (
             "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`",
-            "Row summary: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`",
+            "Row summary: `24 = 14 PASS + 9 NOT_RUN + 1 NOT_CLAIMED`",
             "BLOCKED_WAITING_FOR_HARDWARE",
         )
     )

@@ -97,3 +97,39 @@ Debug 和 Release ELF 均静态包含上述标记。板卡未到货，因此没�
 
 板卡到货后仍需补做 T01 硬件门、运行时 profile、VCP 心跳和粗粒度周期检查；本报告不能升级为
 `PASS_HARDWARE`。
+
+## 8. 2026-08-15 实板补验
+
+上文保留无硬件阶段的原始判断；本节记录后续 NUCLEO-F446RE 增量补验。最终默认 Debug ELF 为：
+
+```text
+4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7
+```
+
+VCP `115200 8N1` 在软件复位后得到 1 次启动、1 次时钟摘要和 5 次有限 heartbeat：
+
+```text
+P5 S2 T01 BOOT OK
+P5 S2 T02 CLOCK SYS=180000000 HCLK=180000000 PCLK1=45000000 PCLK2=90000000 HALTICK=TIM6/1MS
+P5 S2 T02 HEARTBEAT OK  # 共 5 次
+```
+
+首次实板启动暴露出 DWT 初始化顺序问题：在 `DEMCR.TRCENA` 尚未开启时读取 `DWT->CTRL` 会得到
+不可靠值并误判 `NOCYCCNT`。将 trace enable 提前后，实板报告
+`bsp_clock_cycle_counter_cycles_per_us=180`、`ready=1`，启动和 heartbeat 恢复。
+
+暂停目标读取的 GPIO 状态为：
+
+| 寄存器 | 值 | 判定 |
+|---|---:|---|
+| GPIOA_MODER | `0xA829A8A0` | PA8 `[17:16]=01` |
+| GPIOA_ODR | `0x00000000` | PA8 bit 8 = 0 |
+| GPIOB_MODER | `0x002A1080` | PB6 `[13:12]=01` |
+| GPIOB_ODR | `0x00000040` | PB6 bit 6 = 1 |
+| GPIOC_MODER | `0x00004000` | PC7 `[15:14]=01` |
+| GPIOC_ODR | `0x00000080` | PC7 bit 7 = 1 |
+
+一次 USB 断电重连后，ST-LINK/VCP 重新枚举，heartbeat count 为 5，DWT ready 和 FreeRTOS
+scheduler running 均为 1，fault 为 0。该结果不等于排针电压测量，也不建立严格的 heartbeat
+抖动或 HSI 精度结论；因此本报告仅把运行时 profile、有限 heartbeat 和 GPIO 寄存器状态提升为
+`PASS_HARDWARE_LIMITED`。

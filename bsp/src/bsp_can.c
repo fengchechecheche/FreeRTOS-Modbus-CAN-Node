@@ -7,10 +7,12 @@
 static bsp_can_irq_mailbox_t bsp_can_irq_mailbox;
 static bsp_can_irq_notifier_t bsp_can_irq_notifier;
 
+/* LEC is sampled when state interrupts fire; enabling its per-error interrupt
+ * can starve tasks while an unacknowledged frame is automatically retried. */
 #define BSP_CAN_NOTIFICATION_MASK                                              \
   (CAN_IT_TX_MAILBOX_EMPTY | CAN_IT_RX_FIFO0_MSG_PENDING |                     \
    CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE | CAN_IT_BUSOFF |               \
-   CAN_IT_LAST_ERROR_CODE | CAN_IT_ERROR)
+   CAN_IT_ERROR)
 
 static void bsp_can_notify_from_isr(uint32_t accepted) {
   if (accepted == 0U) {

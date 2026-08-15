@@ -24,7 +24,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | PRIV-001 | PRIV | CLOSED | SOURCE,BINARY,HARDWARE | Tracked CubeMX problem report no longer exposes a Windows user-profile path | `docs/device_probe_report.md`; release-readiness path scan |
 | SW-001 | SW | CLOSED | SOURCE,BINARY,HARDWARE | Current Host, contracts, ARM builds, and static resource gate pass without firmware changes | P5-S7-T01 final validation summary |
 | REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
-| HW-001 | HW | OPEN | HARDWARE | NUCLEO board admission and physical BME280, VEML7700, and ADXL345 checks are not complete | Run the frozen S2/S4 hardware supplements when hardware is available |
+| HW-001 | HW | OPEN | HARDWARE | NUCLEO board admission passed at `BSP-02`; physical BME280, VEML7700, ADXL345 and IWDG checks are not complete | Run the frozen S4 sensor and S3-T05 IWDG supplements when hardware is available |
 | HW-002 | HW | OPEN | HARDWARE | Physical USB-RS485 and Project Three interoperability are not complete | Run S5 hardware/integration supplement |
 | HW-003 | HW | OPEN | HARDWARE | Physical CAN, candleLight, bus-off, and dual-bus concurrency are not complete | Run S6 hardware supplements |
 | HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
@@ -69,21 +69,24 @@ linked FreeRTOS assert strings retain absolute source paths. The clean build is
 repeatable as a procedure, but bit-for-bit output across differently named
 directories is `NOT_CLAIMED`; no CMake or firmware flags were changed in T02.
 
-The four hardware blockers remain open. T03 may build the evidence matrix with
-these explicit hardware gaps; flashing, representative physical replay and the
-8-hour soak are not inferred from the software result.
+The four hardware blockers remain open. A later NUCLEO-F446RE supplement passed
+the narrow `BSP-02` board-admission row, including flashing, VCP boot, runtime
+clock, GPIO register state and limited scheduler smoke. `HW-001` remains open
+for sensors and IWDG; representative sensor replay, physical buses and the
+8-hour soak are not inferred from that board result.
 
 ## Evidence matrix result
 
-P5-S7-T03 projects the current baseline into 24 bounded evidence rows: 12
-`PASS`, 11 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
+P5-S7-T03 projects the current baseline into 24 bounded evidence rows: 14
+`PASS`, 9 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
 `artifacts/release/p5_s7_t03_evidence_matrix.json`; the curated public view and
 claim boundaries are in `docs/evidence_matrix.md`.
 
 The matrix schema, result counts, public references, full Git identities, and
-hardware-claim restrictions pass `tools/check_evidence_matrix.py`. This closes
-no hardware blocker: board admission, physical RS485, physical CAN, and the
-10-minute/60-minute/8-hour sessions remain open exactly as listed above.
+hardware-claim restrictions pass `tools/check_evidence_matrix.py`. `BSP-02`
+passes only at the bounded board-admission layer; sensors/IWDG, physical RS485,
+physical CAN, and the 10-minute/60-minute/8-hour sessions remain open exactly
+as listed above.
 
 ## Learning documentation result
 

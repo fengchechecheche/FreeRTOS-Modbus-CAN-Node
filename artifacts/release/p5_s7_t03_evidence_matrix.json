@@ -6,13 +6,13 @@
   "generated_from": [
     "docs/release_readiness.md",
     "artifacts/release/p5_s7_t02_replay.json",
-    "docs/modbus_hil_report.md"
+    "docs/bsp_validation.md"
   ],
   "summary": {
     "FAIL": 0,
     "NOT_CLAIMED": 1,
-    "NOT_RUN": 10,
-    "PASS": 13,
+    "NOT_RUN": 9,
+    "PASS": 14,
     "REVIEW_REQUIRED": 0
   },
   "rows": [
@@ -165,20 +165,22 @@
       "domain": "BSP",
       "capability": "ST-LINK connection, firmware boot, clock and GPIO hardware checks",
       "execution_layer": "HARDWARE",
-      "result": "NOT_RUN",
-      "evidence_commit": "5925881912ea0f0327d8107a3965e1274a7bd292",
-      "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "result": "PASS",
+      "evidence_commit": "807f85ce43240e94fc4aea3bd07e31c40a81d236",
+      "regression_anchor": "807f85ce43240e94fc4aea3bd07e31c40a81d236",
+      "firmware_sha256": "4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7",
+      "hardware_identity": "NUCLEO-F446RE / STM32F446RE / ST-LINK V2J48M35 (serial omitted)",
       "config_refs": [
         "freertos_modbus_can_node.ioc",
-        "docs/bsp_contract.md"
+        "bsp/src/bsp_clock.c",
+        "bsp/src/bsp_can.c"
       ],
       "evidence_refs": [
         "docs/bsp_validation.md",
-        "docs/release_readiness.md"
+        "docs/clock_report.md",
+        "docs/scheduler_report.md"
       ],
-      "allowed_claim": "未执行 ST-LINK、启动、clock 或 GPIO 实板检查。"
+      "allowed_claim": "NUCLEO-F446RE 裸板已通过 ST-LINK 连接、默认 Debug ELF 烧录/校验/复位、VCP 启动、运行时时钟、GPIO 寄存器安全状态、有限 scheduler smoke 和一次断电重连；未覆盖引脚电压、传感器、RS485 或 CAN 物理层。"
     },
     {
       "id": "SNS-01",

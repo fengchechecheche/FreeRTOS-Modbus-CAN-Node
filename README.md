@@ -1,5 +1,15 @@
 # FreeRTOS Modbus CAN Node
 
+> 2026-08-15 board supplement: NUCLEO-F446RE `BSP-02` is
+> `PASS_HARDWARE_LIMITED`. ST-LINK V2J48M35, default Debug ELF
+> flash/verify/reset, VCP boot, runtime clock, GPIO register safe-state,
+> limited FreeRTOS scheduler smoke and one USB power cycle passed. The tested
+> default ELF SHA-256 is
+> `4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7`.
+> Sensors, IWDG, RS485, physical CAN and hardware soak remain `NOT_RUN`, so
+> `HW-001` and the Hardware Release gate remain open. See
+> [`docs/bsp_validation.md`](docs/bsp_validation.md).
+
 > P5-S7-T05 update: intended version `v0.1.0` remains `UNRELEASED`. The current
 > result is a `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`, with a software demo and
 > matrix-bound recruitment wording that are not published. All four hardware
@@ -16,7 +26,7 @@
 > [`docs/learning/problem_ledger.md`](docs/learning/problem_ledger.md).
 
 > P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
-> 12 `PASS`, 11 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
+> 14 `PASS`, 9 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
 > software, board, RS485, or CAN evidence layer; no software result is promoted
 > to a physical-hardware claim. The hardware Release gate remains
 > `BLOCKED_WAITING_FOR_HARDWARE`. See
@@ -68,8 +78,8 @@
 > [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
 
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
-汇总为 BSP 软件候选合同；当前状态为 `BSP_CONTRACT_CANDIDATE_FROZEN + WAITING_FOR_HARDWARE`。
-这允许后续纯软件轨道继续，但不代表板卡、Shield 或外设已经实测。P5-S3-T01 已集成随包
+汇总为 BSP 软件候选合同；2026-08-15 裸板补验已将 `BSP-02` 提升为
+`PASS_HARDWARE_LIMITED`，但 Shield、传感器和物理总线仍未实测。P5-S3-T01 已集成随包
 FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核冻结。P5-S4-T01 BME280 内容
 已经审核冻结；P5-S4-T02 VEML7700 整数照度、有限自动量程与 acquisition task 软件候选也已完成
 内容审核，等待硬件补验。P5-S4-T03 ADXL345 DATA_READY 中断采样、整数工程量和
@@ -99,8 +109,9 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - DE 只在最终 USART `TC` 对应的 `HAL_UART_TxCpltCallback()` 后拉低；start failure、timeout 和 UART
   error 均有有界恢复路径。
 - 候选时钟为 HSI 16 MHz、SYSCLK/HCLK 180 MHz、PCLK1 45 MHz、PCLK2 90 MHz；HAL 1 ms tick
-  由 TIM6 提供；SysTick、PendSV 与 SVC 由 FreeRTOS ARM_CM4F port 使用，均尚未板级实测。
-- USART2 保留 T01 启动标记、T02 clock 摘要和最多五次 1 秒 heartbeat；当前只通过交叉构建。
+  由 TIM6 提供；运行时 profile 和有限 scheduler smoke 已通过实板补验，但未测 HSI 精度或严格抖动。
+- USART2 保留 T01 启动标记、T02 clock 摘要和最多五次 1 秒 heartbeat；实板 VCP 已得到
+  1 次 BOOT、1 次 CLOCK 和 5 次 heartbeat。
 - SPI1 使用 PA5/PA6/PA7、Mode 3、MSB first、software NSS、2.8125 Mbit/s；BME280/PB6 与
   ADXL345/PC7 片选独立，transaction timeout 候选为 20 ms。
 - I2C2 使用 PB10/PB3、100 kHz；应用层只保存 VEML7700 7-bit address `0x10`，仅在 HAL boundary
@@ -129,8 +140,9 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
   原始历史、不控制驱动。单传感器 unavailable/stale/recovery 只使 health 降级，喂狗仍允许，
   不触发全局恢复或复位。Host 虚拟故障矩阵不是实物断线或 60 分钟运行证据。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
-- NUCLEO-F446RE 尚未到货，ST-LINK、VCP、UART loopback、RS485 physical layer 和全部板级接口均保持
-  `WAITING_FOR_HARDWARE`。
+- NUCLEO-F446RE 已完成 ST-LINK、烧录/校验/复位、VCP、运行时时钟、GPIO 寄存器状态、有限
+  scheduler smoke 和断电重连补验；UART loopback、传感器、IWDG、RS485/CAN physical layer 与
+  长稳仍保持 `WAITING_FOR_HARDWARE / NOT_RUN`。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。

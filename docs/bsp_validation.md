@@ -118,3 +118,45 @@ hardware = WAITING_FOR_HARDWARE
 ```
 
 无硬件第一步内容已审核通过并冻结；本次不自动开始 P5-S3-T01。
+
+## 2026-08-15 NUCLEO-F446RE 裸板补验
+
+> 补验结论：`PASS_HARDWARE_LIMITED`
+> Git 基线：`807f85ce43240e94fc4aea3bd07e31c40a81d236`
+> 默认 Debug ELF SHA-256：`4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7`
+> 工具：STM32CubeProgrammer `v2.17.0`，ST-LINK `V2J48M35`
+> 硬件：NUCLEO-F446RE / STM32F446RE；完整序列号不记录
+
+本节是到货后的增量事实，不改写上文在无硬件阶段形成的历史结论。被测工作区以所列 Git
+提交为基线，并包含本次实板暴露的两处最小修复：先开启 `DEMCR.TRCENA` 再检查 DWT 周期计数器，
+以及不启用会在缺少 CAN ACK 时形成逐次重发中断风暴的 `CAN_IT_LAST_ERROR_CODE`。两处修改均不改变
+CubeMX、引脚、时钟、BSP API、协议或数据结构。
+
+| 检查 | 结果 | 限定 |
+|---|---|---|
+| Windows 枚举 | PASS | ST-Link Debug 与 VCP `COM22` 均为 OK |
+| SWD 连接 | PASS | 识别 `STM32F446xx`，512 KiB Flash，3.26 V 仅为 ST-LINK 读值 |
+| 烧录/校验/复位 | PASS | 默认 Debug ELF 下载与 verify 成功 |
+| VCP 启动 | PASS | `BOOT` 1 次、`CLOCK` 1 次、heartbeat 5 次 |
+| 运行时时钟 | PASS | SYS/HCLK 180 MHz、PCLK1 45 MHz、PCLK2 90 MHz、TIM6 1 ms HAL tick |
+| GPIO 寄存器安全状态 | PASS | PA8 ODR=0，PB6/PC7 ODR=1；三者 MODER 均为 output |
+| FreeRTOS 有限 smoke | PASS | `SCHEDULER OK` 1 次、heartbeat 5 次、故障输出 0 |
+| 断电重连 | PASS | 重新枚举后 heartbeat count=5、DWT ready、scheduler running、fault=0 |
+
+断电补验中还确认：无 CAN 收发器/ACK 时，控制器最终进入限定恢复并停止，CPU 保持在线程态，
+不再困于 CAN1 SCE ISR。最终默认固件已恢复全部 smoke 为 `OFF` 并重新烧入。
+
+本次只证明板卡准入、ST-LINK、烧录/校验/复位、VCP 启动、运行时时钟、GPIO 寄存器状态和有限
+调度器启动。没有测量排针电压、HSI 精度、严格毫秒抖动、栈水位、ISR latency、IWDG、传感器、
+UART loopback、RS485、CAN 物理层或长稳趋势。
+
+```text
+BSP-02 = PASS
+stlink_vcp_startup = PASS
+clock_gpio_hardware = PASS_LIMITED
+uart_rs485_hardware = NOT_RUN
+spi_i2c_hardware = NOT_RUN
+can_hardware = NOT_RUN
+bsp_contract_hardware_frozen = NOT_GRANTED
+hardware = PARTIAL_PASS
+```

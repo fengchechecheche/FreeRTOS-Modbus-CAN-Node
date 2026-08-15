@@ -5,7 +5,8 @@
 > Matrix baseline: `[037] 3f494538d06069d3c78206dd95ca242bb3b27aa5`
 > PTY evidence update: `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
 > Clean replay source: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`
-> Row summary: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`
+> Board supplement base: `807f85ce43240e94fc4aea3bd07e31c40a81d236`
+> Row summary: `24 = 14 PASS + 9 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
 ## Purpose
@@ -29,8 +30,12 @@ Release BIN candidate is:
 7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f
 ```
 
-No hardware row uses that value as a flashed-firmware identity because no
-board was admitted or flashed. Evidence precedence is: T02 clean replay,
+That retained Release candidate was not used for the board supplement.
+`BSP-02` uses the actually flashed default Debug ELF
+`4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7`.
+The tested working tree used `807f85ce43240e94fc4aea3bd07e31c40a81d236`
+as its Git base plus the two reviewed minimal fixes recorded in the BSP report.
+Evidence precedence is: executed hardware supplement, T02 clean replay,
 domain report, release blocker ledger, then README navigation. A historical
 header or tutorial state never upgrades a runtime result.
 
@@ -61,7 +66,7 @@ Cross-build PASS does not establish flashing, startup, timing or communication.
 | ID | Layer | Result | Primary evidence | Allowed claim |
 |---|---|---|---|---|
 | BSP-01 | HOST | PASS | `docs/bsp_validation.md` | pin/clock/DMA/IRQ/safe-state/bus static contract passed |
-| BSP-02 | HARDWARE | NOT_RUN | `docs/bsp_validation.md` | ST-LINK, boot, clock and GPIO hardware checks were not run |
+| BSP-02 | HARDWARE | PASS | `docs/bsp_validation.md` | NUCLEO-F446RE ST-LINK, flash/verify/reset, VCP boot, runtime clock, GPIO register state, limited scheduler smoke and one power cycle passed |
 | SNS-01 | HARDWARE | NOT_RUN | `docs/bme280_report.md` | BME280 identity, SPI sampling and accuracy were not run |
 | SNS-02 | HARDWARE | NOT_RUN | `docs/veml7700_report.md` | VEML7700 ACK, sampling, range and accuracy were not run |
 | SNS-03 | HARDWARE | NOT_RUN | `docs/adxl345_report.md` | ADXL345 identity, DATA_READY, axis and vibration checks were not run |
@@ -110,13 +115,14 @@ real-time resource-trend evidence.
 
 | Blocker | Matrix rows | Current state |
 |---|---|---|
-| HW-001 board and sensors | BSP-02, SNS-01..03, WDG-01 | OPEN |
+| HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | OPEN; BSP-02 passed, sensors and IWDG remain |
 | HW-002 RS485 and Project Three | RS485-03, P3-01 | OPEN |
 | HW-003 CAN and physical dual bus | CAN-03, BUS-02 | OPEN |
 | HW-004 hardware soak | SOAK-02 | OPEN |
 
-The software source and clean-reproduction blockers remain closed. The matrix
-does not close any hardware blocker.
+The software source and clean-reproduction blockers remain closed. `BSP-02`
+now passes at its narrow board-admission layer, but `HW-001` remains open for
+the three sensors and IWDG. No other hardware blocker is closed.
 
 ## Public and local evidence
 
@@ -124,10 +130,10 @@ The public matrix points only to repository-relative, public-safe summaries.
 It contains no `.private` path, user home, full device serial, credential or
 private network identity.
 
-The ignored local index contains only an entry for the existing bounded T02 raw
-command summary. It has no hardware entries because no hardware raw evidence
-exists. Future failures should use one diagnostic record per useful problem;
-successful runs do not need duplicated raw logs.
+The ignored local index retains only the existing bounded T02 raw command
+summary. The board supplement is recorded in the existing domain summaries;
+no serial number, raw programmer log or duplicated success bundle is retained.
+Future failures should use one diagnostic record per useful problem.
 
 ## Validation
 
@@ -145,5 +151,6 @@ all historical Markdown or auto-promote states.
 
 P5-S7-T04 may use only the `allowed_claim` projection when building the learning
 route and problem review. P5-S7-T05 may later select public claims from PASS rows
-at their recorded layers. Hardware, integration and soak NOT_RUN rows remain
-ineligible for Release or recruitment claims until real supplements exist.
+at their recorded layers. The remaining hardware, integration and soak
+`NOT_RUN` rows remain ineligible for Release or recruitment claims until real
+supplements exist.

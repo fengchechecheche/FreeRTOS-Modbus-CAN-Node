@@ -15,13 +15,17 @@ bool bsp_clock_cycle_counter_initialize(void)
   const uint32_t hclk_hz = HAL_RCC_GetHCLKFreq();
   bsp_clock_cycle_counter_ready = false;
   bsp_clock_cycle_counter_cycles_per_us = 0U;
-  if ((hclk_hz == 0U) || ((hclk_hz % UINT32_C(1000000)) != 0U) ||
-      ((DWT->CTRL & DWT_CTRL_NOCYCCNT_Msk) != 0U))
+  if ((hclk_hz == 0U) || ((hclk_hz % UINT32_C(1000000)) != 0U))
   {
     return false;
   }
 
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+  if ((DWT->CTRL & DWT_CTRL_NOCYCCNT_Msk) != 0U)
+  {
+    return false;
+  }
+
   DWT->CYCCNT = 0U;
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
   if ((DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) == 0U)
