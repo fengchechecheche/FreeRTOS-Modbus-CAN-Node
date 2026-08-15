@@ -21,7 +21,8 @@ environment. Build output remains under ignored `out/`; do not stage it.
 ./tools/verify_host.sh
 ```
 
-Expected compact result: Host Debug and Host Release each complete 21 tests.
+Expected compact result: Host Debug and Host Release each complete 22 tests,
+including `p5.host.modbus_pty`.
 A failure stops the candidate demo; it must not be hidden by showing an older
 report.
 
@@ -63,15 +64,26 @@ python3 tools/check_learning_docs.py
 Expected result: the candidate is ready for hardware while the hardware Release
 gate remains blocked.
 
-### 5. Optional SocketCAN/vcan route
+### 5. Optional virtual-bus routes
+
+The committed Modbus PTY route is:
+
+```bash
+python3 tools/modbus_pty_test.py \
+  --server out/host-debug/p5_host_modbus_pty_slave
+```
+
+Expected result: 10/10 cases PASS with a 249 B maximum response. This runs the
+production C RTU/server/register-image modules through a Linux PTY, but it does
+not prove UART parity bits, DMA, DE/RE or a physical RS485 link.
 
 The reviewed virtual-bus procedure and can-utils boundary are in
 [`can_hil_report.md`](can_hil_report.md). Its vcan result is software evidence
 and does not represent a transceiver, physical ACK or MCU frame exchange.
 
-The Modbus self-test/dry-run route is in
-[`modbus_hil_report.md`](modbus_hil_report.md). Dry-run must not be described as
-PTY or USB-RS485 evidence.
+The Modbus self-test, dry-run and PTY boundaries are in
+[`modbus_hil_report.md`](modbus_hil_report.md). Self-test/dry-run must not be
+described as PTY evidence, and PTY must not be described as USB-RS485 evidence.
 
 ## Future hardware demo（NOT_RUN）
 

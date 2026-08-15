@@ -4,7 +4,7 @@
 > Baseline：`[038] a8950b5d506d4b02b65c72aa1ec4d7fc6b85da9b`
 > Selection rule：只保留实际发生、对学习或复现有价值且具有公开证据的问题；最多 12 条。
 
-本台账不是硬件缺口表。板卡、传感器、PTY、项目三、物理 RS485/CAN 和正式长稳未执行的事实见
+本台账不是硬件缺口表。板卡、传感器、项目三、物理 RS485/CAN 和正式长稳未执行的事实见
 [`../evidence_matrix.md`](../evidence_matrix.md)，不得在这里标为 `FIXED`。
 
 | ID | Task / phase | Symptom | Wrong assumption | Root cause | Fix or disposition | Regression evidence | Prevention | Status |

@@ -1,6 +1,7 @@
 # P5-S5-T05 Modbus HIL 准备与状态报告
 
 > 软件准备：`PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE`
+> Host PTY：`PASS_HOST_PTY / [042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
 > 独立 USB-RS485：`WAITING_FOR_HARDWARE`
 > 项目三联调：`NOT_RUN`
 > 默认从站地址：4
@@ -8,11 +9,12 @@
 
 ## 1. 当前结论
 
-P5-S5-T05 已完成无硬件准备，但没有打开串口、烧录板卡或运行真实 USB-RS485 请求。因此当前可以说明：
+P5-S5-T05 已完成无硬件准备；后续补测已打开 Linux PTY，但没有烧录板卡或运行真实 USB-RS485 请求。因此当前可以说明：
 
 - HIL 请求、响应判定和安全开关已具备纯软件自测入口；
+- 项目真实 C 语言 RTU stream、server 和 register image 已通过 Host PTY 端到端测试；
 - 项目五 T01～T04 的 Host、合同和 ARM 构建继续通过；
-- 真实 249 B 响应、地址迁移、复位恢复和项目三联调仍未执行；
+- PTY 中的 249 B 响应已通过；物理 249 B 响应、地址迁移、复位恢复和项目三联调仍未执行；
 - 项目三地址 4 profile 仍为 `not_created`，项目三仓库没有被本任务修改。
 
 ## 2. 轻量探针
@@ -27,7 +29,7 @@ python3 tools/modbus_hil_probe.py --dry-run
 结果：
 
 ```text
-P5 MODBUS HIL SELF-TEST: PASS (15 checks, serial NOT_OPENED)
+P5 MODBUS HIL SELF-TEST: PASS (14 checks, serial NOT_OPENED)
 P5 MODBUS HIL DRY-RUN: serial NOT_OPENED
 ```
 
@@ -41,6 +43,31 @@ python3 tools/modbus_hil_probe.py --port <COM_OR_TTY> --timeout-ms 500
 ```
 
 串口模式才按需导入项目虚拟环境中的 pyserial。工具固定为 19200 8E1、一次一个请求、有界超时；不会自动扫描端口。
+
+### 2.1 Host PTY 补测
+
+提交 `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9` 在 Ubuntu 权威项目仓库中重新构建并执行：
+
+```bash
+cmake --preset host-debug
+cmake --build --preset host-debug --target p5_host_modbus_pty_slave
+python3 tools/modbus_pty_test.py \
+  --server out/host-debug/p5_host_modbus_pty_slave
+```
+
+结果：
+
+```text
+P5 MODBUS PTY: PASS (10/10, max_response=249 B,
+production_c_server=yes, physical_rs485=NOT_RUN)
+```
+
+Python 使用 raw/no-echo PTY 和现有 HIL probe；PTY 对端链接生产 CRC、ADU、RTU stream、server 与
+register image 模块。H01～H07 的 10 个具体用例全部通过，其中 H03 返回 CRC 正确的 249 B；H07 的坏
+CRC、广播读取和非本机地址均在有界超时内静默。Host Debug/Release 各为 22/22 PASS。
+
+PTY 不承载真实奇偶校验位，也没有 UART DMA、DE/RE、收发器、电缆或终端电阻，因此该结果只关闭
+`RS485-02`，不能关闭 `RS485-03`、`P3-01` 或 `HW-002`。
 
 ## 3. 写地址安全门
 
@@ -70,7 +97,8 @@ python3 tools/modbus_hil_probe.py \
 | H07B | 地址 0 read | 静默 |
 | H07C | 非本机地址 5 read | 静默 |
 
-这些请求用于排障和可重复执行，不代表已经在线路上发送。
+这些请求用于排障和可重复执行。H01～H07 已在 PTY 字节流中发送，但这不代表已经通过 USB-RS485
+或任何物理线路发送。
 
 ## 5. 硬件最小矩阵
 
@@ -109,7 +137,8 @@ python3 tools/modbus_hil_probe.py \
 
 ## 8. 证据规则
 
-正常通过只保存提交/固件哈希、端口、19200 8E1、地址、接线摘要和 H01～H11 状态。只有失败时才增加一条代表性请求/响应、失败类别、当前可能地址和恢复结果。
+Host PTY 正常通过只保存提交 SHA、10/10 摘要和 249 B 最大响应。硬件正常通过才保存固件哈希、
+端口、19200 8E1、地址、接线摘要和 H01～H11 状态。只有失败时才增加一条代表性请求/响应、失败类别、
+当前可能地址和恢复结果。
 
 不保存持续串口日志、逐帧历史、大型抓包、设备完整序列号或与排障无关的数据。
-

@@ -1,7 +1,8 @@
 # 项目五学习路线
 
 > 路线状态：`FROZEN`
-> 路线基线：`[039] e878e379ed499b51961eff12443869f1bb7f32f4`
+> 路线内容基线：`[039] e878e379ed499b51961eff12443869f1bb7f32f4`
+> 当前软件证据锚点：`[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
 > 路线总数：35
 > 当前可用教程：35
 > 当前候选：P5-S7-T05
@@ -60,7 +61,7 @@
 
 快速路线只提供导航，状态仍以上面的 35 项主表和 [`index.md`](index.md) 为准。
 
-## `[039]` 当前导航锚点
+## `[042]` 当前导航锚点
 
 | Anchor | Current value | Repository source |
 |---|---|---|
@@ -69,8 +70,8 @@
 | FreeRTOS | V10.3.1 | `Middlewares/Third_Party/FreeRTOS/Source/include/task.h` |
 | Modbus | zero-based；default slave 4；19200 8E1 | `protocol/register_map.json`、`.ioc` |
 | CAN | 500000 bit/s；0x140/240/241/340/341/342/440 | `protocol/can_message_map.json` |
-| Host regression | Debug/Release 21 tests | `artifacts/release/p5_s7_t02_replay.json` |
-| Evidence matrix | 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED | `artifacts/release/p5_s7_t03_evidence_matrix.json` |
+| Host regression | Debug/Release 22 tests | `CMakeLists.txt`、`docs/modbus_hil_report.md` |
+| Evidence matrix | 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED | `artifacts/release/p5_s7_t03_evidence_matrix.json` |
 
 历史教程中的较小测试计数是当时结果，不表示当前回归规模。上述锚点用于发现教程漂移，不把软件
 结果提升为硬件通过。
@@ -78,7 +79,8 @@
 ## 真实问题复盘
 
 集中入口为 [`problem_ledger.md`](problem_ledger.md)。它最多保留 12 个实际发生且有回归价值的问题；
-硬件未到、PTY/项目三/物理 CAN/正式长稳未执行等缺口继续留在 evidence matrix，不进入“已解决”。
+硬件未到、项目三、物理 RS485/CAN 和正式长稳未执行等缺口继续留在 evidence matrix，不进入“已解决”；
+PTY 已作为独立 Host 层通过，不能替代这些缺口。
 
 ## 一手资料（访问核验：2026-08-15）
 

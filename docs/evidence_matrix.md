@@ -1,10 +1,11 @@
 # P5-S7-T03 software, board, RS485 and CAN evidence matrix
 
-> Matrix status: `FROZEN`（用户内容审核通过：2026-08-15）
+> Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`
 > Matrix schema: `P5_EVIDENCE_MATRIX_V1`
 > Matrix baseline: `[037] 3f494538d06069d3c78206dd95ca242bb3b27aa5`
+> PTY evidence update: `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
 > Clean replay source: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`
-> Row summary: `24 = 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED`
+> Row summary: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
 ## Purpose
@@ -75,11 +76,12 @@ missing physical claims.
 | ID | Layer | Result | Primary evidence | Allowed claim |
 |---|---|---|---|---|
 | RS485-01 | HOST | PASS | `docs/modbus_hil_report.md` | UART DMA/RTU/server software contracts passed Host/cross-build gates |
-| RS485-02 | HOST | NOT_RUN | `docs/modbus_hil_report.md` | PTY exchange was not run; self-test/dry-run opened no serial interface |
+| RS485-02 | HOST | PASS | `docs/modbus_hil_report.md` | committed production-C PTY matrix passed 10/10 with a 249 B maximum response |
 | RS485-03 | HARDWARE | NOT_RUN | `docs/modbus_hil_report.md` | USB-RS485 H01-H11 and physical timing were not run |
 | P3-01 | INTEGRATION | NOT_RUN | `docs/modbus_hil_report.md` | Project Three address-4 profile and interoperability were not run |
 
-Dry-run is not PTY evidence, and PTY would still not be physical RS485 evidence.
+Self-test/dry-run alone is not PTY evidence. The committed PTY result is Host
+evidence and still is not physical RS485 evidence.
 
 ## CAN and dual bus
 

@@ -190,8 +190,8 @@ def anchor_errors(root: pathlib.Path, route_text: str) -> list[str]:
     if matrix.get("summary") != {
         "FAIL": 0,
         "NOT_CLAIMED": 1,
-        "NOT_RUN": 11,
-        "PASS": 12,
+        "NOT_RUN": 10,
+        "PASS": 13,
         "REVIEW_REQUIRED": 0,
     }:
         errors.append("evidence-matrix summary drift")
@@ -200,8 +200,8 @@ def anchor_errors(root: pathlib.Path, route_text: str) -> list[str]:
         "FreeRTOS | V10.3.1",
         "default slave 4；19200 8E1",
         "500000 bit/s；0x140/240/241/340/341/342/440",
-        "Debug/Release 21 tests",
-        "12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED",
+        "Debug/Release 22 tests",
+        "13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED",
     ):
         if marker not in route_text:
             errors.append(f"learning route current anchor missing: {marker}")

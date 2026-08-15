@@ -77,8 +77,8 @@ def matrix_rows(matrix: object) -> tuple[dict[str, dict[str, object]], list[str]
     if matrix.get("summary") != {
         "FAIL": 0,
         "NOT_CLAIMED": 1,
-        "NOT_RUN": 11,
-        "PASS": 12,
+        "NOT_RUN": 10,
+        "PASS": 13,
         "REVIEW_REQUIRED": 0,
     }:
         errors.append("evidence matrix summary mismatch")
@@ -242,7 +242,8 @@ def check_repository(root: pathlib.Path) -> tuple[list[str], int, int]:
         "Intended version: `v0.1.0`",
         "Release state: `UNRELEASED`",
         "Candidate state: `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`",
-        "Current documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`",
+        "Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`",
+        "Current software-test baseline: `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`",
         "Clean replay source: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`",
         "Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`",
         "Tag / remote Release: `ABSENT / NOT_RUN`",

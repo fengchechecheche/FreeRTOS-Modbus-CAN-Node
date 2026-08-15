@@ -5,14 +5,14 @@
   "candidate_release_bin_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
   "generated_from": [
     "docs/release_readiness.md",
-    "docs/reproduction_report.md",
-    "artifacts/release/p5_s7_t02_replay.json"
+    "artifacts/release/p5_s7_t02_replay.json",
+    "docs/modbus_hil_report.md"
   ],
   "summary": {
     "FAIL": 0,
     "NOT_CLAIMED": 1,
-    "NOT_RUN": 11,
-    "PASS": 12,
+    "NOT_RUN": 10,
+    "PASS": 13,
     "REVIEW_REQUIRED": 0
   },
   "rows": [
@@ -288,20 +288,21 @@
       "domain": "RS485",
       "capability": "PTY or pseudo-terminal Modbus exchange",
       "execution_layer": "HOST",
-      "result": "NOT_RUN",
-      "evidence_commit": "6f585dfc112079a80ae0ecb6ce2267f927351b71",
-      "regression_anchor": null,
+      "result": "PASS",
+      "evidence_commit": "d7428e62a2df72325020ed63ab7979f4fb8c12f9",
+      "regression_anchor": "d7428e62a2df72325020ed63ab7979f4fb8c12f9",
       "firmware_sha256": null,
       "hardware_identity": null,
       "config_refs": [
         "tools/modbus_hil_probe.py",
-        "docs/modbus_contract.md"
+        "tools/modbus_pty_test.py",
+        "test/host/modbus_pty_slave_main.c"
       ],
       "evidence_refs": [
         "docs/modbus_hil_report.md",
-        "docs/release_readiness.md"
+        "docs/demo_guide.md"
       ],
-      "allowed_claim": "未执行 PTY 或伪终端 Modbus 交互；现有探针仅完成 self-test/dry-run。"
+      "allowed_claim": "项目五真实 Modbus C 模块已在 Ubuntu PTY 中通过 H01～H07 的 10 个有界用例，最大响应 249 B；不代表物理 RS485。"
     },
     {
       "id": "RS485-03",

@@ -154,8 +154,8 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
             {
                 "FAIL": 0,
                 "NOT_CLAIMED": 1,
-                "NOT_RUN": 11,
-                "PASS": 12,
+                "NOT_RUN": 10,
+                "PASS": 13,
                 "REVIEW_REQUIRED": 0,
             },
         ),
@@ -166,8 +166,8 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
 
     matrix_doc = read_text(matrix_doc_path)
     for marker in (
-        "Matrix status: `FROZEN`",
-        "Row summary: `24 = 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED`",
+        "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`",
+        "Row summary: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`",
         "BLOCKED_WAITING_FOR_HARDWARE",
     ):
         if marker not in matrix_doc:
@@ -195,7 +195,7 @@ def validate_learning_projection(root: pathlib.Path, ledger_text: str) -> list[s
         "当前可用教程：35",
         "当前候选：P5-S7-T05",
         "problem_ledger.md",
-        "12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED",
+        "13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED",
     )
     for marker in route_markers:
         if marker not in route_text:
@@ -517,7 +517,7 @@ def run_self_test() -> int:
     valid_learning_route = (
         "路线状态：`FROZEN`\n"
         "路线总数：35\n当前可用教程：35\n当前候选：P5-S7-T05\n"
-        "problem_ledger.md\n12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED\n"
+        "problem_ledger.md\n13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED\n"
     )
     assert all(
         marker in valid_learning_route
@@ -527,7 +527,7 @@ def run_self_test() -> int:
             "当前可用教程：35",
             "当前候选：P5-S7-T05",
             "problem_ledger.md",
-            "12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED",
+            "13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED",
         )
     )
     checks += 1
@@ -535,15 +535,15 @@ def run_self_test() -> int:
     checks += 1
 
     valid_projection_doc = (
-        "Matrix status: `FROZEN`\n"
-        "Row summary: `24 = 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED`\n"
+        "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`\n"
+        "Row summary: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`\n"
         "BLOCKED_WAITING_FOR_HARDWARE\n"
     )
     assert all(
         marker in valid_projection_doc
         for marker in (
-            "Matrix status: `FROZEN`",
-            "Row summary: `24 = 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED`",
+            "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`",
+            "Row summary: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`",
             "BLOCKED_WAITING_FOR_HARDWARE",
         )
     )

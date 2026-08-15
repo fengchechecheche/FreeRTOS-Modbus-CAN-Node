@@ -3,9 +3,10 @@
 > Intended version: `v0.1.0`
 > Release state: `UNRELEASED`
 > Candidate state: `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`
-> Current documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
+> Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
+> Current software-test baseline: `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
 > Clean replay source: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`
-> Evidence matrix: `24 = 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED`
+> Evidence matrix: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `ABSENT / NOT_RUN`
 
@@ -15,18 +16,18 @@ This document describes the software candidate that can be reviewed before the
 NUCLEO board and physical buses are available. It is not final v0.1.0 release
 notes and does not assert that firmware was flashed or operated on hardware.
 
-The candidate keeps two identities separate. Commit `[036]` is the tracked-file
+The candidate keeps three identities separate. Commit `[036]` is the tracked-file
 clean replay source recorded by [`reproduction_report.md`](reproduction_report.md).
-Commit `[039]` is the current documentation and release-collateral baseline.
-The product, build and test inputs did not change between them; `[039]` itself
-is not described as clean-replayed.
+Commit `[039]` is the original T05 documentation and release-collateral baseline.
+Commit `[042]` adds and executes the Host PTY test without changing firmware
+production sources. Neither `[039]` nor `[042]` is described as clean-replayed.
 
 ## Included software scope
 
 - STM32F446RE firmware source and STM32CubeMX/CubeF4 configuration provenance;
 - statically allocated FreeRTOS task model and bounded ISR/task handoff;
 - BME280, VEML7700 and ADXL345 software drivers and Host logic tests;
-- Modbus RTU slave software contract at the frozen project address;
+- Modbus RTU slave software contract and committed production-C Host PTY matrix at the frozen project address;
 - classic CAN codec, filter, queue and recovery software candidate;
 - Host dual-bus fault matrix, SocketCAN/vcan checks and bounded soak tooling;
 - MIT project scope, third-party notices, learning route and public evidence matrix.
@@ -36,13 +37,13 @@ The detailed evidence ceiling for every capability remains
 
 ## Current software validation
 
-The T05 implementation reran the current `[039]` working tree without changing
-product sources:
+The current Host suite includes the `[042]` PTY supplement. Firmware production
+sources remain unchanged from the earlier candidate:
 
 | Gate | Result | Meaning |
 |---|---|---|
-| Host Debug | 21/21 PASS | Host logic and contract regression only |
-| Host Release | 21/21 PASS | Host logic and contract regression only |
+| Host Debug | 22/22 PASS | includes the production-C PTY matrix; Host only |
+| Host Release | 22/22 PASS | includes the production-C PTY matrix; Host only |
 | ARM Debug | PASS | configure, link and ELF/HEX/BIN/MAP generation |
 | ARM Release | PASS | configure, link and ELF/HEX/BIN/MAP generation |
 | Static resource gate | PASS | linked firmware remains within the frozen budget |
@@ -50,8 +51,8 @@ product sources:
 | Bit-for-bit across clean paths | NOT_CLAIMED | linked FreeRTOS `__FILE__` strings remain path-dependent |
 
 Build output under `out/` is ignored and is not part of the public candidate.
-The retained public hashes remain the exact `[036]` identities in the T02
-manifest; no new binary attachment is created in T05.
+The retained public firmware hashes remain the exact `[036]` identities in the
+T02 manifest; the PTY supplement creates no new firmware attachment.
 
 ## Explicitly excluded
 
