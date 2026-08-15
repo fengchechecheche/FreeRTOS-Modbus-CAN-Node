@@ -4,23 +4,24 @@
 > Release state: `UNRELEASED`
 > Candidate state: `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`
 > Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
-> Current software-test baseline: `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
-> Clean replay source: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`
-> Evidence matrix: `24 = 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED`
+> Current software-test baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
+> Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
+> Evidence matrix: `24 = 15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `ABSENT / NOT_RUN`
 
 ## Purpose
 
-This document describes the software candidate that can be reviewed before the
-NUCLEO board and physical buses are available. It is not final v0.1.0 release
-notes and does not assert that firmware was flashed or operated on hardware.
+This document describes the current software candidate plus its separately
+bounded bare-board evidence. It is not final v0.1.0 release notes and does not
+promote the remaining sensor, physical-bus or soak gaps.
 
-The candidate keeps three identities separate. Commit `[036]` is the tracked-file
-clean replay source recorded by [`reproduction_report.md`](reproduction_report.md).
-Commit `[039]` is the original T05 documentation and release-collateral baseline.
-Commit `[042]` adds and executes the Host PTY test without changing firmware
-production sources. Neither `[039]` nor `[042]` is described as clean-replayed.
+The candidate keeps its identities separate. `[036]`/`[037]` remain the
+historical T02 source/evidence pair, `[039]` is the original T05 documentation
+baseline, `[042]` adds the Host PTY path, `[044]` records bounded board
+admission, and `[046]` records the watchdog supplement. Committed `[047]` is
+the current tracked-file clean replay source recorded by
+[`reproduction_report_repro_002.md`](reproduction_report_repro_002.md).
 
 ## Included software scope
 
@@ -37,8 +38,8 @@ The detailed evidence ceiling for every capability remains
 
 ## Current software validation
 
-The current Host suite includes the `[042]` PTY supplement. Firmware production
-sources remain unchanged from the earlier candidate:
+The current Host suite includes the PTY, board-support and IWDG software
+supplements:
 
 | Gate | Result | Meaning |
 |---|---|---|
@@ -47,20 +48,29 @@ sources remain unchanged from the earlier candidate:
 | ARM Debug | PASS | configure, link and ELF/HEX/BIN/MAP generation |
 | ARM Release | PASS | configure, link and ELF/HEX/BIN/MAP generation |
 | Static resource gate | PASS | linked firmware remains within the frozen budget |
-| Clean replay | PASS on `[036]` | no-cache/no-network procedure; identity is not rewritten to `[039]` |
+| Clean replay | PASS on `[047]` | tracked archive, no cache and no network; 15 bounded commands passed |
 | Bit-for-bit across clean paths | NOT_CLAIMED | linked FreeRTOS `__FILE__` strings remain path-dependent |
 
 Build output under `out/` is ignored and is not part of the public candidate.
-The retained public firmware hashes remain the exact `[036]` identities in the
-T02 manifest; the PTY supplement creates no new firmware attachment.
+The current Release BIN identity is
+`8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c`;
+the manifest records hashes but does not attach firmware binaries.
+
+## Bounded hardware evidence already available
+
+- `BSP-02`: ST-LINK, default Debug flash/verify/reset, VCP boot, runtime clock,
+  GPIO register state, limited scheduler smoke and one power cycle passed;
+- `WDG-01`: normal health feed, one controlled IWDG reset, reset-reason decode
+  and reset-only `.noinit` retention passed.
+
+These results are not a complete hardware Release and do not imply sensor or
+physical-bus operation.
 
 ## Explicitly excluded
 
 The following remain `NOT_RUN` and are not candidate accomplishments:
 
-- ST-LINK flashing, reset, clock, GPIO and target startup;
 - BME280, VEML7700 and ADXL345 identity, sampling and accuracy on real devices;
-- physical watchdog reset and persistence;
 - USB-RS485 exchange, physical timing and Project Three interoperability;
 - candleLight, transceiver, physical CAN ACK/frames and real bus-off recovery;
 - simultaneous physical RS485/CAN behavior;

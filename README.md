@@ -1,5 +1,15 @@
 # FreeRTOS Modbus CAN Node
 
+> REPRO-002 update: committed `[047]
+> 26411d2b627fd67654479f5a97a2066e47deafb5` completed a tracked-file-only
+> clean replay with 15 bounded commands, no network and no prior build cache.
+> Host/contract, ARM Debug/Release and resource gates passed. The current
+> Release BIN SHA-256 is
+> `8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c`.
+> Cross-path bit-for-bit output remains explicitly `NOT_CLAIMED`; hardware
+> blockers and the `UNRELEASED` state are unchanged. See
+> [`docs/reproduction_report_repro_002.md`](docs/reproduction_report_repro_002.md).
+
 > 2026-08-15 board supplement: NUCLEO-F446RE `BSP-02` is
 > `PASS_HARDWARE_LIMITED`. ST-LINK V2J48M35, default Debug ELF
 > flash/verify/reset, VCP boot, runtime clock, GPIO register safe-state,
@@ -34,13 +44,13 @@
 > `BLOCKED_WAITING_FOR_HARDWARE`. See
 > [`docs/evidence_matrix.md`](docs/evidence_matrix.md).
 
-> P5-S7-T02 update: clean local-archive reproduction from
+> P5-S7-T02 update (historical): clean local-archive reproduction from
 > `[036] 15932a2ff7adecdfbe5355559926a95b0df25845` passes the Host, contract,
 > Debug/Release ARM and resource gates without prior build cache or network
 > access. Candidate hashes are recorded; a second Release build exposed
 > absolute FreeRTOS `__FILE__` path dependence, so bit-for-bit reproducibility
-> is explicitly `NOT_CLAIMED`. Flashing and physical replay remain
-> `WAITING_FOR_HARDWARE`. See
+> is explicitly `NOT_CLAIMED`. Its then-current hardware state remains a
+> historical fact and is not used as the current board status. See
 > [`docs/reproduction_report.md`](docs/reproduction_report.md).
 
 > P5-S7-T01 update: the project-owned source scope is MIT-licensed by

@@ -1,11 +1,11 @@
 {
   "schema": "P5_EVIDENCE_MATRIX_V1",
-  "matrix_baseline": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
-  "clean_replay_source_commit": "15932a2ff7adecdfbe5355559926a95b0df25845",
-  "candidate_release_bin_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
+  "matrix_baseline": "26411d2b627fd67654479f5a97a2066e47deafb5",
+  "clean_replay_source_commit": "26411d2b627fd67654479f5a97a2066e47deafb5",
+  "candidate_release_bin_sha256": "8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c",
   "generated_from": [
     "docs/release_readiness.md",
-    "artifacts/release/p5_s7_t02_replay.json",
+    "artifacts/release/p5_repro_002_replay.json",
     "docs/bsp_validation.md"
   ],
   "summary": {
@@ -43,7 +43,7 @@
       "execution_layer": "HOST",
       "result": "PASS",
       "evidence_commit": "15932a2ff7adecdfbe5355559926a95b0df25845",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
       "firmware_sha256": null,
       "hardware_identity": null,
       "config_refs": [
@@ -59,32 +59,32 @@
     {
       "id": "REP-01",
       "domain": "RELEASE",
-      "capability": "Clean tracked-file software reproduction from commit 036",
+      "capability": "Current tracked-file software reproduction from commit 047",
       "execution_layer": "CLEAN_BUILD",
       "result": "PASS",
-      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
-      "firmware_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
+      "evidence_commit": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "firmware_sha256": "8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c",
       "hardware_identity": null,
       "config_refs": [
         "CMakePresets.json",
         "tools/reproduce_release_candidate.py"
       ],
       "evidence_refs": [
-        "docs/reproduction_report.md",
-        "artifacts/release/p5_s7_t02_replay.json",
-        "artifacts/release/p5_s7_t02_candidate_manifest.sha256"
+        "docs/reproduction_report_repro_002.md",
+        "artifacts/release/p5_repro_002_replay.json",
+        "artifacts/release/p5_repro_002_candidate_manifest.sha256"
       ],
-      "allowed_claim": "提交 036 可在无缓存、无网络的清洁目录完成 Host、ARM 和资源门。"
+      "allowed_claim": "提交 047 可在无缓存、无网络的清洁目录完成 Host、ARM 和资源门。"
     },
     {
       "id": "SW-01",
       "domain": "SOFTWARE",
-      "capability": "Host Debug and Release 21-test suites",
+      "capability": "Host Debug and Release 22-test suites",
       "execution_layer": "HOST",
       "result": "PASS",
-      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "evidence_commit": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
       "firmware_sha256": null,
       "hardware_identity": null,
       "config_refs": [
@@ -92,10 +92,10 @@
         "tools/verify_host.sh"
       ],
       "evidence_refs": [
-        "docs/reproduction_report.md",
-        "artifacts/release/p5_s7_t02_replay.json"
+        "docs/reproduction_report_repro_002.md",
+        "artifacts/release/p5_repro_002_replay.json"
       ],
-      "allowed_claim": "Ubuntu Host Debug/Release 各 21 项测试在 clean replay 中通过。"
+      "allowed_claim": "Ubuntu Host Debug/Release 各 22 项测试在 clean replay 中通过。"
     },
     {
       "id": "FW-01",
@@ -103,9 +103,9 @@
       "capability": "ARM Debug configure, link, image generation and resource gate",
       "execution_layer": "CROSS_BUILD",
       "result": "PASS",
-      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
-      "firmware_sha256": "ab854d5f5189c5387f2da136e5a9977026c52c5d4158c3285117a71ca003e18b",
+      "evidence_commit": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "firmware_sha256": "f2458f4040b749934874f2ad30881c28c35f81b80865d58a60339e5fe58cf4c1",
       "hardware_identity": null,
       "config_refs": [
         "CMakePresets.json",
@@ -113,8 +113,8 @@
         "STM32F446xx_FLASH.ld"
       ],
       "evidence_refs": [
-        "docs/reproduction_report.md",
-        "artifacts/release/p5_s7_t02_replay.json"
+        "docs/reproduction_report_repro_002.md",
+        "artifacts/release/p5_repro_002_replay.json"
       ],
       "allowed_claim": "ARM Debug 在 clean replay 中完成链接并生成 ELF/HEX/BIN/MAP，资源门通过。"
     },
@@ -124,9 +124,9 @@
       "capability": "ARM Release configure, link, image generation and resource gate",
       "execution_layer": "CROSS_BUILD",
       "result": "PASS",
-      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
-      "firmware_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
+      "evidence_commit": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "firmware_sha256": "8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c",
       "hardware_identity": null,
       "config_refs": [
         "CMakePresets.json",
@@ -134,8 +134,8 @@
         "STM32F446xx_FLASH.ld"
       ],
       "evidence_refs": [
-        "docs/reproduction_report.md",
-        "artifacts/release/p5_s7_t02_candidate_manifest.sha256"
+        "docs/reproduction_report_repro_002.md",
+        "artifacts/release/p5_repro_002_candidate_manifest.sha256"
       ],
       "allowed_claim": "ARM Release 在 clean replay 中完成链接并生成 ELF/HEX/BIN/MAP，资源门通过。"
     },
@@ -146,7 +146,7 @@
       "execution_layer": "HOST",
       "result": "PASS",
       "evidence_commit": "5925881912ea0f0327d8107a3965e1274a7bd292",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
       "firmware_sha256": null,
       "hardware_identity": null,
       "config_refs": [
@@ -166,8 +166,8 @@
       "capability": "ST-LINK connection, firmware boot, clock and GPIO hardware checks",
       "execution_layer": "HARDWARE",
       "result": "PASS",
-      "evidence_commit": "807f85ce43240e94fc4aea3bd07e31c40a81d236",
-      "regression_anchor": "807f85ce43240e94fc4aea3bd07e31c40a81d236",
+      "evidence_commit": "d409a8161669aae8ea4c01246df577d36212650a",
+      "regression_anchor": "d409a8161669aae8ea4c01246df577d36212650a",
       "firmware_sha256": "4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7",
       "hardware_identity": "NUCLEO-F446RE / STM32F446RE / ST-LINK V2J48M35 (serial omitted)",
       "config_refs": [
@@ -248,8 +248,8 @@
       "capability": "IWDG feed, reset and reset-record persistence on target",
       "execution_layer": "HARDWARE",
       "result": "PASS",
-      "evidence_commit": "433225e7d8694fac7e22a5425350336b4ed483f5",
-      "regression_anchor": "433225e7d8694fac7e22a5425350336b4ed483f5",
+      "evidence_commit": "96fa46b41c38a0a0bb249876d9a0736165ac1642",
+      "regression_anchor": "96fa46b41c38a0a0bb249876d9a0736165ac1642",
       "firmware_sha256": "d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca",
       "hardware_identity": "NUCLEO-F446RE / STM32F446RE / ST-LINK V2J48M35 (serial omitted)",
       "config_refs": [
@@ -271,7 +271,7 @@
       "execution_layer": "HOST",
       "result": "PASS",
       "evidence_commit": "6f585dfc112079a80ae0ecb6ce2267f927351b71",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
       "firmware_sha256": null,
       "hardware_identity": null,
       "config_refs": [
@@ -355,7 +355,7 @@
       "execution_layer": "HOST",
       "result": "PASS",
       "evidence_commit": "d5048f029f8ef48a0bb19681782a776dfad152b6",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
       "firmware_sha256": null,
       "hardware_identity": null,
       "config_refs": [
@@ -366,7 +366,7 @@
       "evidence_refs": [
         "docs/can_runtime.md",
         "docs/can_contract.md",
-        "docs/reproduction_report.md"
+        "docs/reproduction_report_repro_002.md"
       ],
       "allowed_claim": "CAN map/codec/filter/IRQ/队列和恢复软件候选通过 Host 合同与交叉构建验证。"
     },
@@ -418,7 +418,7 @@
       "execution_layer": "HOST",
       "result": "PASS",
       "evidence_commit": "d5048f029f8ef48a0bb19681782a776dfad152b6",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
       "firmware_sha256": null,
       "hardware_identity": null,
       "config_refs": [
@@ -427,7 +427,7 @@
       ],
       "evidence_refs": [
         "docs/dual_bus_fault_matrix.md",
-        "docs/reproduction_report.md"
+        "docs/reproduction_report_repro_002.md"
       ],
       "allowed_claim": "双总线 D01-D08 Host 矩阵验证了有界背压和软件故障隔离。"
     },
@@ -458,7 +458,7 @@
       "execution_layer": "HOST",
       "result": "PASS",
       "evidence_commit": "591f60516afa50511c70bd53f985ce0ccbb4a018",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
       "firmware_sha256": null,
       "hardware_identity": null,
       "config_refs": [
@@ -467,7 +467,7 @@
       ],
       "evidence_refs": [
         "docs/soak_trend_report.md",
-        "artifacts/release/p5_s7_t02_replay.json"
+        "artifacts/release/p5_repro_002_replay.json"
       ],
       "allowed_claim": "soak runner、schema、自测和短时 Host preflight 已通过。"
     },
@@ -497,17 +497,17 @@
       "capability": "Bit-for-bit Release BIN/HEX equality across different clean paths",
       "execution_layer": "CLEAN_BUILD",
       "result": "NOT_CLAIMED",
-      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
-      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
-      "firmware_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
+      "evidence_commit": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "regression_anchor": "26411d2b627fd67654479f5a97a2066e47deafb5",
+      "firmware_sha256": "8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c",
       "hardware_identity": null,
       "config_refs": [
         "cmake/firmware.cmake",
         "config/FreeRTOSConfig.h"
       ],
       "evidence_refs": [
-        "docs/reproduction_report.md",
-        "artifacts/release/p5_s7_t02_replay.json"
+        "docs/reproduction_report_repro_002.md",
+        "artifacts/release/p5_repro_002_replay.json"
       ],
       "allowed_claim": "不声明跨不同 clean 路径的 bit-for-bit 固件一致性；绝对 __FILE__ 路径会改变字节。"
     }

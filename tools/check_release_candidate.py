@@ -77,8 +77,8 @@ def matrix_rows(matrix: object) -> tuple[dict[str, dict[str, object]], list[str]
     if matrix.get("summary") != {
         "FAIL": 0,
         "NOT_CLAIMED": 1,
-        "NOT_RUN": 10,
-        "PASS": 13,
+        "NOT_RUN": 8,
+        "PASS": 15,
         "REVIEW_REQUIRED": 0,
     }:
         errors.append("evidence matrix summary mismatch")
@@ -160,13 +160,18 @@ def validate_restrictions(
             errors.append(f"invalid restriction ID: {restriction_id}")
         if eligibility != "NOT_ELIGIBLE":
             errors.append(f"{restriction_id}: eligibility must be NOT_ELIGIBLE")
+        row_has_restricted_evidence = False
         for row_id in evidence_ids(refs):
             matrix_row = evidence.get(row_id)
             if matrix_row is None:
                 errors.append(f"{restriction_id}: unknown evidence row {row_id}")
-            elif matrix_row.get("result") not in {"NOT_RUN", "NOT_CLAIMED"}:
-                errors.append(f"{restriction_id}: {row_id} is not a restricted result")
-            covered.add(row_id)
+            elif matrix_row.get("result") in {"NOT_RUN", "NOT_CLAIMED"}:
+                covered.add(row_id)
+                row_has_restricted_evidence = True
+            elif matrix_row.get("result") != "PASS":
+                errors.append(f"{restriction_id}: {row_id} has an invalid result")
+        if not row_has_restricted_evidence:
+            errors.append(f"{restriction_id}: restriction has no incomplete evidence")
     if covered != expected:
         errors.append(
             f"restricted evidence coverage mismatch: missing={sorted(expected - covered)}, "
@@ -243,8 +248,9 @@ def check_repository(root: pathlib.Path) -> tuple[list[str], int, int]:
         "Release state: `UNRELEASED`",
         "Candidate state: `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`",
         "Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`",
-        "Current software-test baseline: `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`",
-        "Clean replay source: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`",
+        "Current software-test baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`",
+        "Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`",
+        "Evidence matrix: `24 = 15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`",
         "Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`",
         "Tag / remote Release: `ABSENT / NOT_RUN`",
     )))
@@ -268,6 +274,7 @@ def check_repository(root: pathlib.Path) -> tuple[list[str], int, int]:
     errors.extend(marker_errors("release ledger", release_text, (
         "Learning documentation gate: `PASS_35_FROZEN`",
         "Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`",
+        "Binary reproduction gate: `PASS_CURRENT_CLEAN_REPRODUCTION`",
         "Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`",
         "Tag / remote Release: `NOT_AUTHORIZED / NOT_RUN`",
     )))
@@ -350,6 +357,26 @@ def run_self_test() -> int:
     assert not validate_restrictions(restrictions, evidence)
     checks += 1
     assert validate_restrictions(restrictions[:-1], evidence)
+    checks += 1
+    contextual = {
+        "BSP-02": pass_row,
+        "SNS-01": restricted_row,
+    }
+    contextual_restrictions = [
+        [
+            "LIM-HW-01",
+            "BSP-02,SNS-01",
+            "Board passed; sensor remains incomplete.",
+            "NOT_ELIGIBLE",
+        ]
+    ]
+    assert not validate_restrictions(contextual_restrictions, contextual)
+    checks += 1
+    contextual_restrictions[0][1] = "BSP-02"
+    assert any(
+        "no incomplete evidence" in item
+        for item in validate_restrictions(contextual_restrictions, contextual)
+    )
     checks += 1
     print(f"P5 RELEASE CANDIDATE SELF-TEST: PASS ({checks} bounded checks)")
     return 0

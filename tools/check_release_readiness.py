@@ -34,11 +34,14 @@ REQUIRED_FILES = (
     "Middlewares/Third_Party/FreeRTOS/Source/st_readme.txt",
     "docs/release_readiness.md",
     "docs/reproduction_report.md",
+    "docs/reproduction_report_repro_002.md",
     "docs/evidence_matrix.md",
     "tools/reproduce_release_candidate.py",
     "tools/check_evidence_matrix.py",
     "artifacts/release/p5_s7_t02_replay.json",
     "artifacts/release/p5_s7_t02_candidate_manifest.sha256",
+    "artifacts/release/p5_repro_002_replay.json",
+    "artifacts/release/p5_repro_002_candidate_manifest.sha256",
     "artifacts/release/p5_s7_t03_evidence_matrix.json",
     "docs/learning/README.md",
     "docs/learning/index.md",
@@ -121,6 +124,8 @@ def validate_readme(text: str) -> list[str]:
         "docs/evidence_matrix.md",
         "P5-S7-T02 update",
         "docs/reproduction_report.md",
+        "REPRO-002 update",
+        "docs/reproduction_report_repro_002.md",
         "bit-for-bit reproducibility",
         "WAITING_FOR_HARDWARE",
     )
@@ -149,12 +154,17 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
         (
             "matrix baseline",
             matrix.get("matrix_baseline"),
-            "3f494538d06069d3c78206dd95ca242bb3b27aa5",
+            "26411d2b627fd67654479f5a97a2066e47deafb5",
         ),
         (
             "clean-replay source",
             matrix.get("clean_replay_source_commit"),
-            "15932a2ff7adecdfbe5355559926a95b0df25845",
+            "26411d2b627fd67654479f5a97a2066e47deafb5",
+        ),
+        (
+            "candidate Release BIN",
+            matrix.get("candidate_release_bin_sha256"),
+            "8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c",
         ),
         ("row count", matrix_row_count, 24),
         (
@@ -172,6 +182,39 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
     for label, actual, wanted in expected:
         if actual != wanted:
             errors.append(f"evidence matrix {label} mismatch: {actual!r} != {wanted!r}")
+    rows_by_id = {
+        row.get("id"): row
+        for row in matrix_rows
+        if isinstance(matrix_rows, list) and isinstance(row, dict)
+    } if isinstance(matrix_rows, list) else {}
+    row_expectations = {
+        "REP-01": (
+            "26411d2b627fd67654479f5a97a2066e47deafb5",
+            "8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c",
+        ),
+        "FW-01": (
+            "26411d2b627fd67654479f5a97a2066e47deafb5",
+            "f2458f4040b749934874f2ad30881c28c35f81b80865d58a60339e5fe58cf4c1",
+        ),
+        "FW-02": (
+            "26411d2b627fd67654479f5a97a2066e47deafb5",
+            "8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c",
+        ),
+        "BSP-02": (
+            "d409a8161669aae8ea4c01246df577d36212650a",
+            "4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7",
+        ),
+        "WDG-01": (
+            "96fa46b41c38a0a0bb249876d9a0736165ac1642",
+            "d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca",
+        ),
+    }
+    for row_id, (commit, firmware) in row_expectations.items():
+        row = rows_by_id.get(row_id)
+        if row is None:
+            errors.append(f"evidence matrix missing current row: {row_id}")
+        elif row.get("evidence_commit") != commit or row.get("firmware_sha256") != firmware:
+            errors.append(f"evidence matrix current identity mismatch: {row_id}")
 
     matrix_doc = read_text(matrix_doc_path)
     for marker in (
@@ -645,6 +688,8 @@ def run_self_test() -> int:
         "docs/evidence_matrix.md\n"
         "P5-S7-T02 update\n"
         "docs/reproduction_report.md\n"
+        "REPRO-002 update\n"
+        "docs/reproduction_report_repro_002.md\n"
         "bit-for-bit reproducibility\n"
         "WAITING_FOR_HARDWARE\n"
     )

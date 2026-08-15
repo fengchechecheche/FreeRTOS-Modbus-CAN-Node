@@ -2,11 +2,11 @@
 
 > Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`
 > Matrix schema: `P5_EVIDENCE_MATRIX_V1`
-> Matrix baseline: `[037] 3f494538d06069d3c78206dd95ca242bb3b27aa5`
+> Matrix baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > PTY evidence update: `[042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
-> Clean replay source: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`
-> Board supplement base: `807f85ce43240e94fc4aea3bd07e31c40a81d236`
-> Watchdog supplement base: `[045] 433225e7d8694fac7e22a5425350336b4ed483f5`
+> Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
+> Board supplement evidence: `[044] d409a8161669aae8ea4c01246df577d36212650a`
+> Watchdog supplement evidence: `[046] 96fa46b41c38a0a0bb249876d9a0736165ac1642`
 > Row summary: `24 = 15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
@@ -23,24 +23,24 @@ same row IDs and claim boundaries but omits repetitive configuration fields.
 
 ## Identity and precedence
 
-`[037]` contains the T02 replay tool, report and public evidence. The actual
-clean build input was `[036]`; those identities remain separate. The retained
-Release BIN candidate is:
+`[036]`/`[037]` retain the historical T02 source/evidence pair. REPRO-002
+independently replayed committed source `[047]`; the current Release BIN
+candidate is:
 
 ```text
-7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f
+8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c
 ```
 
 That retained Release candidate was not used for the board supplement.
 `BSP-02` uses the actually flashed default Debug ELF
 `4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7`.
-The tested working tree used `807f85ce43240e94fc4aea3bd07e31c40a81d236`
-as its Git base plus the two reviewed minimal fixes recorded in the BSP report.
+The reviewed board supplement and its two minimal fixes are committed in
+`[044] d409a8161669aae8ea4c01246df577d36212650a`.
 `WDG-01` uses the separately built default Debug ELF
 `d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca`;
 the temporary reset-smoke hash remains in the health report and is not the
 final installed image.
-Evidence precedence is: executed hardware supplement, T02 clean replay,
+Evidence precedence is: executed hardware supplement, REPRO-002 clean replay,
 domain report, release blocker ledger, then README navigation. A historical
 header or tutorial state never upgrades a runtime result.
 
@@ -50,8 +50,8 @@ header or tutorial state never upgrades a runtime result.
 |---|---|---|---|---|
 | ENV-01 | WINDOWS_CONFIG | PASS | `docs/bsp_validation.md` | Windows configuration provenance is recorded; builds ran in Ubuntu |
 | REL-01 | HOST | PASS | `docs/release_readiness.md` | license, attribution and public-path engineering gate passed |
-| REP-01 | CLEAN_BUILD | PASS | `docs/reproduction_report.md` | tracked `[036]` completed clean Host/ARM/resource replay |
-| REP-02 | CLEAN_BUILD | NOT_CLAIMED | `docs/reproduction_report.md` | no bit-for-bit claim across differently named clean paths |
+| REP-01 | CLEAN_BUILD | PASS | `docs/reproduction_report_repro_002.md` | tracked `[047]` completed clean Host/ARM/resource replay |
+| REP-02 | CLEAN_BUILD | NOT_CLAIMED | `docs/reproduction_report_repro_002.md` | no bit-for-bit claim across differently named clean paths |
 
 `REP-02` remains separate from `REP-01`: procedural reproduction passed, while
 linked FreeRTOS `__FILE__` paths changed Release BIN/HEX bytes.
@@ -60,9 +60,9 @@ linked FreeRTOS `__FILE__` paths changed Release BIN/HEX bytes.
 
 | ID | Layer | Result | Primary evidence | Allowed claim |
 |---|---|---|---|---|
-| SW-01 | HOST | PASS | T02 replay JSON | Ubuntu Host Debug/Release each passed 21 tests |
-| FW-01 | CROSS_BUILD | PASS | T02 manifest/report | clean ARM Debug linked and produced ELF/HEX/BIN/MAP within budget |
-| FW-02 | CROSS_BUILD | PASS | T02 manifest/report | clean ARM Release linked and produced ELF/HEX/BIN/MAP within budget |
+| SW-01 | HOST | PASS | REPRO-002 replay JSON | Ubuntu Host Debug/Release each passed 22 tests |
+| FW-01 | CROSS_BUILD | PASS | REPRO-002 manifest/report | clean ARM Debug linked and produced ELF/HEX/BIN/MAP within budget |
+| FW-02 | CROSS_BUILD | PASS | REPRO-002 manifest/report | clean ARM Release linked and produced ELF/HEX/BIN/MAP within budget |
 
 Cross-build PASS does not establish flashing, startup, timing or communication.
 
@@ -125,7 +125,7 @@ real-time resource-trend evidence.
 | HW-003 CAN and physical dual bus | CAN-03, BUS-02 | OPEN |
 | HW-004 hardware soak | SOAK-02 | OPEN |
 
-The software source and clean-reproduction blockers remain closed. `BSP-02`
+The software source and both clean-reproduction blockers are closed. `BSP-02`
 now passes at its narrow board-admission layer and `WDG-01` passes at its
 bounded reset-only layer, but `HW-001` remains open for the three sensors. No
 other hardware blocker is closed.
@@ -136,10 +136,10 @@ The public matrix points only to repository-relative, public-safe summaries.
 It contains no `.private` path, user home, full device serial, credential or
 private network identity.
 
-The ignored local index retains only the existing bounded T02 raw command
-summary. The board supplement is recorded in the existing domain summaries;
-no serial number, raw programmer log or duplicated success bundle is retained.
-Future failures should use one diagnostic record per useful problem.
+Only the compact REPRO-002 JSON, manifest and report are projected publicly.
+Raw command tails, the source archive, firmware images and build directories
+remain ignored. The board supplement stays in the existing domain summaries;
+no serial number or raw programmer log is retained.
 
 ## Validation
 

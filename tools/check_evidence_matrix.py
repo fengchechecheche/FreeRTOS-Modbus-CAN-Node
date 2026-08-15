@@ -16,6 +16,7 @@ from typing import Any
 
 SCHEMA = "P5_EVIDENCE_MATRIX_V1"
 MATRIX_PATH = pathlib.Path("artifacts/release/p5_s7_t03_evidence_matrix.json")
+REPRO_PATH = pathlib.Path("artifacts/release/p5_repro_002_replay.json")
 MAX_ROWS = 24
 RESULTS = {"PASS", "FAIL", "NOT_RUN", "NOT_CLAIMED", "REVIEW_REQUIRED"}
 LAYERS = {
@@ -195,6 +196,61 @@ def validate_matrix(matrix: dict[str, Any], root: pathlib.Path) -> list[str]:
     return errors
 
 
+def validate_repro_projection(matrix: dict[str, Any], root: pathlib.Path) -> list[str]:
+    """Tie the current clean-build rows to the admitted REPRO-002 bundle."""
+    errors: list[str] = []
+    try:
+        replay = read_json(root / REPRO_PATH)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        return [f"cannot read REPRO-002 projection source: {exc}"]
+    source_commit = replay.get("source", {}).get("commit")
+    artifacts = replay.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return ["REPRO-002 artifacts must be an object"]
+    debug_record = artifacts.get("build/debug/freertos_modbus_can_node.bin")
+    release_record = artifacts.get("build/release/freertos_modbus_can_node.bin")
+    debug_hash = debug_record.get("sha256") if isinstance(debug_record, dict) else None
+    release_hash = (
+        release_record.get("sha256") if isinstance(release_record, dict) else None
+    )
+    expected_top = (
+        ("matrix_baseline", source_commit),
+        ("clean_replay_source_commit", source_commit),
+        ("candidate_release_bin_sha256", release_hash),
+    )
+    for field, wanted in expected_top:
+        if matrix.get(field) != wanted:
+            errors.append(f"{field} does not match REPRO-002")
+    generated_from = matrix.get("generated_from")
+    if not isinstance(generated_from, list) or REPRO_PATH.as_posix() not in generated_from:
+        errors.append("generated_from does not include REPRO-002 replay")
+
+    rows = matrix.get("rows")
+    row_map = {
+        row.get("id"): row
+        for row in rows
+        if isinstance(rows, list) and isinstance(row, dict)
+    } if isinstance(rows, list) else {}
+    for row_id, firmware_hash in (
+        ("REP-01", release_hash),
+        ("SW-01", None),
+        ("FW-01", debug_hash),
+        ("FW-02", release_hash),
+        ("REP-02", release_hash),
+    ):
+        row = row_map.get(row_id)
+        if row is None:
+            errors.append(f"missing REPRO-002 projection row: {row_id}")
+            continue
+        if row.get("evidence_commit") != source_commit:
+            errors.append(f"{row_id}: evidence commit does not match REPRO-002")
+        if row.get("regression_anchor") != source_commit:
+            errors.append(f"{row_id}: regression anchor does not match REPRO-002")
+        if row.get("firmware_sha256") != firmware_hash:
+            errors.append(f"{row_id}: firmware hash does not match REPRO-002")
+    return errors
+
+
 def fixture(root: pathlib.Path) -> dict[str, Any]:
     (root / "config.txt").write_text("config\n", encoding="utf-8")
     (root / "evidence.md").write_text("evidence\n", encoding="utf-8")
@@ -295,6 +351,53 @@ def run_self_test() -> int:
         assert any("claim must start" in item for item in validate_matrix(claim, root))
         checks += 1
 
+        replay_path = root / REPRO_PATH
+        replay_path.parent.mkdir(parents=True, exist_ok=True)
+        replay_path.write_text(
+            json.dumps(
+                {
+                    "source": {"commit": "2" * 40},
+                    "artifacts": {
+                        "build/debug/freertos_modbus_can_node.bin": {
+                            "sha256": "5" * 64
+                        },
+                        "build/release/freertos_modbus_can_node.bin": {
+                            "sha256": "4" * 64
+                        },
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        projection = {
+            "matrix_baseline": "2" * 40,
+            "clean_replay_source_commit": "2" * 40,
+            "candidate_release_bin_sha256": "4" * 64,
+            "generated_from": [REPRO_PATH.as_posix()],
+            "rows": [
+                {
+                    "id": row_id,
+                    "evidence_commit": "2" * 40,
+                    "regression_anchor": "2" * 40,
+                    "firmware_sha256": firmware,
+                }
+                for row_id, firmware in (
+                    ("REP-01", "4" * 64),
+                    ("SW-01", None),
+                    ("FW-01", "5" * 64),
+                    ("FW-02", "4" * 64),
+                    ("REP-02", "4" * 64),
+                )
+            ],
+        }
+        assert not validate_repro_projection(projection, root)
+        checks += 1
+        projection["candidate_release_bin_sha256"] = "6" * 64
+        assert validate_repro_projection(projection, root)
+        checks += 1
+
     print(f"P5 EVIDENCE MATRIX SELF-TEST: PASS ({checks} bounded checks)")
     return 0
 
@@ -318,6 +421,7 @@ def main() -> int:
         print(f"P5 EVIDENCE MATRIX: FAIL: invalid JSON: {exc}", file=sys.stderr)
         return 1
     errors = validate_matrix(matrix, root)
+    errors.extend(validate_repro_projection(matrix, root))
     if errors:
         for error in errors:
             print(f"P5 EVIDENCE MATRIX: FAIL: {error}", file=sys.stderr)

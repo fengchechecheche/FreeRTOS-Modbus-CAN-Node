@@ -2,8 +2,9 @@
 
 > Ledger schema: `P5_RELEASE_LEDGER_V1`
 > Baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
+> Current clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Software source candidate gate: `PASS`
-> Binary reproduction gate: `REPLAY_HARNESS_READY_CURRENT_REPLAY_NOT_RUN`
+> Binary reproduction gate: `PASS_CURRENT_CLEAN_REPRODUCTION`
 > Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`
 > Learning documentation gate: `PASS_35_FROZEN`
 > Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`
@@ -24,7 +25,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | PRIV-001 | PRIV | CLOSED | SOURCE,BINARY,HARDWARE | Tracked CubeMX problem report no longer exposes a Windows user-profile path | `docs/device_probe_report.md`; release-readiness path scan |
 | SW-001 | SW | CLOSED | SOURCE,BINARY,HARDWARE | Current Host, contracts, ARM builds, and static resource gate pass without firmware changes | P5-S7-T01 final validation summary |
 | REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
-| REPRO-002 | REPRO | OPEN | BINARY,HARDWARE | The independent REPRO-002 harness is ready, but the current committed candidate has not completed its tracked-file-only clean replay | After the user commits and synchronizes this harness change, execute the new replay and admit its separate bundle |
+| REPRO-002 | REPRO | CLOSED | BINARY,HARDWARE | `[047]` completed the independent no-network/no-cache Host, contract, ARM and resource replay | `docs/reproduction_report_repro_002.md`; `artifacts/release/p5_repro_002_replay.json`; REPRO-002 SHA-256 manifest |
 | HW-001 | HW | OPEN | HARDWARE | NUCLEO board admission and `WDG-01` passed; physical BME280, VEML7700 and ADXL345 checks are not complete | Run the frozen S4 sensor supplements when the sensors arrive |
 | HW-002 | HW | OPEN | HARDWARE | Physical USB-RS485 and Project Three interoperability are not complete | Run S5 hardware/integration supplement |
 | HW-003 | HW | OPEN | HARDWARE | Physical CAN, candleLight, bus-off, and dual-bus concurrency are not complete | Run S6 hardware supplements |
@@ -72,14 +73,22 @@ labels, replay JSON digest and artifact mappings remain checked. Historical
 source hashes are no longer incorrectly compared with the current worktree.
 
 The independent REPRO-002 harness writes new `p5_repro_002_*` evidence names
-and does not overwrite the T02 bundle. `REPRO-002` remains open because the
-new clean replay must run only after this harness change is committed and
-synchronized. No current-source clean-reproduction PASS is claimed yet.
+and does not overwrite the T02 bundle. Committed source `[047]` completed 15
+bounded commands from a tracked-file-only archive without network access or
+prior build cache. Host Debug/Release, Release/Modbus/CAN/BSP checks, ARM
+Debug/Release and the resource gate passed, so `REPRO-002` is closed for the
+current software binary candidate.
+
+The current Release BIN SHA-256 is
+`8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c`.
+The compact result and complete identity list are retained in the REPRO-002
+JSON and manifest; source tar, binaries and full logs remain untracked.
 
 A second independent Release build produced different BIN/HEX bytes because
 linked FreeRTOS assert strings retain absolute source paths. The clean build is
 repeatable as a procedure, but bit-for-bit output across differently named
 directories is `NOT_CLAIMED`; no CMake or firmware flags were changed in T02.
+REPRO-002 repeated the same bounded comparison and retained that limitation.
 
 The four hardware blockers remain open. NUCLEO-F446RE supplements passed the
 narrow `BSP-02` board-admission row and `WDG-01`, including normal health feed,
@@ -89,7 +98,8 @@ from those bounded board results.
 
 ## Evidence matrix result
 
-P5-S7-T03 projects the current baseline into 24 bounded evidence rows: 15
+The updated matrix projects `[047]` and its REPRO-002 bundle into 24 bounded
+evidence rows: 15
 `PASS`, 8 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
 `artifacts/release/p5_s7_t03_evidence_matrix.json`; the curated public view and
 claim boundaries are in `docs/evidence_matrix.md`.
@@ -117,11 +127,10 @@ gate closes no HW blocker and does not authorize T05, a tag, or a Release.
 
 P5-S7-T05 keeps intended version `v0.1.0` in `UNRELEASED` state and preserves
 the historical `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE` collateral. The
-candidate note distinguishes the `[039]` documentation baseline from the
-`[036]` clean replay source. The later IWDG source and hardware supplement are
-not relabeled as clean-replayed. The REPRO-002 harness is prepared, but
-`REPRO-002` remains the current replay gate until its separate bundle passes
-admission.
+candidate note preserves `[039]` as the original documentation baseline while
+using `[047]` as the current software-test and clean-replay source. The
+separate `[046]` watchdog evidence remains a bounded hardware result rather
+than being inferred from the clean build.
 
 `docs/demo_guide.md` provides one software-only demonstration path and a
 separate hardware sequence marked `NOT_RUN`. The six role-specific candidate
