@@ -1,30 +1,10 @@
 # 项目五教程索引
 
-> P5-S7-T03 tutorial is `FROZEN` after content review:
-> `p5_s7_t03_硬件证据矩阵与结论边界.md`.
-
-> P5-S7-T02 tutorial is `FROZEN` after content review:
-> `p5_s7_t02_清洁构建烧录与复现演练.md`.
-
-> P5-S7-T01 tutorial is `FROZEN` after content review:
-> `p5_s7_t01_release阻塞审查与许可证.md`.
-
-> P5-S6-T05 tutorial is `FROZEN` after content review:
-> `p5_s6_t05_长稳测试与实时资源趋势.md`.
-
-> P5-S5-T04 tutorial is now `READY_FOR_CONTENT_REVIEW`:
-> `p5_s5_t04_功能码异常响应与配置写入.md`. This note supersedes the older
-> `PLANNED` status in the frozen index row until the next index normalization.
-
-> P5-S6-T03 tutorial is now `READY_FOR_CONTENT_REVIEW`:
-> `p5_s6_t03_socketcan与candlelight联调.md`.
-
-> P5-S6-T04 tutorial is `FROZEN` after content review:
-> `p5_s6_t04_双总线并发背压与故障隔离.md`.
-
-> 版本：1.0.0  
-> 冻结任务：P5-S1-T05  
-> 总数：35  
+> 版本：2.0.0
+> 路线基线：`[038] a8950b5d506d4b02b65c72aa1ec4d7fc6b85da9b`
+> 内容审核：P5-S1-T01～P5-S7-T04 已冻结
+> 当前冻结：P5-S7-T04 `FROZEN`
+> 总数：35
 > 规则：`FROZEN` 表示教程已完成用户内容审核；`READY_FOR_CONTENT_REVIEW` 表示候选稿待审核；`PLANNED` 不生成未实施正文
 
 | 阶段 | 任务 ID | 教程主题 | 文件名 | 状态 |
@@ -53,16 +33,16 @@
 | S5 | P5-S5-T02 | Modbus CRC、组帧与静默间隔 | `p5_s5_t02_modbus_crc组帧与静默间隔.md` | FROZEN |
 | S5 | P5-S5-T03 | RS485 接收状态机与半双工时序 | `p5_s5_t03_rs485接收状态机与半双工时序.md` | FROZEN |
 | S5 | P5-S5-T04 | 功能码、异常响应与配置写入 | `p5_s5_t04_功能码异常响应与配置写入.md` | FROZEN |
-| S5 | P5-S5-T05 | 项目三联调与主从站证据 | `p5_s5_t05_项目三联调与主从站证据.md` | READY_FOR_CONTENT_REVIEW |
-| S6 | P5-S6-T01 | CAN 物理层、仲裁与报文合同 | `p5_s6_t01_can物理层仲裁与报文合同.md` | READY_FOR_CONTENT_REVIEW |
+| S5 | P5-S5-T05 | 项目三联调与主从站证据 | `p5_s5_t05_项目三联调与主从站证据.md` | FROZEN |
+| S6 | P5-S6-T01 | CAN 物理层、仲裁与报文合同 | `p5_s6_t01_can物理层仲裁与报文合同.md` | FROZEN |
 | S6 | P5-S6-T02 | bxCAN 过滤器、中断与发送队列 | `p5_s6_t02_bxcan过滤器中断与发送队列.md` | FROZEN |
-| S6 | P5-S6-T03 | SocketCAN 与 candleLight 联调 | `p5_s6_t03_socketcan与candlelight联调.md` | READY_FOR_CONTENT_REVIEW |
+| S6 | P5-S6-T03 | SocketCAN 与 candleLight 联调 | `p5_s6_t03_socketcan与candlelight联调.md` | FROZEN |
 | S6 | P5-S6-T04 | 双总线并发、背压与故障隔离 | `p5_s6_t04_双总线并发背压与故障隔离.md` | FROZEN |
 | S6 | P5-S6-T05 | 长稳测试与实时资源趋势 | `p5_s6_t05_长稳测试与实时资源趋势.md` | FROZEN |
 | S7 | P5-S7-T01 | Release 阻塞审查与许可证 | `p5_s7_t01_release阻塞审查与许可证.md` | FROZEN |
 | S7 | P5-S7-T02 | 清洁构建、烧录与复现演练 | `p5_s7_t02_清洁构建烧录与复现演练.md` | FROZEN |
 | S7 | P5-S7-T03 | 硬件证据矩阵与结论边界 | `p5_s7_t03_硬件证据矩阵与结论边界.md` | FROZEN |
-| S7 | P5-S7-T04 | 初学者学习路线与问题复盘 | `p5_s7_t04_初学者学习路线与问题复盘.md` | PLANNED |
+| S7 | P5-S7-T04 | 初学者学习路线与问题复盘 | `p5_s7_t04_初学者学习路线与问题复盘.md` | FROZEN |
 | S7 | P5-S7-T05 | v0.1.0 发布与求职材料 | `p5_s7_t05_v0_1_0发布与求职材料.md` | PLANNED |
 
 ## 教程最小结构

@@ -1,10 +1,11 @@
 # P5-S7-T01 release readiness and blocker ledger
 
 > Ledger schema: `P5_RELEASE_LEDGER_V1`
-> Baseline: `[037] 3f494538d06069d3c78206dd95ca242bb3b27aa5`
+> Baseline: `[038] a8950b5d506d4b02b65c72aa1ec4d7fc6b85da9b`
 > Software source candidate gate: `PASS`
 > Binary reproduction gate: `PASS_CLEAN_REPRODUCTION`
 > Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`
+> Learning documentation gate: `PASS_34_AVAILABLE_1_PLANNED`
 > Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `NOT_AUTHORIZED / NOT_RUN`
 
@@ -82,3 +83,16 @@ The matrix schema, result counts, public references, full Git identities, and
 hardware-claim restrictions pass `tools/check_evidence_matrix.py`. This closes
 no hardware blocker: board admission, physical RS485, physical CAN, and the
 10-minute/60-minute/8-hour sessions remain open exactly as listed above.
+
+## Learning documentation result
+
+P5-S7-T04 establishes one 35-entry S1-to-S7 route, restores four reviewed S1
+tutorials that were absent from the independent repository, and leaves only
+P5-S7-T05 as `PLANNED` without creating an empty file. At the T04 content-review
+gate, all 34 available tutorials through T04 are `FROZEN`; T05 remains the only
+`PLANNED` route entry and has no tutorial file.
+
+`docs/learning/problem_ledger.md` retains 12 actual, evidence-linked engineering
+problems. Hardware and integration `NOT_RUN` items remain in the evidence
+matrix rather than being represented as fixed problems. This documentation
+gate closes no HW blocker and does not authorize T05, a tag, or a Release.

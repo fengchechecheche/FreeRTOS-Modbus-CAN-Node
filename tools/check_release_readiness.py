@@ -31,6 +31,15 @@ REQUIRED_FILES = (
     "artifacts/release/p5_s7_t02_replay.json",
     "artifacts/release/p5_s7_t02_candidate_manifest.sha256",
     "artifacts/release/p5_s7_t03_evidence_matrix.json",
+    "docs/learning/README.md",
+    "docs/learning/index.md",
+    "docs/learning/problem_ledger.md",
+    "docs/learning/p5_s1_t01_项目定位与能力边界.md",
+    "docs/learning/p5_s1_t02_硬件组成与安全准入.md",
+    "docs/learning/p5_s1_t03_仓库结构与嵌入式构建测试.md",
+    "docs/learning/p5_s1_t04_引脚复用时钟与接口合同.md",
+    "docs/learning/p5_s7_t04_初学者学习路线与问题复盘.md",
+    "tools/check_learning_docs.py",
 )
 NOTICE_MARKERS = (
     "CMSIS Core | 5.9.0",
@@ -87,6 +96,9 @@ def validate_readme(text: str) -> list[str]:
         if marker in text:
             errors.append(f"README contains stale license claim: {marker}")
     required = (
+        "P5-S7-T04 update",
+        "docs/learning/README.md",
+        "docs/learning/problem_ledger.md",
         "P5-S7-T03 update",
         "docs/evidence_matrix.md",
         "P5-S7-T02 update",
@@ -153,6 +165,42 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
             errors.append(f"evidence matrix document missing marker: {marker}")
     if "Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`" not in ledger_text:
         errors.append("release ledger evidence matrix gate is not PASS_SCHEMA_REFERENCE_CHECK")
+    return errors
+
+
+def validate_learning_projection(root: pathlib.Path, ledger_text: str) -> list[str]:
+    """Check T04 release markers without duplicating the deep learning checker."""
+    errors: list[str] = []
+    route_text = read_text(root / "docs/learning/README.md")
+    index_text = read_text(root / "docs/learning/index.md")
+    problem_text = read_text(root / "docs/learning/problem_ledger.md")
+    tutorial_text = read_text(
+        root / "docs/learning/p5_s7_t04_初学者学习路线与问题复盘.md"
+    )
+    route_markers = (
+        "路线状态：`FROZEN`",
+        "路线总数：35",
+        "当前可用教程：34",
+        "未来计划：P5-S7-T05",
+        "problem_ledger.md",
+        "12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED",
+    )
+    for marker in route_markers:
+        if marker not in route_text:
+            errors.append(f"learning route missing marker: {marker}")
+    if "P5-S7-T04 `FROZEN`" not in index_text:
+        errors.append("learning index does not identify T04 as frozen")
+    if "教程状态：`FROZEN`" not in tutorial_text:
+        errors.append("T04 tutorial is not frozen after content review")
+    problem_rows = sum(
+        line.startswith("| PRB-") for line in problem_text.splitlines()
+    )
+    if problem_rows != 12:
+        errors.append(f"problem ledger row count mismatch: {problem_rows} != 12")
+    if (root / "docs/learning/p5_s7_t05_v0_1_0发布与求职材料.md").exists():
+        errors.append("P5-S7-T05 PLANNED tutorial must not exist")
+    if "Learning documentation gate: `PASS_34_AVAILABLE_1_PLANNED`" not in ledger_text:
+        errors.append("release ledger learning documentation gate is not PASS")
     return errors
 
 
@@ -311,6 +359,7 @@ def public_text_files(root: pathlib.Path) -> Iterable[pathlib.Path]:
             if path.name in {
                 "check_release_readiness.py",
                 "check_evidence_matrix.py",
+                "check_learning_docs.py",
             }:
                 continue
             yield path
@@ -348,6 +397,7 @@ def check_repository(root: pathlib.Path) -> list[str]:
 
     ledger_text = read_text(root / "docs/release_readiness.md")
     errors.extend(validate_evidence_projection(root, ledger_text))
+    errors.extend(validate_learning_projection(root, ledger_text))
     rows, ledger_errors = parse_ledger(ledger_text)
     errors.extend(ledger_errors)
     errors.extend(source_gate_errors(rows))
@@ -385,6 +435,9 @@ def run_self_test() -> int:
     checks += 1
 
     valid_readme = (
+        "P5-S7-T04 update\n"
+        "docs/learning/README.md\n"
+        "docs/learning/problem_ledger.md\n"
         "P5-S7-T03 update\n"
         "docs/evidence_matrix.md\n"
         "P5-S7-T02 update\n"
@@ -393,6 +446,24 @@ def run_self_test() -> int:
         "WAITING_FOR_HARDWARE\n"
     )
     assert not validate_readme(valid_readme)
+    checks += 1
+
+    valid_learning_route = (
+        "路线状态：`FROZEN`\n"
+        "路线总数：35\n当前可用教程：34\n未来计划：P5-S7-T05\n"
+        "problem_ledger.md\n12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED\n"
+    )
+    assert all(
+        marker in valid_learning_route
+        for marker in (
+            "路线状态：`FROZEN`",
+            "路线总数：35",
+            "当前可用教程：34",
+            "未来计划：P5-S7-T05",
+            "problem_ledger.md",
+            "12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED",
+        )
+    )
     checks += 1
     assert validate_readme(valid_readme + "TBD_USER_REVIEW\n")
     checks += 1

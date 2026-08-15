@@ -1,5 +1,12 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S7-T04 update: the beginner route now covers all 35 work blocks while
+> truthfully exposing 34 available tutorials and one planned T05 file. Four
+> reviewed S1 tutorials are restored, and a bounded ledger keeps 12 real
+> engineering problems without converting hardware `NOT_RUN` gaps into fixes.
+> See [`docs/learning/README.md`](docs/learning/README.md) and
+> [`docs/learning/problem_ledger.md`](docs/learning/problem_ledger.md).
+
 > P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
 > 12 `PASS`, 11 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
 > software, board, RS485, or CAN evidence layer; no software result is promoted
