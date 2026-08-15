@@ -1,0 +1,511 @@
+{
+  "schema": "P5_EVIDENCE_MATRIX_V1",
+  "matrix_baseline": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
+  "clean_replay_source_commit": "15932a2ff7adecdfbe5355559926a95b0df25845",
+  "candidate_release_bin_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
+  "generated_from": [
+    "docs/release_readiness.md",
+    "docs/reproduction_report.md",
+    "artifacts/release/p5_s7_t02_replay.json"
+  ],
+  "summary": {
+    "FAIL": 0,
+    "NOT_CLAIMED": 1,
+    "NOT_RUN": 11,
+    "PASS": 12,
+    "REVIEW_REQUIRED": 0
+  },
+  "rows": [
+    {
+      "id": "ENV-01",
+      "domain": "RELEASE",
+      "capability": "Windows CubeMX and STM32CubeF4 configuration provenance",
+      "execution_layer": "WINDOWS_CONFIG",
+      "result": "PASS",
+      "evidence_commit": "ce2db20a6a6fe325e599ff86365042f752728f5d",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "CMakePresets.json"
+      ],
+      "evidence_refs": [
+        "docs/bsp_validation.md",
+        "docs/device_probe_report.md"
+      ],
+      "allowed_claim": "Windows 侧配置来源和生成版本已记录；构建验证在 Ubuntu 执行。"
+    },
+    {
+      "id": "REL-01",
+      "domain": "RELEASE",
+      "capability": "License, attribution and public-path release gate",
+      "execution_layer": "HOST",
+      "result": "PASS",
+      "evidence_commit": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "LICENSE",
+        "THIRD_PARTY_NOTICES.md"
+      ],
+      "evidence_refs": [
+        "docs/release_readiness.md",
+        "LICENSES/STM32CubeF4-1.28.3-Package_license.md"
+      ],
+      "allowed_claim": "项目自有 MIT 范围、第三方归属和公开路径门已完成工程审查。"
+    },
+    {
+      "id": "REP-01",
+      "domain": "RELEASE",
+      "capability": "Clean tracked-file software reproduction from commit 036",
+      "execution_layer": "CLEAN_BUILD",
+      "result": "PASS",
+      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
+      "hardware_identity": null,
+      "config_refs": [
+        "CMakePresets.json",
+        "tools/reproduce_release_candidate.py"
+      ],
+      "evidence_refs": [
+        "docs/reproduction_report.md",
+        "artifacts/release/p5_s7_t02_replay.json",
+        "artifacts/release/p5_s7_t02_candidate_manifest.sha256"
+      ],
+      "allowed_claim": "提交 036 可在无缓存、无网络的清洁目录完成 Host、ARM 和资源门。"
+    },
+    {
+      "id": "SW-01",
+      "domain": "SOFTWARE",
+      "capability": "Host Debug and Release 21-test suites",
+      "execution_layer": "HOST",
+      "result": "PASS",
+      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "CMakeLists.txt",
+        "tools/verify_host.sh"
+      ],
+      "evidence_refs": [
+        "docs/reproduction_report.md",
+        "artifacts/release/p5_s7_t02_replay.json"
+      ],
+      "allowed_claim": "Ubuntu Host Debug/Release 各 21 项测试在 clean replay 中通过。"
+    },
+    {
+      "id": "FW-01",
+      "domain": "FIRMWARE",
+      "capability": "ARM Debug configure, link, image generation and resource gate",
+      "execution_layer": "CROSS_BUILD",
+      "result": "PASS",
+      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": "ab854d5f5189c5387f2da136e5a9977026c52c5d4158c3285117a71ca003e18b",
+      "hardware_identity": null,
+      "config_refs": [
+        "CMakePresets.json",
+        "cmake/firmware.cmake",
+        "STM32F446xx_FLASH.ld"
+      ],
+      "evidence_refs": [
+        "docs/reproduction_report.md",
+        "artifacts/release/p5_s7_t02_replay.json"
+      ],
+      "allowed_claim": "ARM Debug 在 clean replay 中完成链接并生成 ELF/HEX/BIN/MAP，资源门通过。"
+    },
+    {
+      "id": "FW-02",
+      "domain": "FIRMWARE",
+      "capability": "ARM Release configure, link, image generation and resource gate",
+      "execution_layer": "CROSS_BUILD",
+      "result": "PASS",
+      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
+      "hardware_identity": null,
+      "config_refs": [
+        "CMakePresets.json",
+        "cmake/firmware.cmake",
+        "STM32F446xx_FLASH.ld"
+      ],
+      "evidence_refs": [
+        "docs/reproduction_report.md",
+        "artifacts/release/p5_s7_t02_candidate_manifest.sha256"
+      ],
+      "allowed_claim": "ARM Release 在 clean replay 中完成链接并生成 ELF/HEX/BIN/MAP，资源门通过。"
+    },
+    {
+      "id": "BSP-01",
+      "domain": "BSP",
+      "capability": "Pin, clock, DMA, IRQ, safe-state and bus static contract",
+      "execution_layer": "HOST",
+      "result": "PASS",
+      "evidence_commit": "5925881912ea0f0327d8107a3965e1274a7bd292",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "docs/bsp_contract.md",
+        "tools/verify_bsp_contract.py"
+      ],
+      "evidence_refs": [
+        "docs/bsp_validation.md",
+        "docs/device_probe_report.md"
+      ],
+      "allowed_claim": "BSP 固定 pin、clock、DMA、IRQ、safe-state 和总线参数通过静态合同检查。"
+    },
+    {
+      "id": "BSP-02",
+      "domain": "BSP",
+      "capability": "ST-LINK connection, firmware boot, clock and GPIO hardware checks",
+      "execution_layer": "HARDWARE",
+      "result": "NOT_RUN",
+      "evidence_commit": "5925881912ea0f0327d8107a3965e1274a7bd292",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "docs/bsp_contract.md"
+      ],
+      "evidence_refs": [
+        "docs/bsp_validation.md",
+        "docs/release_readiness.md"
+      ],
+      "allowed_claim": "未执行 ST-LINK、启动、clock 或 GPIO 实板检查。"
+    },
+    {
+      "id": "SNS-01",
+      "domain": "SENSOR",
+      "capability": "BME280 physical identity, SPI sampling and compensation consistency",
+      "execution_layer": "HARDWARE",
+      "result": "NOT_RUN",
+      "evidence_commit": "0815af100ae5985fed08a12bf00d36d340337f84",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "sensors/src/bme280.c"
+      ],
+      "evidence_refs": [
+        "docs/bme280_report.md",
+        "docs/device_probe_report.md"
+      ],
+      "allowed_claim": "未执行 BME280 实物身份、SPI 波形、采样或精度检查。"
+    },
+    {
+      "id": "SNS-02",
+      "domain": "SENSOR",
+      "capability": "VEML7700 physical ACK, I2C sampling and range behavior",
+      "execution_layer": "HARDWARE",
+      "result": "NOT_RUN",
+      "evidence_commit": "0815af100ae5985fed08a12bf00d36d340337f84",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "sensors/src/veml7700.c"
+      ],
+      "evidence_refs": [
+        "docs/veml7700_report.md",
+        "docs/device_probe_report.md"
+      ],
+      "allowed_claim": "未执行 VEML7700 实物 ACK、采样、量程切换或精度检查。"
+    },
+    {
+      "id": "SNS-03",
+      "domain": "SENSOR",
+      "capability": "ADXL345 physical identity, DATA_READY and coherent sampling",
+      "execution_layer": "HARDWARE",
+      "result": "NOT_RUN",
+      "evidence_commit": "603a351ce9818ce8b0ab4a284c95993cc20fa8f5",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "sensors/src/adxl345.c"
+      ],
+      "evidence_refs": [
+        "docs/adxl345_report.md",
+        "docs/device_probe_report.md"
+      ],
+      "allowed_claim": "未执行 ADXL345 实物 identity、DATA_READY、轴向或振动响应检查。"
+    },
+    {
+      "id": "WDG-01",
+      "domain": "BSP",
+      "capability": "IWDG feed, reset and reset-record persistence on target",
+      "execution_layer": "HARDWARE",
+      "result": "NOT_RUN",
+      "evidence_commit": "591f60516afa50511c70bd53f985ce0ccbb4a018",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "config/FreeRTOSConfig.h",
+        "app/src/app_health_policy.c",
+        "app/src/app_reset_reason.c"
+      ],
+      "evidence_refs": [
+        "docs/health_recovery_report.md",
+        "docs/resource_budget.md"
+      ],
+      "allowed_claim": "未执行 IWDG、目标复位或复位记录持久化检查。"
+    },
+    {
+      "id": "RS485-01",
+      "domain": "RS485",
+      "capability": "UART DMA, Modbus RTU stream/server and bounded transport software",
+      "execution_layer": "HOST",
+      "result": "PASS",
+      "evidence_commit": "6f585dfc112079a80ae0ecb6ce2267f927351b71",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "protocol/register_map.json",
+        "docs/modbus_contract.md"
+      ],
+      "evidence_refs": [
+        "docs/rs485_smoke_report.md",
+        "docs/modbus_transport.md",
+        "docs/modbus_hil_report.md"
+      ],
+      "allowed_claim": "UART DMA/RS485 状态机和 Modbus RTU/server 软件合同通过 Host 与交叉构建验证。"
+    },
+    {
+      "id": "RS485-02",
+      "domain": "RS485",
+      "capability": "PTY or pseudo-terminal Modbus exchange",
+      "execution_layer": "HOST",
+      "result": "NOT_RUN",
+      "evidence_commit": "6f585dfc112079a80ae0ecb6ce2267f927351b71",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "tools/modbus_hil_probe.py",
+        "docs/modbus_contract.md"
+      ],
+      "evidence_refs": [
+        "docs/modbus_hil_report.md",
+        "docs/release_readiness.md"
+      ],
+      "allowed_claim": "未执行 PTY 或伪终端 Modbus 交互；现有探针仅完成 self-test/dry-run。"
+    },
+    {
+      "id": "RS485-03",
+      "domain": "RS485",
+      "capability": "USB-RS485 physical H01-H11 matrix",
+      "execution_layer": "HARDWARE",
+      "result": "NOT_RUN",
+      "evidence_commit": "6f585dfc112079a80ae0ecb6ce2267f927351b71",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "protocol/register_map.json",
+        "tools/modbus_hil_probe.py"
+      ],
+      "evidence_refs": [
+        "docs/modbus_hil_report.md",
+        "docs/rs485_smoke_report.md"
+      ],
+      "allowed_claim": "未执行 USB-RS485、真实 249 B 响应、地址迁移或重连矩阵。"
+    },
+    {
+      "id": "P3-01",
+      "domain": "RS485",
+      "capability": "Project Three address-4 profile and master/slave interoperability",
+      "execution_layer": "INTEGRATION",
+      "result": "NOT_RUN",
+      "evidence_commit": "6f585dfc112079a80ae0ecb6ce2267f927351b71",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "protocol/register_map.json",
+        "docs/modbus_contract.md"
+      ],
+      "evidence_refs": [
+        "docs/modbus_hil_report.md",
+        "docs/release_readiness.md"
+      ],
+      "allowed_claim": "未执行项目三地址 4 profile 创建或真实主从站联调。"
+    },
+    {
+      "id": "CAN-01",
+      "domain": "CAN",
+      "capability": "CAN map, codec, filter, IRQ mailbox, TX scheduling and recovery software",
+      "execution_layer": "HOST",
+      "result": "PASS",
+      "evidence_commit": "d5048f029f8ef48a0bb19681782a776dfad152b6",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "protocol/can_message_map.json",
+        "docs/can_contract.md",
+        "tools/verify_can_contract.py"
+      ],
+      "evidence_refs": [
+        "docs/can_runtime.md",
+        "docs/can_contract.md",
+        "docs/reproduction_report.md"
+      ],
+      "allowed_claim": "CAN map/codec/filter/IRQ/队列和恢复软件候选通过 Host 合同与交叉构建验证。"
+    },
+    {
+      "id": "CAN-02",
+      "domain": "CAN",
+      "capability": "SocketCAN vcan bounded software matrix and can-utils smoke",
+      "execution_layer": "VIRTUAL_BUS",
+      "result": "PASS",
+      "evidence_commit": "d6b929b85a1e3918edc90c5b276fe9b81d2cf4e3",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "protocol/can_message_map.json",
+        "tools/can_hil_probe.py"
+      ],
+      "evidence_refs": [
+        "docs/can_hil_report.md",
+        "docs/can_runtime.md"
+      ],
+      "allowed_claim": "SocketCAN vcan 软件矩阵与 can-utils 单帧 smoke 已通过，不代表物理 CAN。"
+    },
+    {
+      "id": "CAN-03",
+      "domain": "CAN",
+      "capability": "candleLight identity, ACK, physical frames and bus-off recovery",
+      "execution_layer": "HARDWARE",
+      "result": "NOT_RUN",
+      "evidence_commit": "d6b929b85a1e3918edc90c5b276fe9b81d2cf4e3",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "protocol/can_message_map.json",
+        "tools/can_hil_probe.py"
+      ],
+      "evidence_refs": [
+        "docs/can_hil_report.md",
+        "docs/release_readiness.md"
+      ],
+      "allowed_claim": "未执行 candleLight、物理 ACK/帧、终端或真实 bus-off 恢复检查。"
+    },
+    {
+      "id": "BUS-01",
+      "domain": "DUAL_BUS",
+      "capability": "Host dual-bus backpressure and fault-isolation matrix",
+      "execution_layer": "HOST",
+      "result": "PASS",
+      "evidence_commit": "d5048f029f8ef48a0bb19681782a776dfad152b6",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "CMakeLists.txt",
+        "docs/dual_bus_fault_matrix.md"
+      ],
+      "evidence_refs": [
+        "docs/dual_bus_fault_matrix.md",
+        "docs/reproduction_report.md"
+      ],
+      "allowed_claim": "双总线 D01-D08 Host 矩阵验证了有界背压和软件故障隔离。"
+    },
+    {
+      "id": "BUS-02",
+      "domain": "DUAL_BUS",
+      "capability": "Physical RS485 and CAN concurrency and fault isolation",
+      "execution_layer": "INTEGRATION",
+      "result": "NOT_RUN",
+      "evidence_commit": "d5048f029f8ef48a0bb19681782a776dfad152b6",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "freertos_modbus_can_node.ioc",
+        "docs/dual_bus_fault_matrix.md"
+      ],
+      "evidence_refs": [
+        "docs/dual_bus_fault_matrix.md",
+        "docs/release_readiness.md"
+      ],
+      "allowed_claim": "未执行 RS485 与 CAN 实物并发、背压或故障隔离。"
+    },
+    {
+      "id": "SOAK-01",
+      "domain": "SOAK",
+      "capability": "Bounded soak runner, schema and Host preflight",
+      "execution_layer": "HOST",
+      "result": "PASS",
+      "evidence_commit": "591f60516afa50511c70bd53f985ce0ccbb4a018",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": null,
+      "hardware_identity": null,
+      "config_refs": [
+        "tools/soak_runner.py",
+        "docs/soak_trend_report.md"
+      ],
+      "evidence_refs": [
+        "docs/soak_trend_report.md",
+        "artifacts/release/p5_s7_t02_replay.json"
+      ],
+      "allowed_claim": "soak runner、schema、自测和短时 Host preflight 已通过。"
+    },
+    {
+      "id": "SOAK-02",
+      "domain": "SOAK",
+      "capability": "10-minute, 60-minute and formal 8-hour hardware trend sessions",
+      "execution_layer": "SOAK",
+      "result": "NOT_RUN",
+      "evidence_commit": "591f60516afa50511c70bd53f985ce0ccbb4a018",
+      "regression_anchor": null,
+      "firmware_sha256": null,
+      "hardware_identity": "NOT_ADMITTED",
+      "config_refs": [
+        "tools/soak_runner.py",
+        "docs/soak_trend_report.md"
+      ],
+      "evidence_refs": [
+        "docs/soak_trend_report.md",
+        "docs/release_readiness.md"
+      ],
+      "allowed_claim": "未执行 10 分钟、60 分钟或正式 8 小时实物长稳。"
+    },
+    {
+      "id": "REP-02",
+      "domain": "RELEASE",
+      "capability": "Bit-for-bit Release BIN/HEX equality across different clean paths",
+      "execution_layer": "CLEAN_BUILD",
+      "result": "NOT_CLAIMED",
+      "evidence_commit": "3f494538d06069d3c78206dd95ca242bb3b27aa5",
+      "regression_anchor": "15932a2ff7adecdfbe5355559926a95b0df25845",
+      "firmware_sha256": "7ce43b7263a3941cff8dfa83beef670aa6936ffffd3abcd215a7c5563319643f",
+      "hardware_identity": null,
+      "config_refs": [
+        "cmake/firmware.cmake",
+        "config/FreeRTOSConfig.h"
+      ],
+      "evidence_refs": [
+        "docs/reproduction_report.md",
+        "artifacts/release/p5_s7_t02_replay.json"
+      ],
+      "allowed_claim": "不声明跨不同 clean 路径的 bit-for-bit 固件一致性；绝对 __FILE__ 路径会改变字节。"
+    }
+  ]
+}

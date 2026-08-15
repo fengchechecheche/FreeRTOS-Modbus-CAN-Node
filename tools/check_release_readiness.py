@@ -25,9 +25,12 @@ REQUIRED_FILES = (
     "Middlewares/Third_Party/FreeRTOS/Source/st_readme.txt",
     "docs/release_readiness.md",
     "docs/reproduction_report.md",
+    "docs/evidence_matrix.md",
     "tools/reproduce_release_candidate.py",
+    "tools/check_evidence_matrix.py",
     "artifacts/release/p5_s7_t02_replay.json",
     "artifacts/release/p5_s7_t02_candidate_manifest.sha256",
+    "artifacts/release/p5_s7_t03_evidence_matrix.json",
 )
 NOTICE_MARKERS = (
     "CMSIS Core | 5.9.0",
@@ -84,6 +87,8 @@ def validate_readme(text: str) -> list[str]:
         if marker in text:
             errors.append(f"README contains stale license claim: {marker}")
     required = (
+        "P5-S7-T03 update",
+        "docs/evidence_matrix.md",
         "P5-S7-T02 update",
         "docs/reproduction_report.md",
         "bit-for-bit reproducibility",
@@ -92,6 +97,62 @@ def validate_readme(text: str) -> list[str]:
     for marker in required:
         if marker not in text:
             errors.append(f"README missing reproduction marker: {marker}")
+    return errors
+
+
+def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[str]:
+    """Check the bounded T03 projection without duplicating its deep checker."""
+    errors: list[str] = []
+    matrix_path = root / "artifacts/release/p5_s7_t03_evidence_matrix.json"
+    matrix_doc_path = root / "docs/evidence_matrix.md"
+    try:
+        matrix = json.loads(read_text(matrix_path))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        return [f"invalid evidence-matrix JSON: {exc}"]
+    if not isinstance(matrix, dict):
+        return ["evidence matrix root must be an object"]
+    matrix_rows = matrix.get("rows")
+    matrix_row_count = len(matrix_rows) if isinstance(matrix_rows, list) else None
+
+    expected = (
+        ("schema", matrix.get("schema"), "P5_EVIDENCE_MATRIX_V1"),
+        (
+            "matrix baseline",
+            matrix.get("matrix_baseline"),
+            "3f494538d06069d3c78206dd95ca242bb3b27aa5",
+        ),
+        (
+            "clean-replay source",
+            matrix.get("clean_replay_source_commit"),
+            "15932a2ff7adecdfbe5355559926a95b0df25845",
+        ),
+        ("row count", matrix_row_count, 24),
+        (
+            "result summary",
+            matrix.get("summary"),
+            {
+                "FAIL": 0,
+                "NOT_CLAIMED": 1,
+                "NOT_RUN": 11,
+                "PASS": 12,
+                "REVIEW_REQUIRED": 0,
+            },
+        ),
+    )
+    for label, actual, wanted in expected:
+        if actual != wanted:
+            errors.append(f"evidence matrix {label} mismatch: {actual!r} != {wanted!r}")
+
+    matrix_doc = read_text(matrix_doc_path)
+    for marker in (
+        "Matrix status: `FROZEN`",
+        "Row summary: `24 = 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED`",
+        "BLOCKED_WAITING_FOR_HARDWARE",
+    ):
+        if marker not in matrix_doc:
+            errors.append(f"evidence matrix document missing marker: {marker}")
+    if "Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`" not in ledger_text:
+        errors.append("release ledger evidence matrix gate is not PASS_SCHEMA_REFERENCE_CHECK")
     return errors
 
 
@@ -247,7 +308,10 @@ def public_text_files(root: pathlib.Path) -> Iterable[pathlib.Path]:
         for path in sorted(base.rglob("*")):
             if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
                 continue
-            if path == pathlib.Path(__file__).resolve():
+            if path.name in {
+                "check_release_readiness.py",
+                "check_evidence_matrix.py",
+            }:
                 continue
             yield path
 
@@ -283,6 +347,7 @@ def check_repository(root: pathlib.Path) -> list[str]:
             errors.append(f"package license missing marker: {marker}")
 
     ledger_text = read_text(root / "docs/release_readiness.md")
+    errors.extend(validate_evidence_projection(root, ledger_text))
     rows, ledger_errors = parse_ledger(ledger_text)
     errors.extend(ledger_errors)
     errors.extend(source_gate_errors(rows))
@@ -320,6 +385,8 @@ def run_self_test() -> int:
     checks += 1
 
     valid_readme = (
+        "P5-S7-T03 update\n"
+        "docs/evidence_matrix.md\n"
         "P5-S7-T02 update\n"
         "docs/reproduction_report.md\n"
         "bit-for-bit reproducibility\n"
@@ -328,6 +395,21 @@ def run_self_test() -> int:
     assert not validate_readme(valid_readme)
     checks += 1
     assert validate_readme(valid_readme + "TBD_USER_REVIEW\n")
+    checks += 1
+
+    valid_projection_doc = (
+        "Matrix status: `FROZEN`\n"
+        "Row summary: `24 = 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED`\n"
+        "BLOCKED_WAITING_FOR_HARDWARE\n"
+    )
+    assert all(
+        marker in valid_projection_doc
+        for marker in (
+            "Matrix status: `FROZEN`",
+            "Row summary: `24 = 12 PASS + 11 NOT_RUN + 1 NOT_CLAIMED`",
+            "BLOCKED_WAITING_FOR_HARDWARE",
+        )
+    )
     checks += 1
 
     assert privacy_findings([("doc.md", "C:" + "\\Users\\person\\file")])

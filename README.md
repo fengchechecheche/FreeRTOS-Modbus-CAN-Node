@@ -1,5 +1,12 @@
 # FreeRTOS Modbus CAN Node
 
+> P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
+> 12 `PASS`, 11 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
+> software, board, RS485, or CAN evidence layer; no software result is promoted
+> to a physical-hardware claim. The hardware Release gate remains
+> `BLOCKED_WAITING_FOR_HARDWARE`. See
+> [`docs/evidence_matrix.md`](docs/evidence_matrix.md).
+
 > P5-S7-T02 update: clean local-archive reproduction from
 > `[036] 15932a2ff7adecdfbe5355559926a95b0df25845` passes the Host, contract,
 > Debug/Release ARM and resource gates without prior build cache or network

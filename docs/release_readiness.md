@@ -1,9 +1,10 @@
 # P5-S7-T01 release readiness and blocker ledger
 
 > Ledger schema: `P5_RELEASE_LEDGER_V1`
-> Baseline: `[036] 15932a2ff7adecdfbe5355559926a95b0df25845`
+> Baseline: `[037] 3f494538d06069d3c78206dd95ca242bb3b27aa5`
 > Software source candidate gate: `PASS`
 > Binary reproduction gate: `PASS_CLEAN_REPRODUCTION`
+> Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`
 > Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `NOT_AUTHORIZED / NOT_RUN`
 
@@ -69,3 +70,15 @@ directories is `NOT_CLAIMED`; no CMake or firmware flags were changed in T02.
 The four hardware blockers remain open. T03 may build the evidence matrix with
 these explicit hardware gaps; flashing, representative physical replay and the
 8-hour soak are not inferred from the software result.
+
+## Evidence matrix result
+
+P5-S7-T03 projects the current baseline into 24 bounded evidence rows: 12
+`PASS`, 11 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
+`artifacts/release/p5_s7_t03_evidence_matrix.json`; the curated public view and
+claim boundaries are in `docs/evidence_matrix.md`.
+
+The matrix schema, result counts, public references, full Git identities, and
+hardware-claim restrictions pass `tools/check_evidence_matrix.py`. This closes
+no hardware blocker: board admission, physical RS485, physical CAN, and the
+10-minute/60-minute/8-hour sessions remain open exactly as listed above.
