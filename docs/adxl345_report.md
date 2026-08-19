@@ -1,9 +1,10 @@
 # P5-S4-T03 ADXL345 中断采样与振动特征报告
 
 > Software: `PASS_HOST + PASS_CROSS_BUILD + PASS_EXTI_CONTRACT`  
-> Content: `FROZEN` (approved 2026-08-14)
-> Hardware: `WAITING_FOR_HARDWARE`  
-> Identity / DATA_READY / axis direction / vibration response: `NOT_RUN`
+> Content: `FROZEN_SOFTWARE + HARDWARE_APPENDIX` (updated 2026-08-20)
+> Hardware: `PARTIAL_HARDWARE_EVIDENCE`
+> Identity / polling axis and vibration response: `PASS_BOUNDED`
+> Physical DATA_READY IRQ: `FAIL_CURRENT_MODULE_PATH`
 
 ## 配置与边界
 
@@ -164,15 +165,83 @@ MCU 端与 ADXL345 端波形。不得在模块未供电时仅接入 SCK，以免
 在获得上述证据前，这些方向均保持 `HYPOTHESIS`，不用于宣称根因，不触发
 CubeMX、SPI 模式、引脚、驱动接口或协议架构修改。
 
+## P5-HW-SNS-03 有界功能补验（2026-08-19 至 2026-08-20）
+
+本轮在最终三传感器拓扑下继续使用 SPI，不修改 CubeMX、引脚或正式驱动接口。
+诊断选项均默认关闭，INT2 映射与 DATA_READY 轮询互斥。原始串口输出不进入大型
+证据包，仅在本节保留足以复核结论的摘要。
+
+### DATA_READY 中断路径
+
+| 固件与接线 | 关键结果 | 有界结论 |
+|---|---|---|
+| `[053] 488772e5d206`，INT1 → PB4；ELF `86185ad42dd9028080cfeb5c66ab46d4a6f9d478c4debdce4560c96891178304` | `regs=08/80/00/83 regok=1`，`int1=0 irq=0`，最终 `STALLED/OFFLINE` | 测量模式、中断使能、INT1 映射及芯片内部 DATA_READY 均成立，但 INT1 未到达 PB4 |
+| `[054] 0e2f5b785d09`，INT2 → PB4；ELF `e0d88767324970c4acdb5459a8396e0fd50918fa1d3591984f7b1af686a6dca2` | `regs=08/80/80/83 regok=1`，`int1=0 irq=0`，最终 `STALLED/OFFLINE` | INT2 软件映射已生效，但模块 INT2 路径同样未到达 PB4 |
+
+`INT_SOURCE=0x83` 的 bit 7 证明芯片内部持续产生 DATA_READY；`INT_MAP=0x00`
+和 `0x80` 分别证明两次固件确实选择 INT1 与 INT2。两条外部路径均保持低电平，
+所以本轮不能把问题归因于 SPI 初始化、未启用 DATA_READY 或 INT1/INT2 软件映射
+错误。缺少实际 PCB 原理图和连续性/波形测量时，故障边界限定为当前模块排针、
+板内网络、跳线或 PB4 外部路径，根因仍未知。
+
+### DATA_READY 轮询降级诊断
+
+在 `[055] 5a7123825dc2` 和 ELF SHA-256
+`2d15a800af2baa8eab564b9ac2b05269496c9bc0c9f6ffe61d90f4732b36bb9b`
+下，完全断开中断线，由 acquisition owner 每 20 ms 读取一次 `INT_SOURCE`。
+bit 7 有效时仍走原有六字节 XYZ 读取、样本发布与 100 样本特征窗口；轮询计数与
+IRQ 计数分离，不把轮询伪装成 EXTI 证据。
+
+静止连续运行的代表结果为：
+
+```text
+st=VALID sm=WAIT_DRDY tr=OK
+poll=1339/1338/0 psrc=83 sseq=1338 irq=0 drop=0
+x=-35 y=39 z=770 fseq=13 rms=3/3/3 peak=11/7/8 rrms=5
+```
+
+轮询与样本序列约每秒推进 50 次，`poll_error=0`、`drop=0`；100 样本窗口约
+每 2 秒推进一次。一次启动出现 `CFG_ERROR` 后完成 `rec=1/1` 有界恢复，后续复位
+得到 `last=UNINIT err=0 rec=0/0` 并持续 `VALID`，因此不把前者提升为稳定启动故障。
+
+三种明显姿态的代表样本如下；这里只验证方向性变化，不声明安装方向、比例或
+重力标定：
+
+| 姿态 | X / Y / Z（mg） | 运行状态 |
+|---|---:|---|
+| 1 | `-47 / 277 / 742` | `VALID`，`poll_error=0`，`drop=0` |
+| 2 | `-355 / 20 / 758` | `VALID`，`poll_error=0`，`drop=0` |
+| 3 | `-27 / 840 / 387` | `VALID`，`poll_error=0`，`drop=0` |
+
+静止基线约为 `rms=2..4 mg`、`peak=6..18 mg`、`rrms=5 mg`。在传感器附近
+轻敲桌面或轻微晃动组件后，窗口峰值达到：
+
+```text
+rms=226/200/109 mg
+peak=1266/491/727 mg
+rrms=320 mg
+```
+
+停止扰动后指标回落；同时 `sseq/fseq` 持续推进、`poll_error=0`、`drop=0`。
+因此 SPI 连续采样、三轴姿态趋势、窗口 RMS/peak/resultant RMS 趋势以及复位后
+重新采集均通过有界轮询补验。该结果不证明物理 IRQ、100 Hz 实际输出率、计量
+精度、零偏、安装方向、频响、FFT 或振动故障诊断。
+
 ```text
 adxl345_identity_final_topology = PASS
+adxl345_internal_data_ready = PASS
+adxl345_polling_continuous_sampling = PASS
+adxl345_axis_response = PASS_BOUNDED_POLLING
+adxl345_vibration_features = PASS_BOUNDED_POLLING
+adxl345_reset_reinitialize = PASS_BOUNDED_POLLING
+adxl345_physical_data_ready_irq = FAIL_CURRENT_MODULE_PATH
 adxl345_standalone_spi_robustness = NOT_CLAIMED
-adxl345_data_ready_irq = NOT_RUN
-adxl345_axis_response = NOT_RUN
-adxl345_vibration_features = NOT_RUN
+adxl345_metrology_and_frequency_response = NOT_CLAIMED
 hardware = PARTIAL_HARDWARE_EVIDENCE
 ```
 
-因此 `SNS-03` 仍为 `NOT_RUN`，`HW-001` 仍保持 `OPEN`。后续保持当前 SPI
-架构，先推进 BME280、VEML7700、RS485 和 CAN；ADXL345 I²C 仅作为以后
-单独限时评估的备选，不在本次补验中修改 CubeMX、引脚或驱动接口。
+因此 `SNS-03` 不升级为完整 `PASS`：轮询采集、轴向和振动趋势子项已通过，物理
+DATA_READY IRQ 要求仍未满足；`HW-001` 继续保持 `OPEN`。后续优先更换来源和
+原理图可靠的 ADXL345 模块复验 IRQ；在此之前，当前模块不阻塞 BME280、
+VEML7700、RS485、CAN 和其他硬件路线。轮询固件仅用于故障隔离，取证结束后
+必须关闭诊断选项并恢复默认固件。
