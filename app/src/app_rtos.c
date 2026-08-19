@@ -35,6 +35,7 @@
 #include "stm32f4xx_hal.h"
 #include "task.h"
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#include "main.h"
 #include "usart.h"
 #endif
 
@@ -59,7 +60,7 @@
 #define APP_IWDG_SMOKE_PRIME_FEEDS UINT32_C(3)
 #define APP_IWDG_STABLE_FEEDS UINT32_C(5)
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
-#define APP_ADXL345_HIL_REPORT_CAPACITY (320U)
+#define APP_ADXL345_HIL_REPORT_CAPACITY (448U)
 #define APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)
 #define APP_ADXL345_HIL_REPORT_LIMIT UINT32_C(180)
 #define APP_ADXL345_HIL_UART_TIMEOUT_MS UINT32_C(100)
@@ -941,6 +942,67 @@ static const char *app_rtos_adxl345_status_token(adxl345_status_t status)
   }
 }
 
+static const char *app_rtos_adxl345_state_token(adxl345_state_t state)
+{
+  switch (state)
+  {
+    case ADXL345_STATE_UNINITIALIZED:
+      return "UNINIT";
+    case ADXL345_STATE_READ_ID:
+      return "READ_ID";
+    case ADXL345_STATE_WRITE_STANDBY:
+      return "WRITE_STANDBY";
+    case ADXL345_STATE_DISABLE_INTERRUPTS:
+      return "INT_OFF";
+    case ADXL345_STATE_SET_FIFO_BYPASS:
+      return "FIFO_BYPASS";
+    case ADXL345_STATE_SET_DATA_FORMAT:
+      return "SET_FORMAT";
+    case ADXL345_STATE_SET_BW_RATE:
+      return "SET_RATE";
+    case ADXL345_STATE_MAP_INT1:
+      return "MAP_INT1";
+    case ADXL345_STATE_VERIFY_DATA_FORMAT:
+      return "VERIFY_FORMAT";
+    case ADXL345_STATE_VERIFY_BW_RATE:
+      return "VERIFY_RATE";
+    case ADXL345_STATE_VERIFY_INT_MAP:
+      return "VERIFY_MAP";
+    case ADXL345_STATE_ENTER_MEASURE:
+      return "ENTER_MEASURE";
+    case ADXL345_STATE_VERIFY_POWER_CTL:
+      return "VERIFY_POWER";
+    case ADXL345_STATE_ENABLE_DATA_READY:
+      return "ENABLE_DRDY";
+    case ADXL345_STATE_WAIT_DATA_READY:
+      return "WAIT_DRDY";
+    case ADXL345_STATE_OFFLINE:
+      return "OFFLINE";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+static const char *app_rtos_adxl345_transport_token(
+    adxl345_transport_result_t result)
+{
+  switch (result)
+  {
+    case ADXL345_TRANSPORT_OK:
+      return "OK";
+    case ADXL345_TRANSPORT_INVALID_ARGUMENT:
+      return "ARG";
+    case ADXL345_TRANSPORT_BUSY:
+      return "BUSY";
+    case ADXL345_TRANSPORT_TIMEOUT:
+      return "TIMEOUT";
+    case ADXL345_TRANSPORT_IO_ERROR:
+      return "IO_ERROR";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 static void app_rtos_adxl345_hil_diagnostic_service(void)
 {
   if (app_rtos_adxl345_hil_report_count >= APP_ADXL345_HIL_REPORT_LIMIT)
@@ -963,15 +1025,26 @@ static void app_rtos_adxl345_hil_diagnostic_service(void)
   }
   snapshot = app_rtos_adxl345_snapshot;
   app_rtos_snapshot_give();
+  const unsigned int int1_level =
+      HAL_GPIO_ReadPin(ADXL345_INT1_GPIO_Port, ADXL345_INT1_Pin) ==
+              GPIO_PIN_SET
+          ? 1U
+          : 0U;
 
   const int written = snprintf(
       app_rtos_adxl345_hil_report,
       sizeof(app_rtos_adxl345_hil_report),
-      "P5ADXL1 t=%lu st=%s sseq=%lu irq=%lu drop=%lu "
+      "P5ADXL1 t=%lu st=%s sm=%s last=%s tr=%s txn=%lu int1=%u "
+      "sseq=%lu irq=%lu drop=%lu "
       "x=%ld y=%ld z=%ld fseq=%lu rms=%lu/%lu/%lu "
       "peak=%lu/%lu/%lu rrms=%lu err=%lu rec=%lu/%lu\r\n",
       (unsigned long)now_ms,
       app_rtos_adxl345_status_token(snapshot.status),
+      app_rtos_adxl345_state_token(snapshot.state),
+      app_rtos_adxl345_status_token(snapshot.last_error_status),
+      app_rtos_adxl345_transport_token(snapshot.last_transport_result),
+      (unsigned long)snapshot.transaction_count,
+      int1_level,
       (unsigned long)snapshot.sample.sequence,
       (unsigned long)snapshot.irq_event_count,
       (unsigned long)snapshot.dropped_sample_lower_bound,

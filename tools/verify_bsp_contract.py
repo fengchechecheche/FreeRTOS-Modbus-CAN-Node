@@ -352,7 +352,21 @@ CHECKS: CheckTable = {
         ("legacy smoke compile switch", "#if P5_RS485_LOOPBACK_SMOKE_ENABLE"),
         ("iwdg reset smoke compile switch", "#if P5_IWDG_RESET_SMOKE_ENABLE"),
         ("adxl hil compile switch", "#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE"),
-        ("adxl hil frame schema", '"P5ADXL1 t=%lu st=%s sseq=%lu irq=%lu drop=%lu "'),
+        (
+            "adxl hil frame schema",
+            '"P5ADXL1 t=%lu st=%s sm=%s last=%s tr=%s txn=%lu int1=%u "',
+        ),
+        ("adxl hil state detail", "app_rtos_adxl345_state_token(snapshot.state)"),
+        (
+            "adxl hil last error detail",
+            "app_rtos_adxl345_status_token(snapshot.last_error_status)",
+        ),
+        (
+            "adxl hil transport detail",
+            "app_rtos_adxl345_transport_token(snapshot.last_transport_result)",
+        ),
+        ("adxl hil transaction detail", "snapshot.transaction_count"),
+        ("adxl hil int1 level", "HAL_GPIO_ReadPin(ADXL345_INT1_GPIO_Port"),
         ("adxl hil one second interval", "APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)"),
         ("adxl hil bounded report count", "APP_ADXL345_HIL_REPORT_LIMIT UINT32_C(180)"),
     ],
