@@ -25,10 +25,23 @@ typedef struct
   uint32_t dropped_sample_lower_bound;
 } app_adxl345_snapshot_t;
 
+typedef struct
+{
+  bool attempted;
+  bool valid;
+  uint8_t power_ctl;
+  uint8_t int_enable;
+  uint8_t int_map;
+  uint8_t int_source;
+} app_adxl345_register_diagnostic_t;
+
 void app_adxl345_initialize(void);
 void app_adxl345_service(uint32_t now_ms,
                          uint32_t data_ready_event_count);
 /* Owner-context diagnostic snapshot; cross-task users read app_measurement. */
 bool app_adxl345_get_snapshot(app_adxl345_snapshot_t *snapshot);
+void app_adxl345_capture_register_diagnostic_once(void);
+bool app_adxl345_get_register_diagnostic(
+    app_adxl345_register_diagnostic_t *diagnostic);
 
 #endif

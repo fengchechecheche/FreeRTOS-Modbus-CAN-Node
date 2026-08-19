@@ -367,6 +367,18 @@ CHECKS: CheckTable = {
         ),
         ("adxl hil transaction detail", "snapshot.transaction_count"),
         ("adxl hil int1 level", "HAL_GPIO_ReadPin(ADXL345_INT1_GPIO_Port"),
+        (
+            "adxl hil offline register capture",
+            "app_adxl345_capture_register_diagnostic_once();",
+        ),
+        (
+            "adxl hil register snapshot",
+            "app_adxl345_get_register_diagnostic(",
+        ),
+        (
+            "adxl hil register frame",
+            '"regs=%02X/%02X/%02X/%02X regok=%u "',
+        ),
         ("adxl hil one second interval", "APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)"),
         ("adxl hil bounded report count", "APP_ADXL345_HIL_REPORT_LIMIT UINT32_C(180)"),
     ],
@@ -588,11 +600,42 @@ CHECKS: CheckTable = {
     Path("app/include/app_adxl345.h"): [
         ("adxl spi timeout", "#define APP_ADXL345_SPI_TIMEOUT_MS UINT32_C(5)"),
         ("adxl owner context snapshot", "Owner-context diagnostic snapshot; cross-task users read app_measurement."),
+        (
+            "adxl register diagnostic type",
+            "app_adxl345_register_diagnostic_t;",
+        ),
+        (
+            "adxl register diagnostic capture api",
+            "void app_adxl345_capture_register_diagnostic_once(void);",
+        ),
+        (
+            "adxl register diagnostic read api",
+            "bool app_adxl345_get_register_diagnostic(",
+        ),
     ],
     Path("app/src/app_adxl345.c"): [
         ("adxl block read adapter", "bsp_spi_bus_read_registers("),
         ("adxl register write adapter", "bsp_spi_bus_write_register("),
         ("adxl fixed spi device", "BSP_SPI_DEVICE_ADXL345"),
+        (
+            "adxl interrupt source register",
+            "APP_ADXL345_INT_SOURCE_REGISTER UINT8_C(0x30)",
+        ),
+        (
+            "adxl offline register diagnostic",
+            "void app_adxl345_capture_register_diagnostic_once(void)",
+        ),
+        ("adxl power control diagnostic", "ADXL345_POWER_CTL_REGISTER,"),
+        ("adxl interrupt enable diagnostic", "ADXL345_INT_ENABLE_REGISTER,"),
+        ("adxl interrupt map diagnostic", "ADXL345_INT_MAP_REGISTER,"),
+        (
+            "adxl interrupt source diagnostic",
+            "APP_ADXL345_INT_SOURCE_REGISTER,",
+        ),
+        (
+            "adxl register diagnostic publish",
+            "app_adxl345_register_diagnostic = next;",
+        ),
     ],
     Path("bsp/src/bsp_spi_bus.c"): [
         ("adxl multibyte bit", "BSP_SPI_BUS_ADXL345_MULTIBYTE_BIT"),

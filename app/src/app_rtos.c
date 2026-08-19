@@ -127,6 +127,10 @@ static app_adxl345_snapshot_t app_rtos_adxl345_snapshot;
 static uint32_t app_rtos_adxl345_hil_last_report_ms;
 static uint32_t app_rtos_adxl345_hil_report_count;
 static char app_rtos_adxl345_hil_report[APP_ADXL345_HIL_REPORT_CAPACITY];
+static app_adxl345_register_diagnostic_t
+    app_rtos_adxl345_register_owner;
+static app_adxl345_register_diagnostic_t
+    app_rtos_adxl345_register_snapshot;
 #endif
 static uint32_t app_rtos_modbus_image_generation;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
@@ -322,6 +326,8 @@ static void app_rtos_update_measurement_snapshot(uint32_t now_ms)
         &app_rtos_sensor_monitor, &app_rtos_sensor_monitor_snapshot);
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
     app_rtos_adxl345_snapshot = app_rtos_measurement_inputs.adxl345;
+    app_rtos_adxl345_register_snapshot =
+        app_rtos_adxl345_register_owner;
 #endif
     ++app_rtos_modbus_image_generation;
     app_rtos_snapshot_give();
@@ -332,6 +338,11 @@ static void app_rtos_acquisition_periodic_service(void)
 {
   const uint32_t now_ms = (uint32_t)xTaskGetTickCount();
   app_adxl345_service(now_ms, 0U);
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+  app_adxl345_capture_register_diagnostic_once();
+  (void)app_adxl345_get_register_diagnostic(
+      &app_rtos_adxl345_register_owner);
+#endif
   app_bme280_service(now_ms);
   app_veml7700_service(now_ms);
   app_rtos_update_measurement_snapshot(now_ms);
@@ -1019,11 +1030,13 @@ static void app_rtos_adxl345_hil_diagnostic_service(void)
   }
 
   app_adxl345_snapshot_t snapshot;
+  app_adxl345_register_diagnostic_t registers;
   if (!app_rtos_snapshot_take(false))
   {
     return;
   }
   snapshot = app_rtos_adxl345_snapshot;
+  registers = app_rtos_adxl345_register_snapshot;
   app_rtos_snapshot_give();
   const unsigned int int1_level =
       HAL_GPIO_ReadPin(ADXL345_INT1_GPIO_Port, ADXL345_INT1_Pin) ==
@@ -1035,6 +1048,7 @@ static void app_rtos_adxl345_hil_diagnostic_service(void)
       app_rtos_adxl345_hil_report,
       sizeof(app_rtos_adxl345_hil_report),
       "P5ADXL1 t=%lu st=%s sm=%s last=%s tr=%s txn=%lu int1=%u "
+      "regs=%02X/%02X/%02X/%02X regok=%u "
       "sseq=%lu irq=%lu drop=%lu "
       "x=%ld y=%ld z=%ld fseq=%lu rms=%lu/%lu/%lu "
       "peak=%lu/%lu/%lu rrms=%lu err=%lu rec=%lu/%lu\r\n",
@@ -1045,6 +1059,11 @@ static void app_rtos_adxl345_hil_diagnostic_service(void)
       app_rtos_adxl345_transport_token(snapshot.last_transport_result),
       (unsigned long)snapshot.transaction_count,
       int1_level,
+      (unsigned int)registers.power_ctl,
+      (unsigned int)registers.int_enable,
+      (unsigned int)registers.int_map,
+      (unsigned int)registers.int_source,
+      registers.attempted && registers.valid ? 1U : 0U,
       (unsigned long)snapshot.sample.sequence,
       (unsigned long)snapshot.irq_event_count,
       (unsigned long)snapshot.dropped_sample_lower_bound,
@@ -1339,6 +1358,10 @@ app_rtos_status_t app_rtos_initialize(void)
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
   app_rtos_adxl345_hil_last_report_ms = 0U;
   app_rtos_adxl345_hil_report_count = 0U;
+  app_rtos_adxl345_register_owner =
+      (app_adxl345_register_diagnostic_t){0};
+  app_rtos_adxl345_register_snapshot =
+      (app_adxl345_register_diagnostic_t){0};
 #endif
 #if P5_IWDG_RESET_SMOKE_ENABLE
   app_rtos_iwdg_smoke_completed = false;
