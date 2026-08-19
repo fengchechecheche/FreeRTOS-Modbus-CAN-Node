@@ -77,3 +77,23 @@ veml7700_auto_range_hardware = NOT_RUN
 veml7700_accuracy = NOT_CLAIMED
 hardware = WAITING_FOR_HARDWARE
 ```
+
+## P5-HW-SNS-00 地址/寄存器探针补验（2026-08-19）
+
+在提交 `d48f2c75b048dc60320045233312ad6df050e88e` 和 probe ELF SHA-256
+`d011125dfbf8b96702da03d8c808476687639610d3b59acb7f23b1f42b6f8c4d`
+下，VEML7700 单模块连续 3 次复位均返回 `VEML=10/PRESENT`；BME280 与
+VEML7700 组合以及最终三模块拓扑也各连续 3 次通过。该结果只证明 `0x10`
+地址 ACK 和探针所需的配置寄存器访问，不把它表述为独立 silicon ID。
+
+```text
+veml7700_address_and_config_probe = PASS
+veml7700_basic_acquisition = NOT_RUN
+veml7700_light_response_direction = NOT_RUN
+veml7700_auto_range_hardware = NOT_RUN
+veml7700_accuracy = NOT_CLAIMED
+hardware = PARTIAL_HARDWARE_EVIDENCE
+```
+
+本次没有取得连续样本，也没有执行遮挡/照明响应或量程检查，因此 `SNS-02`
+仍为 `NOT_RUN`，`HW-001` 仍保持 `OPEN`。

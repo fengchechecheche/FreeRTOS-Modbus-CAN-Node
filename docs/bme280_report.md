@@ -80,3 +80,22 @@ bme280_compensation_consistency = NOT_RUN
 bme280_accuracy_calibration = NOT_CLAIMED
 hardware = WAITING_FOR_HARDWARE
 ```
+
+## P5-HW-SNS-00 身份探针补验（2026-08-19）
+
+在提交 `d48f2c75b048dc60320045233312ad6df050e88e` 和 probe ELF SHA-256
+`d011125dfbf8b96702da03d8c808476687639610d3b59acb7f23b1f42b6f8c4d`
+下，BME280 单模块连续 3 次复位均返回 `0x60`；最终三模块拓扑连续 3 次复位
+也均返回 `BME=60/OK`。因此只把实物身份和最终共享 SPI 拓扑下的单寄存器读取
+记为通过。
+
+```text
+bme280_identity_probe = PASS
+bme280_continuous_sampling = NOT_RUN
+bme280_compensation_consistency = NOT_RUN
+bme280_accuracy_calibration = NOT_CLAIMED
+hardware = PARTIAL_HARDWARE_EVIDENCE
+```
+
+本次没有读取 5 组连续样本、复算补偿值或执行复位后重新初始化，因此 `SNS-01`
+仍为 `NOT_RUN`，`HW-001` 仍保持 `OPEN`。

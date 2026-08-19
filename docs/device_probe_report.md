@@ -98,3 +98,41 @@ S2 的 ADXL345 one-shot probe 仍只负责 scheduler 前的 `0xE5` 身份准入�
 XYZ coherent read；既有 single-register probe 路径不设置 multibyte bit，只有
 ADXL345 长度大于 1 的 block read 才增加 D6。Host mock 与 ARM 链接不把实物
 identity、INT1、轴方向、量程或振动响应提升为硬件结论。
+
+## P5-HW-SNS-00 实板补验（2026-08-19）
+
+本次以提交 `d48f2c75b048dc60320045233312ad6df050e88e` 为源代码基线，使用
+`P5_DEVICE_PROBE_SMOKE=ON` 的原始 one-shot probe ELF。该 ELF 的 SHA-256 为：
+
+```text
+d011125dfbf8b96702da03d8c808476687639610d3b59acb7f23b1f42b6f8c4d
+```
+
+宽松准入结果如下：
+
+- BME280 单模块连续 3 次复位均为 `BME=60/OK`；
+- VEML7700 单模块连续 3 次复位均为 `VEML=10/PRESENT`；
+- BME280 与 VEML7700 组合连续 3 次复位均通过；
+- 最终三模块拓扑连续 3 次复位均为
+  `BME=60/OK ADXL=E5/OK VEML=10/PRESENT`，每次均伴随 5 次 heartbeat。
+
+ADXL345 的通过结论只适用于最终三模块拓扑。去除 BME280 或隔离其 SCK
+分支时，ADXL345 返回了不稳定的非 `0xE5` 值；更换短直连 SCK、降低 SPI
+时钟到约 703 kHz/352 kHz、调整探测顺序均未消除该现象。隔离 BME280 的
+MISO 或 MOSI 时 ADXL345 仍可返回 `0xE5`。商家无法提供与实物 PCB 一致的
+原理图，因此当前把该现象限定为模块/SCK 电气依赖或未知 PCB 限制，不归因于
+已经证实的 SPI 协议或固件时序缺陷。
+
+```text
+bme280_identity_probe = PASS
+veml7700_address_register_probe = PASS
+adxl345_identity_final_topology = PASS
+shared_spi_final_topology = PASS
+adxl345_standalone_spi_robustness = NOT_CLAIMED
+sensor_functional_sampling = NOT_RUN
+hardware = PARTIAL_HARDWARE_EVIDENCE
+```
+
+临时诊断改动已恢复，原始 probe ELF 哈希已复核一致。本报告不保存设备序列号、
+完整串口日志或逐次原始数据；上述结果不替代连续采样、INT1/DATA_READY、量程、
+补偿一致性、响应趋势或计量精度验收。

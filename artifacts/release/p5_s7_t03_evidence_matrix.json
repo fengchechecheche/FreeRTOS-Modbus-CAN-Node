@@ -200,7 +200,7 @@
         "docs/bme280_report.md",
         "docs/device_probe_report.md"
       ],
-      "allowed_claim": "未执行 BME280 实物身份、SPI 波形、采样或精度检查。"
+      "allowed_claim": "未执行完整 BME280 硬件验收；P5-HW-SNS-00 仅通过最终拓扑下的 0x60 身份探针，连续采样、补偿一致性和精度仍未完成或不声明。"
     },
     {
       "id": "SNS-02",
@@ -220,7 +220,7 @@
         "docs/veml7700_report.md",
         "docs/device_probe_report.md"
       ],
-      "allowed_claim": "未执行 VEML7700 实物 ACK、采样、量程切换或精度检查。"
+      "allowed_claim": "未执行完整 VEML7700 硬件验收；P5-HW-SNS-00 仅通过 0x10 ACK/配置寄存器探针，连续采样、光照响应、量程行为和精度仍未完成或不声明。"
     },
     {
       "id": "SNS-03",
@@ -240,7 +240,7 @@
         "docs/adxl345_report.md",
         "docs/device_probe_report.md"
       ],
-      "allowed_claim": "未执行 ADXL345 实物 identity、DATA_READY、轴向或振动响应检查。"
+      "allowed_claim": "未执行完整 ADXL345 硬件验收；P5-HW-SNS-00 仅通过最终三模块拓扑下的 0xE5 identity，单模块 SPI 鲁棒性不声明，DATA_READY、轴向和振动响应仍未完成。"
     },
     {
       "id": "WDG-01",

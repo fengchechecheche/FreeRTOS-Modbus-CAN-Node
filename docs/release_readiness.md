@@ -26,7 +26,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | SW-001 | SW | CLOSED | SOURCE,BINARY,HARDWARE | Current Host, contracts, ARM builds, and static resource gate pass without firmware changes | P5-S7-T01 final validation summary |
 | REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
 | REPRO-002 | REPRO | CLOSED | BINARY,HARDWARE | `[047]` completed the independent no-network/no-cache Host, contract, ARM and resource replay | `docs/reproduction_report_repro_002.md`; `artifacts/release/p5_repro_002_replay.json`; REPRO-002 SHA-256 manifest |
-| HW-001 | HW | OPEN | HARDWARE | NUCLEO board admission and `WDG-01` passed; physical BME280, VEML7700 and ADXL345 checks are not complete | Run the frozen S4 sensor supplements when the sensors arrive |
+| HW-001 | HW | OPEN | HARDWARE | Narrow BME280/VEML7700 presence and final-topology ADXL345 identity probes passed; continuous sampling, response and ADXL345 interrupt checks are not complete | Run the remaining S4 sensor functional supplements |
 | HW-002 | HW | OPEN | HARDWARE | Physical USB-RS485 and Project Three interoperability are not complete | Run S5 hardware/integration supplement |
 | HW-003 | HW | OPEN | HARDWARE | Physical CAN, candleLight, bus-off, and dual-bus concurrency are not complete | Run S6 hardware supplements |
 | HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
@@ -92,9 +92,11 @@ REPRO-002 repeated the same bounded comparison and retained that limitation.
 
 The four hardware blockers remain open. NUCLEO-F446RE supplements passed the
 narrow `BSP-02` board-admission row and `WDG-01`, including normal health feed,
-one controlled IWDG reset and reset-only `.noinit` retention. `HW-001` remains
-open for the three sensors; physical buses and the 8-hour soak are not inferred
-from those bounded board results.
+one controlled IWDG reset and reset-only `.noinit` retention. P5-HW-SNS-00 also
+passed narrow BME280/VEML7700 presence and final-topology ADXL345 identity probes,
+but `HW-001` remains open for continuous samples, response checks and ADXL345
+DATA_READY/axis/vibration evidence. Physical buses and the 8-hour soak are not
+inferred from those bounded board results.
 
 ## Evidence matrix result
 

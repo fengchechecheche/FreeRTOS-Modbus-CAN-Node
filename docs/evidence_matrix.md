@@ -72,9 +72,9 @@ Cross-build PASS does not establish flashing, startup, timing or communication.
 |---|---|---|---|---|
 | BSP-01 | HOST | PASS | `docs/bsp_validation.md` | pin/clock/DMA/IRQ/safe-state/bus static contract passed |
 | BSP-02 | HARDWARE | PASS | `docs/bsp_validation.md` | NUCLEO-F446RE ST-LINK, flash/verify/reset, VCP boot, runtime clock, GPIO register state, limited scheduler smoke and one power cycle passed |
-| SNS-01 | HARDWARE | NOT_RUN | `docs/bme280_report.md` | BME280 identity, SPI sampling and accuracy were not run |
-| SNS-02 | HARDWARE | NOT_RUN | `docs/veml7700_report.md` | VEML7700 ACK, sampling, range and accuracy were not run |
-| SNS-03 | HARDWARE | NOT_RUN | `docs/adxl345_report.md` | ADXL345 identity, DATA_READY, axis and vibration checks were not run |
+| SNS-01 | HARDWARE | NOT_RUN | `docs/bme280_report.md` | `0x60` identity probe passed in the final topology; continuous sampling, compensation consistency and accuracy remain incomplete/not claimed |
+| SNS-02 | HARDWARE | NOT_RUN | `docs/veml7700_report.md` | `0x10` ACK/config probe passed; continuous sampling, light response, range behavior and accuracy remain incomplete/not claimed |
+| SNS-03 | HARDWARE | NOT_RUN | `docs/adxl345_report.md` | `0xE5` identity passed only in the final topology; standalone SPI robustness is not claimed and DATA_READY/axis/vibration checks remain incomplete |
 | WDG-01 | HARDWARE | PASS | `docs/health_recovery_report.md` | default health feed, one IWDG reset, reset-reason decode and reset-only `.noinit` retention passed; no power-loss claim |
 
 The three sensor drivers also have Host/cross-build software evidence inside
@@ -116,19 +116,26 @@ does not establish MCU acceptance or a physical ACK.
 The 20-iteration Host preflight is process-management evidence, not uptime or
 real-time resource-trend evidence.
 
+P5-HW-SNS-00 在基线 `d48f2c75b048dc60320045233312ad6df050e88e` 上以 SHA-256
+`d011125dfbf8b96702da03d8c808476687639610d3b59acb7f23b1f42b6f8c4d`
+的 one-shot probe ELF 完成最终三模块拓扑 3/3 身份/存在性准入。该补验不包含
+连续采样、补偿复算、光照响应、ADXL345 DATA_READY/轴向/振动响应或计量精度，
+且 ADXL345 单模块 SPI 鲁棒性保持 `NOT_CLAIMED`，因此 SNS-01..03 仍为
+`NOT_RUN`，矩阵总计仍为 `15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`。
+
 ## Release blocker projection
 
 | Blocker | Matrix rows | Current state |
 |---|---|---|
-| HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | OPEN; BSP-02 and WDG-01 passed, three sensors remain |
+| HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | OPEN; BSP-02 and WDG-01 passed, three sensor functional supplements remain |
 | HW-002 RS485 and Project Three | RS485-03, P3-01 | OPEN |
 | HW-003 CAN and physical dual bus | CAN-03, BUS-02 | OPEN |
 | HW-004 hardware soak | SOAK-02 | OPEN |
 
 The software source and both clean-reproduction blockers are closed. `BSP-02`
 now passes at its narrow board-admission layer and `WDG-01` passes at its
-bounded reset-only layer, but `HW-001` remains open for the three sensors. No
-other hardware blocker is closed.
+bounded reset-only layer, but `HW-001` remains open for three sensor functional
+supplements. No other hardware blocker is closed.
 
 ## Public and local evidence
 
