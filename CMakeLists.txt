@@ -9,6 +9,11 @@ option(P5_RTOS_SCHEDULER_SMOKE "Enable the bounded scheduler-start smoke" OFF)
 option(P5_IRQ_NOTIFICATION_SMOKE "Enable bounded DWT IRQ latency summaries" OFF)
 option(P5_IWDG_RESET_SMOKE "Enable one controlled IWDG reset smoke" OFF)
 option(P5_ADXL345_HIL_DIAGNOSTIC "Enable bounded ADXL345 HIL diagnostic output" OFF)
+option(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC "Route ADXL345 DATA_READY to INT2 for bounded HIL diagnosis" OFF)
+
+if(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC AND NOT P5_ADXL345_HIL_DIAGNOSTIC)
+  message(FATAL_ERROR "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC requires P5_ADXL345_HIL_DIAGNOSTIC=ON")
+endif()
 
 if(CMAKE_CROSSCOMPILING)
   if(P5_BUILD_HOST_TESTS)

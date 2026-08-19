@@ -443,7 +443,7 @@ bool adxl345_service(adxl345_t *driver,
     case ADXL345_STATE_MAP_INT1:
       if (adxl345_write_value(driver,
                               ADXL345_INT_MAP_REGISTER,
-                              ADXL345_INT_MAP_DATA_READY_INT1))
+                              ADXL345_INT_MAP_DATA_READY_TARGET))
       {
         driver->state = ADXL345_STATE_VERIFY_DATA_FORMAT;
       }
@@ -474,7 +474,10 @@ bool adxl345_service(adxl345_t *driver,
     case ADXL345_STATE_VERIFY_INT_MAP:
       if (adxl345_read_value(driver, ADXL345_INT_MAP_REGISTER, &value) &&
           adxl345_verify_or_recover(
-              driver, value, ADXL345_INT_DATA_READY, 0U))
+              driver,
+              value,
+              ADXL345_INT_DATA_READY,
+              ADXL345_INT_MAP_DATA_READY_TARGET))
       {
         driver->state = ADXL345_STATE_ENTER_MEASURE;
       }

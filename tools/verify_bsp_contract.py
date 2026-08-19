@@ -183,6 +183,10 @@ CHECKS: CheckTable = {
             "adxl hil diagnostic compile definition",
             "P5_ADXL345_HIL_DIAGNOSTIC_ENABLE=1",
         ),
+        (
+            "adxl int2 route diagnostic compile definition",
+            "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC_ENABLE=1",
+        ),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -232,6 +236,14 @@ CHECKS: CheckTable = {
         (
             "adxl hil diagnostic default off",
             'option(P5_ADXL345_HIL_DIAGNOSTIC "Enable bounded ADXL345 HIL diagnostic output" OFF)',
+        ),
+        (
+            "adxl int2 route diagnostic default off",
+            'option(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC "Route ADXL345 DATA_READY to INT2 for bounded HIL diagnosis" OFF)',
+        ),
+        (
+            "adxl int2 route diagnostic dependency",
+            "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC requires P5_ADXL345_HIL_DIAGNOSTIC=ON",
         ),
         ("ownership host test", "add_test(NAME p5.host.ownership"),
         ("health host test", "add_test(NAME p5.host.health"),
@@ -588,6 +600,18 @@ CHECKS: CheckTable = {
         ("adxl full resolution 4g", "#define ADXL345_DATA_FORMAT_FULL_RES_4G UINT8_C(0x09)"),
         ("adxl 100 sample window", "#define ADXL345_FEATURE_WINDOW_SAMPLES (100U)"),
         ("adxl bounded stall", "#define ADXL345_DATA_READY_STALL_MS UINT32_C(100)"),
+        (
+            "adxl int2 route compile switch",
+            "#if P5_ADXL345_INT2_ROUTE_DIAGNOSTIC_ENABLE",
+        ),
+        (
+            "adxl int2 data ready route",
+            "ADXL345_INT_MAP_DATA_READY_INT2 UINT8_C(0x80)",
+        ),
+        (
+            "adxl selected data ready route",
+            "ADXL345_INT_MAP_DATA_READY_TARGET",
+        ),
         ("adxl accumulator window", "adxl345_feature_window_t window;"),
     ],
     Path("sensors/src/adxl345.c"): [
@@ -595,6 +619,10 @@ CHECKS: CheckTable = {
         ("adxl integer square root", "adxl345_integer_root("),
         ("adxl bounded state service", "switch (driver->state)"),
         ("adxl coherent read", "ADXL345_DATAX0_REGISTER"),
+        (
+            "adxl selected interrupt route write",
+            "ADXL345_INT_MAP_DATA_READY_TARGET))",
+        ),
         ("adxl event coalesce", "event_count - 1U"),
     ],
     Path("app/include/app_adxl345.h"): [
@@ -674,6 +702,7 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("irq notification smoke default on", "P5_IRQ_NOTIFICATION_SMOKE \"Enable bounded DWT IRQ latency summaries\" ON"),
         ("iwdg reset smoke default on", "P5_IWDG_RESET_SMOKE \"Enable one controlled IWDG reset smoke\" ON"),
         ("adxl hil diagnostic default on", "P5_ADXL345_HIL_DIAGNOSTIC \"Enable bounded ADXL345 HIL diagnostic output\" ON"),
+        ("adxl int2 route diagnostic default on", "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC \"Route ADXL345 DATA_READY to INT2 for bounded HIL diagnosis\" ON"),
         ("production fault injection option", "P5_FAULT_INJECTION"),
     ],
     Path("config/FreeRTOSConfig.h"): [
@@ -1436,6 +1465,34 @@ def run_self_test(root: Path) -> int:
         print(
             "P5 BSP CONTRACT SELF-TEST: FAIL "
             "(default-on ADXL345 HIL diagnostic was not detected)"
+        )
+        return 2
+
+    expected_adxl_int2_route = (
+        'option(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC '
+        '"Route ADXL345 DATA_READY to INT2 for bounded HIL diagnosis" OFF)'
+    )
+    adxl_int2_route_mutant = original.replace(
+        expected_adxl_int2_route,
+        expected_adxl_int2_route[:-4] + "ON)",
+        1,
+    )
+    if adxl_int2_route_mutant == original:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create default-on ADXL345 INT2 route mutant)"
+        )
+        return 2
+    adxl_int2_route_errors, _ = verify(
+        root, {cmake_path: adxl_int2_route_mutant}
+    )
+    if not any(
+        "adxl int2 route diagnostic default on" in item
+        for item in adxl_int2_route_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(default-on ADXL345 INT2 route diagnostic was not detected)"
         )
         return 2
 
