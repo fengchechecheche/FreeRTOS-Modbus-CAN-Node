@@ -369,9 +369,10 @@ static void adxl345_publish_sample(adxl345_t *driver,
   }
 }
 
-bool adxl345_service(adxl345_t *driver,
-                     uint32_t now_ms,
-                     uint32_t data_ready_event_count)
+static bool adxl345_service_internal(adxl345_t *driver,
+                                     uint32_t now_ms,
+                                     uint32_t data_ready_event_count,
+                                     bool count_as_irq)
 {
   if ((driver == NULL) || (driver->ops.read == NULL) ||
       (driver->ops.write == NULL))
@@ -518,7 +519,10 @@ bool adxl345_service(adxl345_t *driver,
       if (data_ready_event_count != 0U)
       {
         uint8_t data[ADXL345_DATA_LENGTH];
-        adxl345_note_events(driver, data_ready_event_count);
+        if (count_as_irq)
+        {
+          adxl345_note_events(driver, data_ready_event_count);
+        }
         const adxl345_transport_result_t result = driver->ops.read(
             driver->ops.context,
             ADXL345_DATAX0_REGISTER,
@@ -550,6 +554,20 @@ bool adxl345_service(adxl345_t *driver,
     default:
       return true;
   }
+}
+
+bool adxl345_service(adxl345_t *driver,
+                     uint32_t now_ms,
+                     uint32_t data_ready_event_count)
+{
+  return adxl345_service_internal(
+      driver, now_ms, data_ready_event_count, true);
+}
+
+bool adxl345_service_polled_data_ready(adxl345_t *driver,
+                                       uint32_t now_ms)
+{
+  return adxl345_service_internal(driver, now_ms, 1U, false);
 }
 
 bool adxl345_request_reinitialize(adxl345_t *driver)

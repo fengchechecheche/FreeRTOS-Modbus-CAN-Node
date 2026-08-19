@@ -6,6 +6,10 @@
 
 #include "adxl345.h"
 
+#ifndef P5_ADXL345_POLLING_DIAGNOSTIC_ENABLE
+#define P5_ADXL345_POLLING_DIAGNOSTIC_ENABLE (0)
+#endif
+
 #define APP_ADXL345_SPI_TIMEOUT_MS UINT32_C(5)
 
 typedef struct
@@ -35,6 +39,14 @@ typedef struct
   uint8_t int_source;
 } app_adxl345_register_diagnostic_t;
 
+typedef struct
+{
+  uint32_t attempt_count;
+  uint32_t ready_count;
+  uint32_t error_count;
+  uint8_t last_int_source;
+} app_adxl345_polling_diagnostic_t;
+
 void app_adxl345_initialize(void);
 void app_adxl345_service(uint32_t now_ms,
                          uint32_t data_ready_event_count);
@@ -43,5 +55,7 @@ bool app_adxl345_get_snapshot(app_adxl345_snapshot_t *snapshot);
 void app_adxl345_capture_register_diagnostic_once(void);
 bool app_adxl345_get_register_diagnostic(
     app_adxl345_register_diagnostic_t *diagnostic);
+bool app_adxl345_get_polling_diagnostic(
+    app_adxl345_polling_diagnostic_t *diagnostic);
 
 #endif

@@ -357,6 +357,26 @@ static int test_stall_recovery_and_tick_wrap(void)
   return EXIT_SUCCESS;
 }
 
+static int test_polled_data_ready_does_not_increment_irq(void)
+{
+  mock_bus_t bus;
+  adxl345_t driver;
+  const adxl345_config_t config = {{0, 0, 0}, false};
+  mock_initialize(&bus);
+  CHECK(initialize_driver(&driver, &bus, &config, 0U));
+  set_sample(&bus, 16, -32, 256);
+
+  CHECK(adxl345_service_polled_data_ready(&driver, 20U));
+  CHECK(driver.status == ADXL345_STATUS_VALID);
+  CHECK(driver.sample.sequence == 1U);
+  CHECK(driver.sample.raw_xyz[0] == 16);
+  CHECK(driver.sample.raw_xyz[1] == -32);
+  CHECK(driver.sample.raw_xyz[2] == 256);
+  CHECK(driver.irq_event_count == 0U);
+  CHECK(bus.data_read_count == 1U);
+  return EXIT_SUCCESS;
+}
+
 static int test_read_error_gap_and_recovery_success(void)
 {
   mock_bus_t bus;
@@ -394,6 +414,7 @@ int main(void)
   CHECK(test_event_admission_and_drop_lower_bound() == EXIT_SUCCESS);
   CHECK(test_identity_configuration_and_transport_failures() == EXIT_SUCCESS);
   CHECK(test_stall_recovery_and_tick_wrap() == EXIT_SUCCESS);
+  CHECK(test_polled_data_ready_does_not_increment_irq() == EXIT_SUCCESS);
   CHECK(test_read_error_gap_and_recovery_success() == EXIT_SUCCESS);
   return EXIT_SUCCESS;
 }

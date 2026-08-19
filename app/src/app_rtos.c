@@ -131,6 +131,10 @@ static app_adxl345_register_diagnostic_t
     app_rtos_adxl345_register_owner;
 static app_adxl345_register_diagnostic_t
     app_rtos_adxl345_register_snapshot;
+static app_adxl345_polling_diagnostic_t
+    app_rtos_adxl345_polling_owner;
+static app_adxl345_polling_diagnostic_t
+    app_rtos_adxl345_polling_snapshot;
 #endif
 static uint32_t app_rtos_modbus_image_generation;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
@@ -328,6 +332,8 @@ static void app_rtos_update_measurement_snapshot(uint32_t now_ms)
     app_rtos_adxl345_snapshot = app_rtos_measurement_inputs.adxl345;
     app_rtos_adxl345_register_snapshot =
         app_rtos_adxl345_register_owner;
+    app_rtos_adxl345_polling_snapshot =
+        app_rtos_adxl345_polling_owner;
 #endif
     ++app_rtos_modbus_image_generation;
     app_rtos_snapshot_give();
@@ -342,6 +348,8 @@ static void app_rtos_acquisition_periodic_service(void)
   app_adxl345_capture_register_diagnostic_once();
   (void)app_adxl345_get_register_diagnostic(
       &app_rtos_adxl345_register_owner);
+  (void)app_adxl345_get_polling_diagnostic(
+      &app_rtos_adxl345_polling_owner);
 #endif
   app_bme280_service(now_ms);
   app_veml7700_service(now_ms);
@@ -1031,12 +1039,14 @@ static void app_rtos_adxl345_hil_diagnostic_service(void)
 
   app_adxl345_snapshot_t snapshot;
   app_adxl345_register_diagnostic_t registers;
+  app_adxl345_polling_diagnostic_t polling;
   if (!app_rtos_snapshot_take(false))
   {
     return;
   }
   snapshot = app_rtos_adxl345_snapshot;
   registers = app_rtos_adxl345_register_snapshot;
+  polling = app_rtos_adxl345_polling_snapshot;
   app_rtos_snapshot_give();
   const unsigned int int1_level =
       HAL_GPIO_ReadPin(ADXL345_INT1_GPIO_Port, ADXL345_INT1_Pin) ==
@@ -1049,6 +1059,7 @@ static void app_rtos_adxl345_hil_diagnostic_service(void)
       sizeof(app_rtos_adxl345_hil_report),
       "P5ADXL1 t=%lu st=%s sm=%s last=%s tr=%s txn=%lu int1=%u "
       "regs=%02X/%02X/%02X/%02X regok=%u "
+      "poll=%lu/%lu/%lu psrc=%02X "
       "sseq=%lu irq=%lu drop=%lu "
       "x=%ld y=%ld z=%ld fseq=%lu rms=%lu/%lu/%lu "
       "peak=%lu/%lu/%lu rrms=%lu err=%lu rec=%lu/%lu\r\n",
@@ -1064,6 +1075,10 @@ static void app_rtos_adxl345_hil_diagnostic_service(void)
       (unsigned int)registers.int_map,
       (unsigned int)registers.int_source,
       registers.attempted && registers.valid ? 1U : 0U,
+      (unsigned long)polling.attempt_count,
+      (unsigned long)polling.ready_count,
+      (unsigned long)polling.error_count,
+      (unsigned int)polling.last_int_source,
       (unsigned long)snapshot.sample.sequence,
       (unsigned long)snapshot.irq_event_count,
       (unsigned long)snapshot.dropped_sample_lower_bound,
@@ -1362,6 +1377,10 @@ app_rtos_status_t app_rtos_initialize(void)
       (app_adxl345_register_diagnostic_t){0};
   app_rtos_adxl345_register_snapshot =
       (app_adxl345_register_diagnostic_t){0};
+  app_rtos_adxl345_polling_owner =
+      (app_adxl345_polling_diagnostic_t){0};
+  app_rtos_adxl345_polling_snapshot =
+      (app_adxl345_polling_diagnostic_t){0};
 #endif
 #if P5_IWDG_RESET_SMOKE_ENABLE
   app_rtos_iwdg_smoke_completed = false;

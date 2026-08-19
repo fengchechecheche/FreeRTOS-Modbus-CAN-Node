@@ -180,6 +180,8 @@ bool adxl345_initialize(adxl345_t *driver,
 bool adxl345_service(adxl345_t *driver,
                      uint32_t now_ms,
                      uint32_t data_ready_event_count);
+bool adxl345_service_polled_data_ready(adxl345_t *driver,
+                                       uint32_t now_ms);
 bool adxl345_request_reinitialize(adxl345_t *driver);
 bool adxl345_get_sample(const adxl345_t *driver, adxl345_sample_t *sample);
 bool adxl345_get_feature(const adxl345_t *driver,

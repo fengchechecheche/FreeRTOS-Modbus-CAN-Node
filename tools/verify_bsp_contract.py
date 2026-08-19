@@ -187,6 +187,10 @@ CHECKS: CheckTable = {
             "adxl int2 route diagnostic compile definition",
             "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC_ENABLE=1",
         ),
+        (
+            "adxl polling diagnostic compile definition",
+            "P5_ADXL345_POLLING_DIAGNOSTIC_ENABLE=1",
+        ),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -244,6 +248,18 @@ CHECKS: CheckTable = {
         (
             "adxl int2 route diagnostic dependency",
             "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC requires P5_ADXL345_HIL_DIAGNOSTIC=ON",
+        ),
+        (
+            "adxl polling diagnostic default off",
+            'option(P5_ADXL345_POLLING_DIAGNOSTIC "Poll ADXL345 DATA_READY for bounded HIL diagnosis" OFF)',
+        ),
+        (
+            "adxl polling diagnostic dependency",
+            "P5_ADXL345_POLLING_DIAGNOSTIC requires P5_ADXL345_HIL_DIAGNOSTIC=ON",
+        ),
+        (
+            "adxl diagnostic modes mutually exclusive",
+            "ADXL345 polling and INT2 route diagnostics are mutually exclusive",
         ),
         ("ownership host test", "add_test(NAME p5.host.ownership"),
         ("health host test", "add_test(NAME p5.host.health"),
@@ -390,6 +406,10 @@ CHECKS: CheckTable = {
         (
             "adxl hil register frame",
             '"regs=%02X/%02X/%02X/%02X regok=%u "',
+        ),
+        (
+            "adxl hil polling frame",
+            '"poll=%lu/%lu/%lu psrc=%02X "',
         ),
         ("adxl hil one second interval", "APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)"),
         ("adxl hil bounded report count", "APP_ADXL345_HIL_REPORT_LIMIT UINT32_C(180)"),
@@ -612,6 +632,10 @@ CHECKS: CheckTable = {
             "adxl selected data ready route",
             "ADXL345_INT_MAP_DATA_READY_TARGET",
         ),
+        (
+            "adxl polled service api",
+            "bool adxl345_service_polled_data_ready(",
+        ),
         ("adxl accumulator window", "adxl345_feature_window_t window;"),
     ],
     Path("sensors/src/adxl345.c"): [
@@ -624,6 +648,10 @@ CHECKS: CheckTable = {
             "ADXL345_INT_MAP_DATA_READY_TARGET))",
         ),
         ("adxl event coalesce", "event_count - 1U"),
+        (
+            "adxl polled service does not count irq",
+            "driver, now_ms, 1U, false",
+        ),
     ],
     Path("app/include/app_adxl345.h"): [
         ("adxl spi timeout", "#define APP_ADXL345_SPI_TIMEOUT_MS UINT32_C(5)"),
@@ -639,6 +667,14 @@ CHECKS: CheckTable = {
         (
             "adxl register diagnostic read api",
             "bool app_adxl345_get_register_diagnostic(",
+        ),
+        (
+            "adxl polling diagnostic type",
+            "app_adxl345_polling_diagnostic_t;",
+        ),
+        (
+            "adxl polling diagnostic read api",
+            "bool app_adxl345_get_polling_diagnostic(",
         ),
     ],
     Path("app/src/app_adxl345.c"): [
@@ -663,6 +699,18 @@ CHECKS: CheckTable = {
         (
             "adxl register diagnostic publish",
             "app_adxl345_register_diagnostic = next;",
+        ),
+        (
+            "adxl polling diagnostic switch",
+            "#if P5_ADXL345_POLLING_DIAGNOSTIC_ENABLE",
+        ),
+        (
+            "adxl polling reads interrupt source",
+            "APP_ADXL345_INT_SOURCE_REGISTER,",
+        ),
+        (
+            "adxl polling uses distinct driver service",
+            "adxl345_service_polled_data_ready(",
         ),
     ],
     Path("bsp/src/bsp_spi_bus.c"): [
@@ -703,6 +751,7 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("iwdg reset smoke default on", "P5_IWDG_RESET_SMOKE \"Enable one controlled IWDG reset smoke\" ON"),
         ("adxl hil diagnostic default on", "P5_ADXL345_HIL_DIAGNOSTIC \"Enable bounded ADXL345 HIL diagnostic output\" ON"),
         ("adxl int2 route diagnostic default on", "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC \"Route ADXL345 DATA_READY to INT2 for bounded HIL diagnosis\" ON"),
+        ("adxl polling diagnostic default on", "P5_ADXL345_POLLING_DIAGNOSTIC \"Poll ADXL345 DATA_READY for bounded HIL diagnosis\" ON"),
         ("production fault injection option", "P5_FAULT_INJECTION"),
     ],
     Path("config/FreeRTOSConfig.h"): [
@@ -1496,6 +1545,34 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    expected_adxl_polling = (
+        'option(P5_ADXL345_POLLING_DIAGNOSTIC '
+        '"Poll ADXL345 DATA_READY for bounded HIL diagnosis" OFF)'
+    )
+    adxl_polling_mutant = original.replace(
+        expected_adxl_polling,
+        expected_adxl_polling[:-4] + "ON)",
+        1,
+    )
+    if adxl_polling_mutant == original:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create default-on ADXL345 polling mutant)"
+        )
+        return 2
+    adxl_polling_errors, _ = verify(
+        root, {cmake_path: adxl_polling_mutant}
+    )
+    if not any(
+        "adxl polling diagnostic default on" in item
+        for item in adxl_polling_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(default-on ADXL345 polling diagnostic was not detected)"
+        )
+        return 2
+
     second_feed_mutant = original_rtos + "\nbsp_watchdog_refresh();\n"
     second_feed_errors, _ = verify(root, {rtos_path: second_feed_mutant})
     if not any("single watchdog refresh" in item for item in second_feed_errors):
@@ -1844,7 +1921,8 @@ def run_self_test(root: Path) -> int:
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
         "callback-work, queue-depth, blocking-wait, dynamic-queue and "
         "callback-queue, one-epoch-stall, recovery-budget, degraded-feed, "
-        "task-delete, default-on-reset-smoke, default-on-adxl-hil, second-feed, "
+        "task-delete, default-on-reset-smoke, default-on-adxl-hil, "
+        "default-on-adxl-polling, second-feed, "
         "BME-HAL-delay, BME-loop, "
         "second-SPI-owner, BME-mutex, VEML-HAL-delay, VEML-loop, "
         "second-I2C-owner, VEML-mutex, ADXL-priority, ADXL-recovery, "

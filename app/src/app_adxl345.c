@@ -10,6 +10,8 @@ static adxl345_t app_adxl345_driver;
 static app_adxl345_snapshot_t app_adxl345_snapshot;
 static app_adxl345_register_diagnostic_t
     app_adxl345_register_diagnostic;
+static app_adxl345_polling_diagnostic_t
+    app_adxl345_polling_diagnostic;
 
 static adxl345_transport_result_t app_adxl345_map_transport(
     bsp_spi_bus_result_t result)
@@ -98,6 +100,9 @@ void app_adxl345_initialize(void)
   (void)memset(&app_adxl345_register_diagnostic,
                0,
                sizeof(app_adxl345_register_diagnostic));
+  (void)memset(&app_adxl345_polling_diagnostic,
+               0,
+               sizeof(app_adxl345_polling_diagnostic));
   (void)adxl345_initialize(&app_adxl345_driver, &ops, &config);
   app_adxl345_update_snapshot();
 }
@@ -105,6 +110,35 @@ void app_adxl345_initialize(void)
 void app_adxl345_service(uint32_t now_ms,
                          uint32_t data_ready_event_count)
 {
+#if P5_ADXL345_POLLING_DIAGNOSTIC_ENABLE
+  if ((data_ready_event_count == 0U) &&
+      (app_adxl345_driver.state == ADXL345_STATE_WAIT_DATA_READY))
+  {
+    uint8_t int_source = 0U;
+    ++app_adxl345_polling_diagnostic.attempt_count;
+    const bsp_spi_bus_result_t result = bsp_spi_bus_read_register(
+        BSP_SPI_DEVICE_ADXL345,
+        APP_ADXL345_INT_SOURCE_REGISTER,
+        &int_source,
+        APP_ADXL345_SPI_TIMEOUT_MS);
+    if (result == BSP_SPI_BUS_RESULT_OK)
+    {
+      app_adxl345_polling_diagnostic.last_int_source = int_source;
+      if ((int_source & ADXL345_INT_DATA_READY) != 0U)
+      {
+        ++app_adxl345_polling_diagnostic.ready_count;
+        (void)adxl345_service_polled_data_ready(
+            &app_adxl345_driver, now_ms);
+        app_adxl345_update_snapshot();
+        return;
+      }
+    }
+    else
+    {
+      ++app_adxl345_polling_diagnostic.error_count;
+    }
+  }
+#endif
   (void)adxl345_service(
       &app_adxl345_driver, now_ms, data_ready_event_count);
   app_adxl345_update_snapshot();
@@ -175,5 +209,16 @@ bool app_adxl345_get_register_diagnostic(
     return false;
   }
   *diagnostic = app_adxl345_register_diagnostic;
+  return true;
+}
+
+bool app_adxl345_get_polling_diagnostic(
+    app_adxl345_polling_diagnostic_t *diagnostic)
+{
+  if (diagnostic == NULL)
+  {
+    return false;
+  }
+  *diagnostic = app_adxl345_polling_diagnostic;
   return true;
 }
