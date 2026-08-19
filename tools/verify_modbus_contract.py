@@ -321,7 +321,7 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
             "never auto-scanned",
         ),
         Path("docs/modbus_hil_report.md"): (
-            "`WAITING_FOR_HARDWARE`",
+            "`FAIL_HARDWARE_RETURN_PATH / WAITING_FOR_CROSS_CHECK`",
             "serial NOT_OPENED",
             "249 B",
             "H01",

@@ -179,6 +179,10 @@ CHECKS: CheckTable = {
         ("adxl adapter source", "app/src/app_adxl345.c"),
         ("adxl irq source", "bsp/src/bsp_adxl345_irq.c"),
         ("sensor monitor source", "app/src/app_sensor_monitor.c"),
+        (
+            "adxl hil diagnostic compile definition",
+            "P5_ADXL345_HIL_DIAGNOSTIC_ENABLE=1",
+        ),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -224,6 +228,10 @@ CHECKS: CheckTable = {
         (
             "iwdg reset smoke default off",
             'option(P5_IWDG_RESET_SMOKE "Enable one controlled IWDG reset smoke" OFF)',
+        ),
+        (
+            "adxl hil diagnostic default off",
+            'option(P5_ADXL345_HIL_DIAGNOSTIC "Enable bounded ADXL345 HIL diagnostic output" OFF)',
         ),
         ("ownership host test", "add_test(NAME p5.host.ownership"),
         ("health host test", "add_test(NAME p5.host.health"),
@@ -343,6 +351,20 @@ CHECKS: CheckTable = {
         ("partial frame one tick bound", "wait_ticks > (TickType_t)1U"),
         ("legacy smoke compile switch", "#if P5_RS485_LOOPBACK_SMOKE_ENABLE"),
         ("iwdg reset smoke compile switch", "#if P5_IWDG_RESET_SMOKE_ENABLE"),
+        ("adxl hil compile switch", "#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE"),
+        ("adxl hil frame schema", '"P5ADXL1 t=%lu st=%s sseq=%lu irq=%lu drop=%lu "'),
+        ("adxl hil one second interval", "APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)"),
+        ("adxl hil bounded report count", "APP_ADXL345_HIL_REPORT_LIMIT UINT32_C(180)"),
+    ],
+    Path("app/src/app_task_model.c"): [
+        (
+            "adxl hil bounded diagnostic budget",
+            "APP_TASK_DIAGNOSTIC_EXECUTION_BUDGET_MS (30U)",
+        ),
+        (
+            "default diagnostic budget retained",
+            "APP_TASK_DIAGNOSTIC_EXECUTION_BUDGET_MS (2U)",
+        ),
     ],
     Path("app/src/app_boot.c"): [
         ("cycle counter startup", "bsp_clock_cycle_counter_initialize()"),
@@ -594,6 +616,7 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("scheduler smoke default on", "P5_RTOS_SCHEDULER_SMOKE \"Enable the bounded scheduler-start smoke\" ON"),
         ("irq notification smoke default on", "P5_IRQ_NOTIFICATION_SMOKE \"Enable bounded DWT IRQ latency summaries\" ON"),
         ("iwdg reset smoke default on", "P5_IWDG_RESET_SMOKE \"Enable one controlled IWDG reset smoke\" ON"),
+        ("adxl hil diagnostic default on", "P5_ADXL345_HIL_DIAGNOSTIC \"Enable bounded ADXL345 HIL diagnostic output\" ON"),
         ("production fault injection option", "P5_FAULT_INJECTION"),
     ],
     Path("config/FreeRTOSConfig.h"): [
@@ -1333,6 +1356,32 @@ def run_self_test(root: Path) -> int:
         )
         return 2
 
+    expected_adxl_hil = (
+        'option(P5_ADXL345_HIL_DIAGNOSTIC '
+        '"Enable bounded ADXL345 HIL diagnostic output" OFF)'
+    )
+    adxl_hil_mutant = original.replace(
+        expected_adxl_hil,
+        expected_adxl_hil[:-4] + "ON)",
+        1,
+    )
+    if adxl_hil_mutant == original:
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(could not create default-on ADXL345 HIL mutant)"
+        )
+        return 2
+    adxl_hil_errors, _ = verify(root, {cmake_path: adxl_hil_mutant})
+    if not any(
+        "adxl hil diagnostic default on" in item
+        for item in adxl_hil_errors
+    ):
+        print(
+            "P5 BSP CONTRACT SELF-TEST: FAIL "
+            "(default-on ADXL345 HIL diagnostic was not detected)"
+        )
+        return 2
+
     second_feed_mutant = original_rtos + "\nbsp_watchdog_refresh();\n"
     second_feed_errors, _ = verify(root, {rtos_path: second_feed_mutant})
     if not any("single watchdog refresh" in item for item in second_feed_errors):
@@ -1681,7 +1730,8 @@ def run_self_test(root: Path) -> int:
         "(unsafe-option, legacy-SysTick, priority-group, IRQ-priority and "
         "callback-work, queue-depth, blocking-wait, dynamic-queue and "
         "callback-queue, one-epoch-stall, recovery-budget, degraded-feed, "
-        "task-delete, default-on-reset-smoke, second-feed, BME-HAL-delay, BME-loop, "
+        "task-delete, default-on-reset-smoke, default-on-adxl-hil, second-feed, "
+        "BME-HAL-delay, BME-loop, "
         "second-SPI-owner, BME-mutex, VEML-HAL-delay, VEML-loop, "
         "second-I2C-owner, VEML-mutex, ADXL-priority, ADXL-recovery, "
         "ADXL-loop, ADXL-multibyte, ADXL-callback, measurement-field-ID, "

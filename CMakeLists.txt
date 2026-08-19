@@ -8,6 +8,7 @@ option(P5_DEVICE_PROBE_SMOKE "Enable the one-shot SPI/I2C device probe" OFF)
 option(P5_RTOS_SCHEDULER_SMOKE "Enable the bounded scheduler-start smoke" OFF)
 option(P5_IRQ_NOTIFICATION_SMOKE "Enable bounded DWT IRQ latency summaries" OFF)
 option(P5_IWDG_RESET_SMOKE "Enable one controlled IWDG reset smoke" OFF)
+option(P5_ADXL345_HIL_DIAGNOSTIC "Enable bounded ADXL345 HIL diagnostic output" OFF)
 
 if(CMAKE_CROSSCOMPILING)
   if(P5_BUILD_HOST_TESTS)

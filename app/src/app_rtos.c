@@ -1,6 +1,13 @@
 #include "app_rtos.h"
 
+#ifndef P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#define P5_ADXL345_HIL_DIAGNOSTIC_ENABLE (0)
+#endif
+
 #include <stddef.h>
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#include <stdio.h>
+#endif
 
 #include "FreeRTOS.h"
 #include "app_adxl345.h"
@@ -27,6 +34,9 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
 #include "task.h"
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#include "usart.h"
+#endif
 
 #ifndef P5_IRQ_NOTIFICATION_SMOKE_ENABLE
 #define P5_IRQ_NOTIFICATION_SMOKE_ENABLE (0)
@@ -48,6 +58,12 @@
 #define APP_CAN_EVENT_RECOVERED UINT16_C(0x0303)
 #define APP_IWDG_SMOKE_PRIME_FEEDS UINT32_C(3)
 #define APP_IWDG_STABLE_FEEDS UINT32_C(5)
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#define APP_ADXL345_HIL_REPORT_CAPACITY (320U)
+#define APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)
+#define APP_ADXL345_HIL_REPORT_LIMIT UINT32_C(180)
+#define APP_ADXL345_HIL_UART_TIMEOUT_MS UINT32_C(100)
+#endif
 
 _Static_assert(sizeof(StackType_t) == APP_RESOURCE_STACK_WORD_BYTES,
                "resource budget assumes 32-bit FreeRTOS stack words");
@@ -105,6 +121,12 @@ static app_measurement_inputs_t app_rtos_measurement_inputs;
 static app_measurement_snapshot_t app_rtos_measurement_snapshot;
 static app_sensor_monitor_t app_rtos_sensor_monitor;
 static app_sensor_monitor_snapshot_t app_rtos_sensor_monitor_snapshot;
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+static app_adxl345_snapshot_t app_rtos_adxl345_snapshot;
+static uint32_t app_rtos_adxl345_hil_last_report_ms;
+static uint32_t app_rtos_adxl345_hil_report_count;
+static char app_rtos_adxl345_hil_report[APP_ADXL345_HIL_REPORT_CAPACITY];
+#endif
 static uint32_t app_rtos_modbus_image_generation;
 static volatile uint32_t app_rtos_current_fault_code = APP_RTOS_FAULT_NONE;
 static bsp_rs485_irq_latency_summary_t app_rtos_irq_latency_summary;
@@ -297,6 +319,9 @@ static void app_rtos_update_measurement_snapshot(uint32_t now_ms)
                                        &app_rtos_measurement_snapshot);
     (void)app_sensor_monitor_get_snapshot(
         &app_rtos_sensor_monitor, &app_rtos_sensor_monitor_snapshot);
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+    app_rtos_adxl345_snapshot = app_rtos_measurement_inputs.adxl345;
+#endif
     ++app_rtos_modbus_image_generation;
     app_rtos_snapshot_give();
   }
@@ -882,6 +907,105 @@ static void app_rtos_health_service(void)
   }
 }
 
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+static const char *app_rtos_adxl345_status_token(adxl345_status_t status)
+{
+  switch (status)
+  {
+    case ADXL345_STATUS_UNINITIALIZED:
+      return "UNINIT";
+    case ADXL345_STATUS_INITIALIZING:
+      return "INIT";
+    case ADXL345_STATUS_VALID:
+      return "VALID";
+    case ADXL345_STATUS_WRONG_ID:
+      return "WRONG_ID";
+    case ADXL345_STATUS_TRANSPORT_INVALID_ARGUMENT:
+      return "ARG";
+    case ADXL345_STATUS_TRANSPORT_BUSY:
+      return "BUSY";
+    case ADXL345_STATUS_TRANSPORT_TIMEOUT:
+      return "TIMEOUT";
+    case ADXL345_STATUS_TRANSPORT_IO_ERROR:
+      return "IO_ERROR";
+    case ADXL345_STATUS_CONFIGURATION_MISMATCH:
+      return "CFG_ERROR";
+    case ADXL345_STATUS_DATA_READY_STALLED:
+      return "STALLED";
+    case ADXL345_STATUS_RECOVERY_REQUIRED:
+      return "RECOVERY";
+    case ADXL345_STATUS_OFFLINE:
+      return "OFFLINE";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+static void app_rtos_adxl345_hil_diagnostic_service(void)
+{
+  if (app_rtos_adxl345_hil_report_count >= APP_ADXL345_HIL_REPORT_LIMIT)
+  {
+    return;
+  }
+
+  const uint32_t now_ms = (uint32_t)xTaskGetTickCount();
+  if (!bsp_clock_interval_elapsed(now_ms,
+                                  app_rtos_adxl345_hil_last_report_ms,
+                                  APP_ADXL345_HIL_REPORT_INTERVAL_MS))
+  {
+    return;
+  }
+
+  app_adxl345_snapshot_t snapshot;
+  if (!app_rtos_snapshot_take(false))
+  {
+    return;
+  }
+  snapshot = app_rtos_adxl345_snapshot;
+  app_rtos_snapshot_give();
+
+  const int written = snprintf(
+      app_rtos_adxl345_hil_report,
+      sizeof(app_rtos_adxl345_hil_report),
+      "P5ADXL1 t=%lu st=%s sseq=%lu irq=%lu drop=%lu "
+      "x=%ld y=%ld z=%ld fseq=%lu rms=%lu/%lu/%lu "
+      "peak=%lu/%lu/%lu rrms=%lu err=%lu rec=%lu/%lu\r\n",
+      (unsigned long)now_ms,
+      app_rtos_adxl345_status_token(snapshot.status),
+      (unsigned long)snapshot.sample.sequence,
+      (unsigned long)snapshot.irq_event_count,
+      (unsigned long)snapshot.dropped_sample_lower_bound,
+      (long)snapshot.sample.acceleration_millig[0],
+      (long)snapshot.sample.acceleration_millig[1],
+      (long)snapshot.sample.acceleration_millig[2],
+      (unsigned long)snapshot.feature.sequence,
+      (unsigned long)snapshot.feature.rms_millig[0],
+      (unsigned long)snapshot.feature.rms_millig[1],
+      (unsigned long)snapshot.feature.rms_millig[2],
+      (unsigned long)snapshot.feature.peak_abs_millig[0],
+      (unsigned long)snapshot.feature.peak_abs_millig[1],
+      (unsigned long)snapshot.feature.peak_abs_millig[2],
+      (unsigned long)snapshot.feature.resultant_rms_millig,
+      (unsigned long)snapshot.error_count,
+      (unsigned long)snapshot.recovery_request_count,
+      (unsigned long)snapshot.recovery_success_count);
+
+  app_rtos_adxl345_hil_last_report_ms = now_ms;
+  ++app_rtos_adxl345_hil_report_count;
+  if (written > 0)
+  {
+    const size_t report_length =
+        (size_t)written < sizeof(app_rtos_adxl345_hil_report)
+            ? (size_t)written
+            : (sizeof(app_rtos_adxl345_hil_report) - 1U);
+    (void)HAL_UART_Transmit(&huart2,
+                            (uint8_t *)app_rtos_adxl345_hil_report,
+                            (uint16_t)report_length,
+                            APP_ADXL345_HIL_UART_TIMEOUT_MS);
+  }
+}
+#endif
+
 static void app_rtos_diagnostic_service(void)
 {
   size_t drained_count = 0U;
@@ -898,6 +1022,9 @@ static void app_rtos_diagnostic_service(void)
   taskEXIT_CRITICAL();
 
   app_boot_diagnostic_service();
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+  app_rtos_adxl345_hil_diagnostic_service();
+#endif
 }
 
 static _Noreturn void app_rtos_run_periodic(app_task_id_t id,
@@ -1136,6 +1263,10 @@ app_rtos_status_t app_rtos_initialize(void)
 
   app_rtos_watchdog_feed_count = 0U;
   app_rtos_reset_record_stable = false;
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+  app_rtos_adxl345_hil_last_report_ms = 0U;
+  app_rtos_adxl345_hil_report_count = 0U;
+#endif
 #if P5_IWDG_RESET_SMOKE_ENABLE
   app_rtos_iwdg_smoke_completed = false;
   app_rtos_iwdg_smoke_withholding = false;

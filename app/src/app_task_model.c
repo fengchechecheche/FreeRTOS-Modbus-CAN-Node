@@ -2,6 +2,16 @@
 
 #include <limits.h>
 
+#ifndef P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#define P5_ADXL345_HIL_DIAGNOSTIC_ENABLE (0)
+#endif
+
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#define APP_TASK_DIAGNOSTIC_EXECUTION_BUDGET_MS (30U)
+#else
+#define APP_TASK_DIAGNOSTIC_EXECUTION_BUDGET_MS (2U)
+#endif
+
 #define APP_TASK_MAX_PRIORITIES (6U)
 
 static const app_task_contract_t app_task_contracts[APP_TASK_COUNT] = {
@@ -9,7 +19,12 @@ static const app_task_contract_t app_task_contracts[APP_TASK_COUNT] = {
     {APP_TASK_ACQUISITION, "acquisition_task", 4U, 20U, 20U, 2U},
     {APP_TASK_CAN, "can_task", 3U, 100U, 100U, 2U},
     {APP_TASK_HEALTH, "health_task", 2U, 1000U, 1000U, 5U},
-    {APP_TASK_DIAGNOSTIC, "diagnostic_task", 1U, 200U, 200U, 2U},
+    {APP_TASK_DIAGNOSTIC,
+     "diagnostic_task",
+     1U,
+     200U,
+     200U,
+     APP_TASK_DIAGNOSTIC_EXECUTION_BUDGET_MS},
 };
 
 _Static_assert((sizeof(app_task_contracts) / sizeof(app_task_contracts[0])) ==
