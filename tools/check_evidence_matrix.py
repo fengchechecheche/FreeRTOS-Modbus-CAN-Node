@@ -369,7 +369,6 @@ def run_self_test() -> int:
             )
             + "\n",
             encoding="utf-8",
-            newline="\n",
         )
         projection = {
             "matrix_baseline": "2" * 40,
@@ -430,7 +429,9 @@ def main() -> int:
     print(
         "P5 EVIDENCE MATRIX: PASS "
         f"({len(matrix['rows'])} rows: {summary['PASS']} PASS, "
-        f"{summary['NOT_RUN']} NOT_RUN, {summary['NOT_CLAIMED']} NOT_CLAIMED)"
+        f"{summary['FAIL']} FAIL, {summary['NOT_RUN']} NOT_RUN, "
+        f"{summary['NOT_CLAIMED']} NOT_CLAIMED, "
+        f"{summary['REVIEW_REQUIRED']} REVIEW_REQUIRED)"
     )
     return 0
 

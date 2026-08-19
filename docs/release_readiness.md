@@ -26,9 +26,9 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | SW-001 | SW | CLOSED | SOURCE,BINARY,HARDWARE | Current Host, contracts, ARM builds, and static resource gate pass without firmware changes | P5-S7-T01 final validation summary |
 | REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
 | REPRO-002 | REPRO | CLOSED | BINARY,HARDWARE | `[047]` completed the independent no-network/no-cache Host, contract, ARM and resource replay | `docs/reproduction_report_repro_002.md`; `artifacts/release/p5_repro_002_replay.json`; REPRO-002 SHA-256 manifest |
-| HW-001 | HW | OPEN | HARDWARE | Narrow BME280/VEML7700 presence and final-topology ADXL345 identity probes passed; continuous sampling, response and ADXL345 interrupt checks are not complete | Run the remaining S4 sensor functional supplements |
-| HW-002 | HW | OPEN | HARDWARE | Physical USB-RS485 and Project Three interoperability are not complete | Run S5 hardware/integration supplement |
-| HW-003 | HW | OPEN | HARDWARE | Physical CAN, candleLight, bus-off, and dual-bus concurrency are not complete | Run S6 hardware supplements |
+| HW-001 | HW | OPEN | HARDWARE | BME280 sampling/reset and VEML7700 light-response/range checks passed; ADXL345 interrupt/axis checks and standalone SPI robustness are not complete | Run the remaining bounded ADXL345 functional supplement after its hardware uncertainty is resolved |
+| HW-002 | HW | OPEN | HARDWARE | Physical H01 failed with a bounded RS485 return-path framing error; adapter versus Shield/PA10 is not yet isolated, and Project Three interoperability is not run | Cross-check with the newly selected USB-RS485, then resume H01-H11 before Project Three integration |
+| HW-003 | HW | OPEN | HARDWARE | candleLight identity and periodic device-to-host frames passed, but one bounded host TX caused ERROR-PASSIVE/BUS-OFF; bidirectional ACK, recovery and dual-bus concurrency are not complete | Cross-check the USB-CAN transmitter versus the Shield transceiver/CAN_RX path with known-good hardware before resuming CAN H06 and dual-bus work |
 | HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
 
 ## Current license inventory result
@@ -101,16 +101,16 @@ inferred from those bounded board results.
 ## Evidence matrix result
 
 The updated matrix projects `[047]` and its REPRO-002 bundle into 24 bounded
-evidence rows: 15
-`PASS`, 8 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
+evidence rows: 17 `PASS`, 2 `FAIL`, 4 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
 `artifacts/release/p5_s7_t03_evidence_matrix.json`; the curated public view and
 claim boundaries are in `docs/evidence_matrix.md`.
 
 The matrix schema, result counts, public references, full Git identities, and
 hardware-claim restrictions pass `tools/check_evidence_matrix.py`. `BSP-02`
-passes only at the bounded board-admission layer; sensors, physical RS485,
-physical CAN, and the 10-minute/60-minute/8-hour sessions remain open exactly
-as listed above.
+passes only at the bounded board-admission layer. The physical RS485 and CAN
+rows are failed/open on their return directions rather than promoted from
+partial observations; ADXL345, Project Three, simultaneous buses, and the
+10-minute/60-minute/8-hour sessions remain open exactly as listed above.
 
 ## Learning documentation result
 

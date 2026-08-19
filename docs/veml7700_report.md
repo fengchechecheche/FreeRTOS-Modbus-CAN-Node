@@ -97,3 +97,42 @@ hardware = PARTIAL_HARDWARE_EVIDENCE
 
 本次没有取得连续样本，也没有执行遮挡/照明响应或量程检查，因此 `SNS-02`
 仍为 `NOT_RUN`，`HW-001` 仍保持 `OPEN`。
+
+## P5-HW-SNS-02 连续采样、光照响应与量程补验（2026-08-19）
+
+在提交 `285a894d52ff817bf9683a5a7034c01c27675e89` 和默认 Debug ELF SHA-256
+`d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca` 下，通过 ST-LINK
+HOTPLUG 只读统一测量快照和 `app_veml7700_snapshot`，不依赖 RS485 链路。
+
+| 条件 | sequence | 状态/质量 | 照度范围 |
+|---|---|---|---:|
+| 未遮挡基线 | 113→118 | FRESH / `0x00000000` | 230.630 lux |
+| 完全遮挡 | 379→384 | FRESH / `0x00000000` | 21.235～23.251 lux |
+| 恢复照明 | 642→647 | FRESH / `0x00000000` | 295.344～295.478 lux |
+
+遮挡后照度相对基线下降约 90%，恢复照明后明显回升，响应方向正确。独立驱动快照随后显示：
+
+```text
+status=VALID
+raw_als=4295
+integration_ms=100
+range_level=4
+gain=ONE
+range_change_count=2
+error_count=0
+recovery_request_count=0
+```
+
+这证明运行期间至少发生过两次有限自动量程变化；不要求遍历全部 9 级量程。连续采样、光照方向和
+自动量程均通过，且没有观察到 I2C error 或 recovery 请求。
+
+```text
+veml7700_address_and_config_probe = PASS
+veml7700_basic_acquisition = PASS
+veml7700_light_response_direction = PASS
+veml7700_auto_range_hardware = PASS_LIMITED
+veml7700_accuracy = NOT_CLAIMED
+hardware = PASS_HARDWARE_LIMITED
+```
+
+因此 `SNS-02` 提升为 `PASS`。该结论不声明独立 silicon ID、照度计精度、全量程覆盖或安装环境性能。

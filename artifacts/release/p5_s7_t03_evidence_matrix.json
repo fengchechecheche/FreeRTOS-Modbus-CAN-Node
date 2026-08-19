@@ -9,10 +9,10 @@
     "docs/bsp_validation.md"
   ],
   "summary": {
-    "FAIL": 0,
+    "FAIL": 2,
     "NOT_CLAIMED": 1,
-    "NOT_RUN": 8,
-    "PASS": 15,
+    "NOT_RUN": 4,
+    "PASS": 17,
     "REVIEW_REQUIRED": 0
   },
   "rows": [
@@ -187,11 +187,11 @@
       "domain": "SENSOR",
       "capability": "BME280 physical identity, SPI sampling and compensation consistency",
       "execution_layer": "HARDWARE",
-      "result": "NOT_RUN",
-      "evidence_commit": "0815af100ae5985fed08a12bf00d36d340337f84",
+      "result": "PASS",
+      "evidence_commit": "285a894d52ff817bf9683a5a7034c01c27675e89",
       "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "firmware_sha256": "d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca",
+      "hardware_identity": "NUCLEO-F446RE + BME280 module in final three-sensor topology; serial omitted",
       "config_refs": [
         "freertos_modbus_can_node.ioc",
         "sensors/src/bme280.c"
@@ -200,18 +200,18 @@
         "docs/bme280_report.md",
         "docs/device_probe_report.md"
       ],
-      "allowed_claim": "未执行完整 BME280 硬件验收；P5-HW-SNS-00 仅通过最终拓扑下的 0x60 身份探针，连续采样、补偿一致性和精度仍未完成或不声明。"
+      "allowed_claim": "BME280 0x60 身份、五组 FRESH 有界样本、sequence 递增、应用补偿输出和复位后重新初始化通过；未使用独立仪表，不声明计量精度或独立校准。"
     },
     {
       "id": "SNS-02",
       "domain": "SENSOR",
       "capability": "VEML7700 physical ACK, I2C sampling and range behavior",
       "execution_layer": "HARDWARE",
-      "result": "NOT_RUN",
-      "evidence_commit": "0815af100ae5985fed08a12bf00d36d340337f84",
+      "result": "PASS",
+      "evidence_commit": "285a894d52ff817bf9683a5a7034c01c27675e89",
       "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "firmware_sha256": "d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca",
+      "hardware_identity": "NUCLEO-F446RE + VEML7700 module in final three-sensor topology; serial omitted",
       "config_refs": [
         "freertos_modbus_can_node.ioc",
         "sensors/src/veml7700.c"
@@ -220,7 +220,7 @@
         "docs/veml7700_report.md",
         "docs/device_probe_report.md"
       ],
-      "allowed_claim": "未执行完整 VEML7700 硬件验收；P5-HW-SNS-00 仅通过 0x10 ACK/配置寄存器探针，连续采样、光照响应、量程行为和精度仍未完成或不声明。"
+      "allowed_claim": "VEML7700 0x10 配置访问、连续 FRESH 样本、遮挡下降/恢复回升和两次有限自动量程变化通过；不声明独立 silicon ID、照度计精度或全量程覆盖。"
     },
     {
       "id": "SNS-03",
@@ -312,11 +312,11 @@
       "domain": "RS485",
       "capability": "USB-RS485 physical H01-H11 matrix",
       "execution_layer": "HARDWARE",
-      "result": "NOT_RUN",
-      "evidence_commit": "6f585dfc112079a80ae0ecb6ce2267f927351b71",
+      "result": "FAIL",
+      "evidence_commit": "285a894d52ff817bf9683a5a7034c01c27675e89",
       "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "firmware_sha256": "d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca",
+      "hardware_identity": "NUCLEO-F446RE + Waveshare RS485 CAN Shield + CH340 USB-RS485; serial omitted",
       "config_refs": [
         "freertos_modbus_can_node.ioc",
         "protocol/register_map.json",
@@ -326,7 +326,7 @@
         "docs/modbus_hil_report.md",
         "docs/rs485_smoke_report.md"
       ],
-      "allowed_claim": "未执行 USB-RS485、真实 249 B 响应、地址迁移或重连矩阵。"
+      "allowed_claim": "已执行但失败：物理 H01 响应静默；有限诊断证明正向链路可发送 P5T03，但主机回送在 USART1 侧触发 framing error。故障等待第二只 USB-RS485 交叉验证，H02-H11 和项目三联调未执行。"
     },
     {
       "id": "P3-01",
@@ -395,11 +395,11 @@
       "domain": "CAN",
       "capability": "candleLight identity, ACK, physical frames and bus-off recovery",
       "execution_layer": "HARDWARE",
-      "result": "NOT_RUN",
-      "evidence_commit": "d6b929b85a1e3918edc90c5b276fe9b81d2cf4e3",
+      "result": "FAIL",
+      "evidence_commit": "285a894d52ff817bf9683a5a7034c01c27675e89",
       "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "firmware_sha256": "d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca",
+      "hardware_identity": "NUCLEO-F446RE + Waveshare RS485 CAN Shield + candleLight/CANable-class gs_usb adapter; serial omitted",
       "config_refs": [
         "freertos_modbus_can_node.ioc",
         "protocol/can_message_map.json",
@@ -409,7 +409,7 @@
         "docs/can_hil_report.md",
         "docs/release_readiness.md"
       ],
-      "allowed_claim": "未执行 candleLight、物理 ACK/帧、终端或真实 bus-off 恢复检查。"
+      "allowed_claim": "已执行但失败：candleLight/gs_usb identity and the periodic STM32-to-host receive path passed at a bounded 75% host sample point: six IDs, decode and BME pairing were observed. One bounded host 0x140 TX caused ERROR-PASSIVE/BUS-OFF under either single-termination placement, so bidirectional ACK, host-to-device transfer and bus-off recovery failed and remain unclaimed."
     },
     {
       "id": "BUS-01",

@@ -7,7 +7,7 @@
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Board supplement evidence: `[044] d409a8161669aae8ea4c01246df577d36212650a`
 > Watchdog supplement evidence: `[046] 96fa46b41c38a0a0bb249876d9a0736165ac1642`
-> Row summary: `24 = 15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`
+> Row summary: `24 = 17 PASS + 2 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
 ## Purpose
@@ -72,8 +72,8 @@ Cross-build PASS does not establish flashing, startup, timing or communication.
 |---|---|---|---|---|
 | BSP-01 | HOST | PASS | `docs/bsp_validation.md` | pin/clock/DMA/IRQ/safe-state/bus static contract passed |
 | BSP-02 | HARDWARE | PASS | `docs/bsp_validation.md` | NUCLEO-F446RE ST-LINK, flash/verify/reset, VCP boot, runtime clock, GPIO register state, limited scheduler smoke and one power cycle passed |
-| SNS-01 | HARDWARE | NOT_RUN | `docs/bme280_report.md` | `0x60` identity probe passed in the final topology; continuous sampling, compensation consistency and accuracy remain incomplete/not claimed |
-| SNS-02 | HARDWARE | NOT_RUN | `docs/veml7700_report.md` | `0x10` ACK/config probe passed; continuous sampling, light response, range behavior and accuracy remain incomplete/not claimed |
+| SNS-01 | HARDWARE | PASS | `docs/bme280_report.md` | `0x60` identity, five fresh bounded samples with increasing sequence, application compensation output and reset reinitialization passed; metrology accuracy remains not claimed |
+| SNS-02 | HARDWARE | PASS | `docs/veml7700_report.md` | `0x10` config access, five-sample sequence progress,遮挡/恢复方向 and two bounded range changes passed; metrology accuracy remains not claimed |
 | SNS-03 | HARDWARE | NOT_RUN | `docs/adxl345_report.md` | `0xE5` identity passed only in the final topology; standalone SPI robustness is not claimed and DATA_READY/axis/vibration checks remain incomplete |
 | WDG-01 | HARDWARE | PASS | `docs/health_recovery_report.md` | default health feed, one IWDG reset, reset-reason decode and reset-only `.noinit` retention passed; no power-loss claim |
 
@@ -87,7 +87,7 @@ missing physical claims.
 |---|---|---|---|---|
 | RS485-01 | HOST | PASS | `docs/modbus_hil_report.md` | UART DMA/RTU/server software contracts passed Host/cross-build gates |
 | RS485-02 | HOST | PASS | `docs/modbus_hil_report.md` | committed production-C PTY matrix passed 10/10 with a 249 B maximum response |
-| RS485-03 | HARDWARE | NOT_RUN | `docs/modbus_hil_report.md` | USB-RS485 H01-H11 and physical timing were not run |
+| RS485-03 | HARDWARE | FAIL | `docs/modbus_hil_report.md` | H01 timed out; bounded loopback proved the forward path but the return path raised USART1 framing errors, so a second USB-RS485 is required to isolate the adapter from the Shield/PA10 path |
 | P3-01 | INTEGRATION | NOT_RUN | `docs/modbus_hil_report.md` | Project Three address-4 profile and interoperability were not run |
 
 Self-test/dry-run alone is not PTY evidence. The committed PTY result is Host
@@ -99,7 +99,7 @@ evidence and still is not physical RS485 evidence.
 |---|---|---|---|---|
 | CAN-01 | HOST | PASS | `docs/can_runtime.md` | map/codec/filter/IRQ/queue/recovery software candidate passed |
 | CAN-02 | VIRTUAL_BUS | PASS | `docs/can_hil_report.md` | vcan matrix and one can-utils frame passed |
-| CAN-03 | HARDWARE | NOT_RUN | `docs/can_hil_report.md` | candleLight, ACK, physical frames and bus-off were not run |
+| CAN-03 | HARDWARE | FAIL | `docs/can_hil_report.md` | candleLight/gs_usb identity and periodic device-to-host frames passed at a bounded 75% host sample point, but one bounded host TX caused ERROR-PASSIVE/BUS-OFF; bidirectional ACK and recovery are not accepted |
 | BUS-01 | HOST | PASS | `docs/dual_bus_fault_matrix.md` | D01-D08 Host backpressure/isolation matrix passed |
 | BUS-02 | INTEGRATION | NOT_RUN | `docs/dual_bus_fault_matrix.md` | physical RS485+CAN concurrency was not run |
 
@@ -121,7 +121,8 @@ P5-HW-SNS-00 在基线 `d48f2c75b048dc60320045233312ad6df050e88e` 上以 SHA-256
 的 one-shot probe ELF 完成最终三模块拓扑 3/3 身份/存在性准入。该补验不包含
 连续采样、补偿复算、光照响应、ADXL345 DATA_READY/轴向/振动响应或计量精度，
 且 ADXL345 单模块 SPI 鲁棒性保持 `NOT_CLAIMED`，因此 SNS-01..03 仍为
-`NOT_RUN`，矩阵总计仍为 `15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`。
+`SNS-03` 保持 `NOT_RUN`；RS485-03 的后续实测保持 `FAIL`。SNS-01/SNS-02 补验通过后，
+当前矩阵总计为 `17 PASS + 2 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`。
 
 ## Release blocker projection
 

@@ -1,9 +1,10 @@
 # P5-S6-T03 SocketCAN / candleLight HIL report
 
 > Software status: `PASS_HOST`
-> Hardware status: `WAITING_FOR_HARDWARE`
+> Hardware status: `PASS_RECEIVE_ONLY / FAIL_BIDIRECTIONAL`
 > Integration status: `NOT_RUN`
 > Baseline: `4a581aea31dc97c6deec51726ed0ccf7325579bd` (`[032]`)
+> Hardware supplement source: `285a894d52ff817bf9683a5a7034c01c27675e89`
 
 ## Scope and boundary
 
@@ -99,18 +100,49 @@ Debug `text/data/bss = 53272/160/13224` and Release
 
 | ID | Required observation | Status |
 |---|---|---|
-| H01 | candleLight identity and `gs_usb` netdev in WSL | NOT_RUN |
-| H02 | 500 kbit/s, UP, initial ERROR-ACTIVE | NOT_RUN |
-| H03 | six periodic IDs in an approximately 10 s window | NOT_RUN |
-| H04 | revision/DLC/fields decode | NOT_RUN |
-| H05 | one matching `0x340/0x341` pair | NOT_RUN |
-| H06 | one bounded host TX without new interface errors | NOT_RUN |
+| H01 | candleLight identity and `gs_usb` netdev in WSL | PASS |
+| H02 | 500 kbit/s, UP, initial ERROR-ACTIVE | PASS_LIMITED: host sample point `75%` |
+| H03 | six periodic IDs in an approximately 10 s window | PASS: 60/60 accepted, 10 per ID |
+| H04 | revision/DLC/fields decode | PASS |
+| H05 | one matching `0x340/0x341` pair | PASS: 10 pairs, 0 mismatch |
+| H06 | one bounded host TX without new interface errors | FAIL: ERROR-PASSIVE/BUS-OFF |
 | H07 | state event if naturally observed | NOT_OBSERVED_ALLOWED |
-| H08 | interface-down and USB detach cleanup | NOT_RUN |
+| H08 | interface-down, USB detach and default-firmware restore | PASS |
 
-Physical HIL must wait for the NUCLEO-F446RE, transceiver, candleLight, wiring,
-two-end termination and S2 admission gates. `vcan` does not establish ACK,
-arbitration, electrical integrity, filter IRQ behavior or bus-off recovery.
+## 2026-08-19 bounded hardware supplement
+
+The admitted route used NUCLEO-F446RE, the Waveshare RS485 CAN Shield and a
+candleLight/CANable-class `gs_usb` adapter at 500 kbit/s. Device serial numbers
+are intentionally omitted. The tested default Debug ELF SHA-256 was
+`d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca`.
+
+With the host sample point set to `75%`, a clean 10-second receive window
+captured and accepted 60 periodic frames: 10 each for `0x240`, `0x241`,
+`0x340`, `0x341`, `0x342` and `0x440`. All 10 BME280 frame pairs matched,
+the host remained ERROR-ACTIVE, and the STM32 CAN error status remained clear.
+A second bounded run with the single 120-ohm termination moved to the USB-CAN
+end accepted 54 frames, nine per ID, with nine matching BME pairs and no new
+errors. This establishes only the STM32-to-host physical receive direction.
+
+H06 failed under both single-termination placements. Sending one frozen,
+non-periodic `0x140` status event from the host caused the candleLight side to
+enter ERROR-PASSIVE/BUS-OFF and raised the STM32 transmit/receive error
+counters. A local `cansend` completion or adapter echo is therefore not treated
+as remote ACK. The failure remains bounded to the current USB-CAN transmitter
+versus the Shield transceiver/CAN_RX-to-PB8 receive path; without a known-good
+adapter, transceiver or oscilloscope, this report does not select one cause.
+
+A temporary 500-kbit/s STM32 diagnostic using an `80%` sample point did not
+improve the route: receive traffic began, then the adapter reached BUS-OFF and
+the STM32 receive counter saturated. The diagnostic was rejected, the original
+default firmware was reflashed and verified, its BTR returned to `0x001B0005`,
+the interface was brought down and detached, and both devices were powered
+off. No temporary firmware or raw frame log is retained in the repository.
+
+Consequently `CAN-03` is `FAIL`, not `PASS`: identity and the periodic
+device-to-host frame/decode/pairing route passed, while physical bidirectional
+ACK, bounded host-to-device transfer, bus-off recovery and dual-bus concurrency
+remain unaccepted. `vcan` results continue to be Host-only evidence.
 
 ## Lightweight evidence rule
 

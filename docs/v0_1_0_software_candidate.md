@@ -6,7 +6,7 @@
 > Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > Current software-test baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
-> Evidence matrix: `24 = 15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`
+> Evidence matrix: `24 = 17 PASS + 2 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `ABSENT / NOT_RUN`
 
@@ -68,11 +68,11 @@ physical-bus operation.
 
 ## Explicitly excluded
 
-The following remain `NOT_RUN` and are not candidate accomplishments:
+The following remain incomplete and are not candidate accomplishments:
 
-- BME280, VEML7700 and ADXL345 identity, sampling and accuracy on real devices;
-- USB-RS485 exchange, physical timing and Project Three interoperability;
-- candleLight, transceiver, physical CAN ACK/frames and real bus-off recovery;
+- BME280 bounded sampling/reset and VEML7700 light-response/range checks passed without metrology claims; ADXL345 interrupt/axis checks remain `NOT_RUN`;
+- USB-RS485 H01 failed on the physical return path and awaits a second-adapter cross-check; H02-H11, physical timing and Project Three interoperability remain `NOT_RUN`;
+- candleLight identity and periodic device-to-host frames passed, but bounded host TX caused ERROR-PASSIVE/BUS-OFF; bidirectional ACK and real bus-off recovery remain failed/unaccepted;
 - simultaneous physical RS485/CAN behavior;
 - the 10-minute, 60-minute and formal 8-hour hardware sessions.
 

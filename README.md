@@ -10,6 +10,35 @@
 > blockers and the `UNRELEASED` state are unchanged. See
 > [`docs/reproduction_report_repro_002.md`](docs/reproduction_report_repro_002.md).
 
+> 2026-08-19 CAN hardware update: candleLight/`gs_usb` identity and the
+> periodic STM32-to-host route passed at 500 kbit/s with a bounded `75%` host
+> sample point: six IDs, field decoding and BME frame pairing were observed.
+> One bounded host-to-device `0x140` transmission consistently caused
+> ERROR-PASSIVE/BUS-OFF, and an `80%` STM32 diagnostic did not improve the
+> route. `CAN-03` is therefore `FAIL_BIDIRECTIONAL / PASS_RECEIVE_ONLY`; the
+> verified default firmware was restored and both CAN devices were powered
+> off. See [`docs/can_hil_report.md`](docs/can_hil_report.md).
+
+> 2026-08-19 RS485 hardware update: physical H01 was attempted but timed out.
+> A bounded diagnostic proved STM32-to-Shield-to-USB-RS485 transmission, while
+> the return path consistently raised a USART1 framing error. `RS485-03` is
+> `FAIL_HARDWARE_RETURN_PATH / WAITING_FOR_CROSS_CHECK`; a second USB-RS485 has
+> been selected to distinguish the adapter from the Shield/PA10 path. The board
+> has been restored to the verified default firmware, and Project Three remains
+> `NOT_RUN`. See [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
+
+> 2026-08-19 BME280 hardware update: `SNS-01` is `PASS_HARDWARE_LIMITED`.
+> The final topology produced five fresh, bounded samples with increasing
+> sequence and valid compensated temperature/pressure/humidity output; reset
+> reinitialization also passed. No metrology accuracy or independent calibration
+> is claimed. See [`docs/bme280_report.md`](docs/bme280_report.md).
+
+> 2026-08-19 VEML7700 hardware update: `SNS-02` is
+> `PASS_HARDWARE_LIMITED`. Continuous fresh samples,遮挡下降、恢复照明回升 and
+> two bounded automatic range changes passed with zero observed transport
+> errors; no lux-meter accuracy or full-range claim is made. See
+> [`docs/veml7700_report.md`](docs/veml7700_report.md).
+
 > 2026-08-15 board supplement: NUCLEO-F446RE `BSP-02` is
 > `PASS_HARDWARE_LIMITED`. ST-LINK V2J48M35, default Debug ELF
 > flash/verify/reset, VCP boot, runtime clock, GPIO register safe-state,
@@ -38,7 +67,7 @@
 > [`docs/learning/problem_ledger.md`](docs/learning/problem_ledger.md).
 
 > P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
-> 15 `PASS`, 8 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
+> 17 `PASS`, 2 `FAIL`, 4 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
 > software, board, RS485, or CAN evidence layer; no software result is promoted
 > to a physical-hardware claim. The hardware Release gate remains
 > `BLOCKED_WAITING_FOR_HARDWARE`. See
@@ -74,8 +103,9 @@
 > [`docs/dual_bus_fault_matrix.md`](docs/dual_bus_fault_matrix.md).
 
 > P5-S6-T03 update: the standard-library SocketCAN probe, dry-run and bounded
-> `vcan` matrix are `PASS_HOST`; candleLight/physical CAN remain
-> `WAITING_FOR_HARDWARE`. `can-utils` 2023.03-1 and a one-frame
+> `vcan` matrix are `PASS_HOST`; the later candleLight supplement passed only
+> the physical device-to-host receive direction and failed bounded host TX.
+> `can-utils` 2023.03-1 and a one-frame
 > `candump`/`cansend` vcan smoke are also verified. See
 > [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
@@ -86,7 +116,8 @@
 
 > P5-S5-T05 update: the default firmware is unchanged; a bounded HIL probe now
 > provides self-test/dry-run preparation without opening a serial port. Physical
-> USB-RS485 and Project Three integration remain deferred. See
+> USB-RS485 has since reached a bounded return-path failure, while Project Three
+> integration remains deferred. See
 > [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
 
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
@@ -167,9 +198,9 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - CAN 合同使用节点 4 的 `0x140/0x240/0x241/0x340/0x341/0x342/0x440`、500 kbit/s、
   standard data frame、DLC 8 和 little-endian。纯 codec、精确 filter、固定 IRQ/RX mailbox、
   latest-wins 周期发送、事件合并及 1 s/3 次 bus-off 恢复均达到软件候选；candleLight、收发器和
-  物理帧仍为 `NOT_RUN`。P5-S6-T03 已用 raw SocketCAN/`vcan` 完成 12 帧有界软件矩阵；
+  物理接收帧已通过，但受限主机发送失败。P5-S6-T03 已用 raw SocketCAN/`vcan` 完成 12 帧有界软件矩阵；
   `can-utils` 2023.03-1 已安装且 `candump`/`cansend` 单帧 vcan smoke 通过；candleLight/实物 HIL
-  仍为 `NOT_RUN`。T04 的 D01～D08 Host 矩阵进一步验证 RS485 CRC/timeout 与 CAN busy、FIFO full、
+  双向实物 HIL 仍为 `FAIL / OPEN`。T04 的 D01～D08 Host 矩阵进一步验证 RS485 CRC/timeout 与 CAN busy、FIFO full、
   bus-off 同时发生时，健康链路、采集和 health task model 仍有进度；虚拟 tick 不构成物理恢复时间。
 - 项目自有代码采用 MIT，公开 holder 为 `fengchechecheche`；CubeMX、CMSIS、HAL、FreeRTOS 和其他
   独立通知材料仍受各自条款约束，见根 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`。
@@ -206,7 +237,7 @@ python3 tools/verify_can_contract.py --self-test
 ```
 
 CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；raw
-SocketCAN/`vcan` 为 `PASS_HOST`，candleLight 和物理 CAN 仍为 `NOT_RUN / WAITING_FOR_HARDWARE`。
+SocketCAN/`vcan` 为 `PASS_HOST`；candleLight identity 和 device-to-host periodic frames 已通过，但 bounded host TX 触发 ERROR-PASSIVE/BUS-OFF，因此双向物理 CAN 仍未验收。
 
 CAN HIL 软件预检：
 

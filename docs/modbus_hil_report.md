@@ -2,19 +2,20 @@
 
 > 软件准备：`PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE`
 > Host PTY：`PASS_HOST_PTY / [042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
-> 独立 USB-RS485：`WAITING_FOR_HARDWARE`
+> 独立 USB-RS485：`FAIL_HARDWARE_RETURN_PATH / WAITING_FOR_CROSS_CHECK`
 > 项目三联调：`NOT_RUN`
 > 默认从站地址：4
 > 串口：19200 bit/s，8E1
 
 ## 1. 当前结论
 
-P5-S5-T05 已完成无硬件准备；后续补测已打开 Linux PTY，但没有烧录板卡或运行真实 USB-RS485 请求。因此当前可以说明：
+P5-S5-T05 已完成无硬件准备和 Host PTY 补测；2026-08-19 又执行了真实 USB-RS485 有界排查。因此当前可以说明：
 
 - HIL 请求、响应判定和安全开关已具备纯软件自测入口；
 - 项目真实 C 语言 RTU stream、server 和 register image 已通过 Host PTY 端到端测试；
 - 项目五 T01～T04 的 Host、合同和 ARM 构建继续通过；
-- PTY 中的 249 B 响应已通过；物理 249 B 响应、地址迁移、复位恢复和项目三联调仍未执行；
+- PTY 中的 249 B 响应已通过；物理 H01 已执行但因回程帧错误失败，H02～H11、物理 249 B 响应、地址迁移和项目三联调仍未执行；
+- RS485 当前标记为“硬件回程故障待交叉验证”，不把失败归因于 Modbus 软件、USB-RS485 或 Shield 中的任一单点；
 - 项目三地址 4 profile 仍为 `not_created`，项目三仓库没有被本任务修改。
 
 ## 2. 轻量探针
@@ -69,6 +70,27 @@ CRC、广播读取和非本机地址均在有界超时内静默。Host Debug/Rel
 PTY 不承载真实奇偶校验位，也没有 UART DMA、DE/RE、收发器、电缆或终端电阻，因此该结果只关闭
 `RS485-02`，不能关闭 `RS485-03`、`P3-01` 或 `HW-002`。
 
+### 2.2 USB-RS485 回程故障补测
+
+2026-08-19 在短线、共地、`A→A`、`B→B`、地址 4、19200 8E1 条件下运行真实 H01。主机发送
+`04 03 00 00 00 04 44 5C` 后未收到响应，H02～H07 因 H01 未建立通信而停止，写入项保持
+`NOT_RUN`。
+
+随后临时烧录 SHA-256 为
+`ae5952c0e8017f9d2cbafbfe9a5f60016998ff0a7cfa64bbfa5224951f086acb` 的有限三轮诊断固件：
+
+- STM32 经 Shield 发出的 `P5T03` 能被 CH340 USB-RS485 完整接收；
+- 主机等待 50 ms 后原样回送 5 字节，STM32 仍停在第 1/3 轮；
+- STM32 诊断状态为 `waiting=1`、`completed=0`、USART1 `HAL error=4`（framing error），接收完成计数为 0；
+- 8E1/8N1/8O1 回送、A/B 交叉、Shield/跳帽重插及 RX/TX 两个跳帽本体互换均未消除故障；
+- A/B 交叉时没有有效接收活动，因此最终恢复 `A→A`、`B→B`。
+
+排查完成后已重新烧录并校验默认 Debug ELF，SHA-256 为
+`d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca`；VCP 再次出现启动、时钟摘要和
+5 次 heartbeat。当前证据证明 STM32→Shield→USB-RS485 正向链路可用，但不能唯一地区分
+USB-RS485 发送/方向控制与 Shield MAX485/`485_RX→RX1→PA10` 回程路径。已选购另一只 USB-RS485，
+在交叉验证前 `RS485-03` 保持 `FAIL`，项目三联调保持 `NOT_RUN`。
+
 ## 3. 写地址安全门
 
 默认串口模式只运行 H01～H07，不写配置。地址 4→5→4 迁移必须同时提供两个显式参数：
@@ -97,14 +119,14 @@ python3 tools/modbus_hil_probe.py \
 | H07B | 地址 0 read | 静默 |
 | H07C | 非本机地址 5 read | 静默 |
 
-这些请求用于排障和可重复执行。H01～H07 已在 PTY 字节流中发送，但这不代表已经通过 USB-RS485
-或任何物理线路发送。
+这些请求用于排障和可重复执行。H01～H07 已在 PTY 字节流中发送；物理线路当前只执行到失败的
+H01，不能表述为 H01～H07 或 USB-RS485 矩阵通过。
 
 ## 5. 硬件最小矩阵
 
 | ID | 状态 | 到货后通过条件 |
 |---|---|---|
-| H01 | `NOT_RUN` | holding 0..3 可解释 |
+| H01 | `FAIL` | 请求已发送但响应静默；回程诊断触发 USART1 framing error，等待参考转换器交叉验证 |
 | H02 | `NOT_RUN` | identity/generation/mask 可解析 |
 | H03 | `NOT_RUN` | 收到 CRC 正确的 249 B 响应 |
 | H04 | `NOT_RUN` | exception `0x01` |

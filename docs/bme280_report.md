@@ -99,3 +99,35 @@ hardware = PARTIAL_HARDWARE_EVIDENCE
 
 本次没有读取 5 组连续样本、复算补偿值或执行复位后重新初始化，因此 `SNS-01`
 仍为 `NOT_RUN`，`HW-001` 仍保持 `OPEN`。
+
+## P5-HW-SNS-01 连续采样与复位补验（2026-08-19）
+
+在提交 `285a894d52ff817bf9683a5a7034c01c27675e89` 和默认 Debug ELF SHA-256
+`d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca` 下，通过 ST-LINK
+HOTPLUG 只读统一测量快照 `app_rtos_measurement_snapshot`，不依赖当前故障中的 RS485 链路。
+
+一组连续 5 次读取结果为：
+
+| sequence | state | value present | quality | 温度 | 压力 | 湿度 |
+|---:|---|---:|---:|---:|---:|---:|
+| 126 | FRESH | 1 | `0x00000000` | 25.98 °C | 100446 Pa | 39.821 %RH |
+| 128 | FRESH | 1 | `0x00000000` | 25.99 °C | 100449 Pa | 39.951 %RH |
+| 129 | FRESH | 1 | `0x00000000` | 25.99 °C | 100460 Pa | 39.975 %RH |
+| 130 | FRESH | 1 | `0x00000000` | 25.98 °C | 100448 Pa | 39.962 %RH |
+| 131 | FRESH | 1 | `0x00000000` | 25.99 °C | 100449 Pa | 39.916 %RH |
+
+异步读取跨过一次采样周期时允许 sequence 跳过一个值；本次只要求严格递增，不以 ST-LINK 轮询间隔
+声明精确采样周期。复位约 3.5 秒后重新读取，得到 sequence 4、FRESH、value present 1、quality 0，
+温度 25.94 °C、压力 100455 Pa、湿度 40.100 %RH，证明驱动能在复位后重新初始化并继续采集。
+
+```text
+bme280_identity_probe = PASS
+bme280_continuous_sampling = PASS
+bme280_reset_reinitialize = PASS
+bme280_compensation_path = PASS_LIMITED
+bme280_accuracy_calibration = NOT_CLAIMED
+hardware = PASS_HARDWARE_LIMITED
+```
+
+因此 `SNS-01` 提升为 `PASS`。该结论只覆盖当前模块身份、SPI 采集、应用补偿输出、序列推进和复位
+恢复；没有使用独立仪表复核温湿压，不声明计量精度、独立校准或环境范围性能。
