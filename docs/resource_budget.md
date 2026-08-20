@@ -275,6 +275,25 @@ The unchanged gates remain 384 KiB Flash and 96 KiB linked RAM. Physical CAN
 load, ISR-to-task latency, task stack watermark and recovery timing remain
 `NOT_MEASURED` until hardware is available.
 
+## Dedicated CAN diagnostic extension
+
+The always-on, read-only `0x540/0x541` diagnostic adds no task, RTOS object,
+dynamic allocation or stack allocation. Exact fixed CAN storage is now 836 B:
+160 B for the IRQ mailbox/notifier and 676 B for the TX scheduler, controller,
+runtime snapshot/control, 28 B responder state and 112 B bounded VCP report
+buffer. This is a 176 B increase over the historical S6-T02 660 B baseline.
+
+The TX scheduler is 324 B, the runtime snapshot is 140 B, and the response path
+has exactly one pending frame. Host static assertions bind these values; the
+384 KiB Flash, 96 KiB linked-RAM, five 256-word task stacks and linker-heap-zero
+gates remain unchanged. Physical stack watermark under a diagnostic request is
+still `NOT_MEASURED` and must not be inferred from the static size check.
+
+| Build | text | data | bss | Flash | Linked RAM |
+|---|---:|---:|---:|---:|---:|
+| Debug | 55272 B | 160 B | 13480 B | 55432 B | 13640 B |
+| Release | 46072 B | 156 B | 13472 B | 46228 B | 13628 B |
+
 ## S6-T05 soak-runner regression
 
 T05 adds only a Host-side standard-library Python runner and documentation. It

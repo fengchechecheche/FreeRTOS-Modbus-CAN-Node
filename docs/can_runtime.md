@@ -13,9 +13,11 @@ added. Sensor values are copied from the unified snapshot before HAL calls, so
 CAN never reads SPI/I2C directly and a CAN failure cannot stop acquisition or
 Modbus.
 
-The two exact 16-bit list filter banks admit only `0x140`, `0x240`, `0x241`,
-`0x340`, `0x341`, `0x342` and `0x440`. Revision 1 accepts standard data frames
-with DLC 8 only. The IRQ path performs one HAL RX copy into a four-frame ring,
+The two exact 16-bit list filter banks use all eight entries to admit `0x140`,
+`0x240`, `0x241`, `0x340`, `0x341`, `0x342`, `0x440` and the Host-owned
+diagnostic request `0x540`. The outgoing `0x541` response does not consume a
+receive-filter entry. Revision 1 accepts standard data frames with DLC 8 only.
+The IRQ path performs one HAL RX copy into a four-frame ring,
 merges TX/error bits in a fixed mailbox, and wakes `can_task`; parsing, sending
 and recovery stay in task context.
 
@@ -27,6 +29,9 @@ and recovery stay in task context.
   only its primary half has been accepted by HAL.
 - Eight event slots coalesce equal code/source pairs. Two consecutive events at
   most may precede a waiting periodic frame.
+- One high-priority diagnostic response slot handles a valid `0x540` request.
+  Exact token duplicates are suppressed and different tokens are limited to one
+  per 100 ms; malformed requests receive no response.
 - Each service drains at most two RX frames and admits at most three TX frames.
   `HAL_BUSY` leaves the selected frame at the queue head.
 - A bus-off or start failure waits at least 1000 ms before task-context restart.
@@ -38,8 +43,8 @@ read-only troubleshooting view, not physical acceptance evidence.
 
 ## SocketCAN preflight
 
-P5-S6-T03 adds no firmware caller or protocol command. The host-only
-`tools/can_hil_probe.py` checks the frozen map, decodes bounded SocketCAN frames,
+The host-only `tools/can_hil_probe.py` checks the frozen map, decodes bounded
+SocketCAN frames,
 counts duplicates without failing normal periodic repetition, and pairs
 `0x340/0x341` only when their sequence matches. Its self-test, dry-run and
 12-frame `vcan` matrix are `PASS_HOST`; see
@@ -50,6 +55,12 @@ The current environment has `vcan` and `gs_usb` kernel modules. `can-utils`
 `vcan0` is `PASS_HOST`. candleLight and physical CAN remain `NOT_RUN`. A local
 SocketCAN loopback or adapter TX echo is not an ACK or MCU application-acceptance
 result.
+
+`--diagnostic-ping` is the only physical mode that transmits. It sends exactly
+one fixed-format `0x540` request and waits at most five seconds for exactly one
+matching `0x541` response. It does not expose arbitrary CAN ID or payload
+arguments and does not replace error counters or the VCP receive marker when a
+timeout must be localized.
 
 ## Dual-bus backpressure preflight
 
@@ -77,6 +88,9 @@ throughput result. See [`dual_bus_fault_matrix.md`](dual_bus_fault_matrix.md).
 2. If RX is absent, confirm both CAN1 IRQ priorities are 6/0, then compare
    `rx_accepted`, `rx_invalid` and `rx_dropped`. Invalid ID/IDE/RTR/DLC is rejected
    before task processing.
+   For the dedicated path, absence of both `P5CANDIAG1` and `0x541` points to
+   Host transmission, filtering or the physical receive path; a VCP marker
+   without `0x541` narrows the fault to response admission/transmission.
 3. If TX stalls, compare `pending_frames`, `hal_busy`, `tx_completed` and
    `tx_aborted`. A growing pending count with no completion points to controller
    state, transceiver, termination or missing ACK rather than sensor ownership.

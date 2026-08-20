@@ -14,10 +14,11 @@ physical supplement. The Python probe uses the standard-library `AF_CAN/CAN_RAW`
 API and the frozen `protocol/can_message_map.json`; it does not add a CAN command
 or treat local loopback as physical evidence.
 
-The current CAN revision has no request, configuration-write or echo command.
-A future host transmission can prove a bounded bus-direction exercise, but a
-local send return or candleLight TX echo alone cannot prove remote ACK or MCU
-application acceptance.
+The current CAN revision adds one read-only diagnostic pair: Host-owned request
+`0x540` and STM32-owned response `0x541`. It is not a configuration-write or
+general echo command. A local send return or candleLight TX echo alone still
+cannot prove remote ACK or MCU application acceptance; a pass requires the
+matching response and the bounded VCP receive marker.
 
 ## Environment
 
@@ -64,8 +65,20 @@ python3 tools/can_hil_probe.py \
 ```
 
 `--allow-send` is reserved for `--vcan-self-test`. Physical `--observe` rejects
-that flag with `SEND_OWNERSHIP`; bounded host-to-device ACK evidence uses the
-reviewed silent `RX_ONLY` diagnostic rather than a producer-owned telemetry ID.
+that flag with `SEND_OWNERSHIP`. The reviewed physical transmit mode is fixed
+to the dedicated diagnostic pair:
+
+```bash
+python3 tools/can_hil_probe.py \
+  --diagnostic-ping --interface can0 \
+  --sequence 0x2A --nonce 0x12345678 \
+  --response-timeout 2
+```
+
+It sends exactly `540#012A010078563412`, expects exactly
+`541#012A000178563412`, and classifies timeout, mismatch or duplicate response
+separately. Use a new sequence or nonce for another test; do not send a
+producer-owned telemetry ID.
 Output files are created only when `--output-dir` is explicitly supplied, and
 the capture is capped at 128 frames.
 
@@ -176,10 +189,10 @@ of `0x240`, `0x241`, `0x340`, `0x341`, `0x342` and `0x440`; the interface
 remained ERROR-ACTIVE with zero errors. The interface was subsequently brought
 down and both devices were powered off.
 
-A later manual host transmission under the default firmware reused `0x140`,
-which revision 1 assigns to STM32-produced status events, while normal producer
+A later manual host transmission under the then-current default firmware reused
+`0x140`, which the seven-ID revision 1 contract assigns to STM32-produced status events, while normal producer
 traffic was active. Its resulting errors are not a valid H06 result: revision 1
-defines no host command/echo ID, and injecting any of the seven node-owned IDs
+defined no host command/echo ID, and injecting any of the seven node-owned IDs
 can create a same-ID data-phase conflict. The physical probe now enforces this
 ownership boundary by rejecting `--observe --allow-send`.
 
@@ -189,6 +202,16 @@ both directions and default-firmware restore. This does not claim a host command
 protocol, application-level response, naturally observed `0x140` event,
 arbitrary CAN adapter interoperability, physical bus-off recovery, or physical
 RS485+CAN concurrency. `BUS-02` therefore remains `NOT_RUN` and `HW-003` remains open.
+
+## Dedicated diagnostic extension awaiting physical rerun
+
+The default firmware now implements the read-only `0x540/0x541` diagnostic
+pair with a one-slot response queue, duplicate suppression and a 100 ms minimum
+interval for different tokens. Host and ARM verification establish the
+software path only. Until the command above is run on the admitted common-GND
+hardware route, the new application-level round trip remains
+`NOT_RUN_HARDWARE`; the earlier physical ACK evidence is not rewritten as a
+pass for this new protocol.
 
 ## Lightweight evidence rule
 

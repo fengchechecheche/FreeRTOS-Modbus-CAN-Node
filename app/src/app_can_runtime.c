@@ -158,7 +158,8 @@ uint32_t app_can_tx_pending(const app_can_tx_scheduler_t *scheduler) {
     return 0U;
   }
 
-  uint32_t pending = scheduler->event_count;
+  uint32_t pending = scheduler->event_count +
+                     (scheduler->diagnostic_pending ? 1U : 0U);
   for (uint32_t group = 0U; group < APP_CAN_TELEMETRY_GROUP_COUNT; ++group) {
     pending += app_can_count_bits(scheduler->telemetry_pending[group]);
   }
@@ -197,6 +198,70 @@ void app_can_tx_scheduler_initialize(app_can_tx_scheduler_t *scheduler) {
   }
 }
 
+void app_can_diagnostic_initialize(app_can_diagnostic_responder_t *responder) {
+  if (responder != NULL) {
+    (void)memset(responder, 0, sizeof(*responder));
+  }
+}
+
+app_can_diagnostic_result_t app_can_diagnostic_process(
+    app_can_diagnostic_responder_t *responder,
+    const p5_can_frame_t *request,
+    uint32_t now_ms,
+    p5_can_frame_t *response) {
+  if ((responder == NULL) || (request == NULL) || (response == NULL)) {
+    return APP_CAN_DIAGNOSTIC_MALFORMED;
+  }
+
+  p5_can_diagnostic_request_t decoded;
+  if (p5_can_decode_diagnostic_request(request, &decoded) != P5_CAN_RESULT_OK) {
+    responder->counters.malformed_requests = app_can_saturating_increment(
+        responder->counters.malformed_requests);
+    return APP_CAN_DIAGNOSTIC_MALFORMED;
+  }
+  if (responder->has_last_request &&
+      (decoded.sequence == responder->last_sequence) &&
+      (decoded.nonce == responder->last_nonce)) {
+    responder->counters.duplicate_requests = app_can_saturating_increment(
+        responder->counters.duplicate_requests);
+    return APP_CAN_DIAGNOSTIC_DUPLICATE;
+  }
+  if (responder->has_last_request &&
+      ((uint32_t)(now_ms - responder->last_accepted_ms) <
+       APP_CAN_DIAGNOSTIC_MIN_INTERVAL_MS)) {
+    responder->counters.rate_limited_requests = app_can_saturating_increment(
+        responder->counters.rate_limited_requests);
+    return APP_CAN_DIAGNOSTIC_RATE_LIMITED;
+  }
+
+  const p5_can_diagnostic_response_t payload = {
+      .sequence = decoded.sequence,
+      .status = P5_CAN_DIAGNOSTIC_STATUS_OK,
+      .opcode = decoded.opcode,
+      .nonce = decoded.nonce,
+  };
+  if (p5_can_encode_diagnostic_response(&payload, response) !=
+      P5_CAN_RESULT_OK) {
+    responder->counters.malformed_requests = app_can_saturating_increment(
+        responder->counters.malformed_requests);
+    return APP_CAN_DIAGNOSTIC_MALFORMED;
+  }
+
+  responder->has_last_request = true;
+  responder->last_sequence = decoded.sequence;
+  responder->last_nonce = decoded.nonce;
+  responder->last_accepted_ms = now_ms;
+  responder->counters.valid_requests = app_can_saturating_increment(
+      responder->counters.valid_requests);
+  return APP_CAN_DIAGNOSTIC_READY;
+}
+
+app_can_diagnostic_counters_t app_can_diagnostic_counters(
+    const app_can_diagnostic_responder_t *responder) {
+  const app_can_diagnostic_counters_t empty = {0U};
+  return (responder == NULL) ? empty : responder->counters;
+}
+
 bool app_can_tx_enqueue_event(app_can_tx_scheduler_t *scheduler,
                               uint16_t event_code, uint8_t source,
                               const p5_can_frame_t *frame) {
@@ -232,6 +297,28 @@ bool app_can_tx_enqueue_event(app_can_tx_scheduler_t *scheduler,
   ++scheduler->event_count;
   scheduler->counters.event_enqueued =
       app_can_saturating_increment(scheduler->counters.event_enqueued);
+  app_can_update_maximum_pending(scheduler);
+  return true;
+}
+
+bool app_can_tx_publish_diagnostic_response(
+    app_can_tx_scheduler_t *scheduler,
+    const p5_can_frame_t *frame) {
+  p5_can_diagnostic_response_t decoded;
+  if ((scheduler == NULL) || (frame == NULL) ||
+      (p5_can_decode_diagnostic_response(frame, &decoded) !=
+       P5_CAN_RESULT_OK)) {
+    return false;
+  }
+  if (scheduler->diagnostic_pending) {
+    scheduler->counters.diagnostic_dropped = app_can_saturating_increment(
+        scheduler->counters.diagnostic_dropped);
+    return false;
+  }
+  scheduler->diagnostic_response = *frame;
+  scheduler->diagnostic_pending = true;
+  scheduler->counters.diagnostic_enqueued = app_can_saturating_increment(
+      scheduler->counters.diagnostic_enqueued);
   app_can_update_maximum_pending(scheduler);
   return true;
 }
@@ -325,15 +412,20 @@ bool app_can_tx_peek(app_can_tx_scheduler_t *scheduler, p5_can_frame_t *frame,
   token->group = 0U;
   token->part = 0U;
 
-  const uint32_t pending = app_can_tx_pending(scheduler);
-  const bool periodic_pending = pending > scheduler->event_count;
-  if ((scheduler->event_count > 0U) &&
-      ((scheduler->event_streak < APP_CAN_EVENT_BURST_LIMIT) ||
-       !periodic_pending)) {
-    *frame = scheduler->events[scheduler->event_head].frame;
-    token->kind = APP_CAN_TX_TOKEN_EVENT;
-  } else if (!app_can_tx_peek_periodic(scheduler, frame, token)) {
-    return false;
+  if (scheduler->diagnostic_pending) {
+    *frame = scheduler->diagnostic_response;
+    token->kind = APP_CAN_TX_TOKEN_DIAGNOSTIC;
+  } else {
+    const uint32_t pending = app_can_tx_pending(scheduler);
+    const bool periodic_pending = pending > scheduler->event_count;
+    if ((scheduler->event_count > 0U) &&
+        ((scheduler->event_streak < APP_CAN_EVENT_BURST_LIMIT) ||
+         !periodic_pending)) {
+      *frame = scheduler->events[scheduler->event_head].frame;
+      token->kind = APP_CAN_TX_TOKEN_EVENT;
+    } else if (!app_can_tx_peek_periodic(scheduler, frame, token)) {
+      return false;
+    }
   }
 
   scheduler->counters.tx_peeked =
@@ -347,7 +439,14 @@ bool app_can_tx_commit(app_can_tx_scheduler_t *scheduler,
     return false;
   }
 
-  if (token.kind == APP_CAN_TX_TOKEN_EVENT) {
+  if (token.kind == APP_CAN_TX_TOKEN_DIAGNOSTIC) {
+    if (!scheduler->diagnostic_pending) {
+      return false;
+    }
+    scheduler->diagnostic_pending = false;
+    scheduler->counters.diagnostic_sent = app_can_saturating_increment(
+        scheduler->counters.diagnostic_sent);
+  } else if (token.kind == APP_CAN_TX_TOKEN_EVENT) {
     if (scheduler->event_count == 0U) {
       return false;
     }

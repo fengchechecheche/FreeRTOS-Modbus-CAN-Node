@@ -29,7 +29,7 @@ static int test_exact_filter_plan(void) {
       P5_CAN_ID_STATUS_EVENT,      P5_CAN_ID_HEARTBEAT,
       P5_CAN_ID_HEALTH_SUMMARY,    P5_CAN_ID_CLIMATE_PRIMARY,
       P5_CAN_ID_CLIMATE_SECONDARY, P5_CAN_ID_ILLUMINANCE,
-      P5_CAN_ID_VIBRATION_SUMMARY, P5_CAN_ID_VIBRATION_SUMMARY,
+      P5_CAN_ID_VIBRATION_SUMMARY, P5_CAN_ID_DIAGNOSTIC_REQUEST,
   };
   bsp_can_filter_plan_t plan;
   bsp_can_filter_plan_build(&plan);
@@ -54,6 +54,7 @@ static int test_header_whitelist(void) {
       P5_CAN_ID_HEALTH_SUMMARY,    P5_CAN_ID_CLIMATE_PRIMARY,
       P5_CAN_ID_CLIMATE_SECONDARY, P5_CAN_ID_ILLUMINANCE,
       P5_CAN_ID_VIBRATION_SUMMARY,
+      P5_CAN_ID_DIAGNOSTIC_REQUEST,
   };
   for (uint32_t index = 0U;
        index < (sizeof(accepted_ids) / sizeof(accepted_ids[0])); ++index) {
@@ -65,6 +66,8 @@ static int test_header_whitelist(void) {
   CHECK(!bsp_can_header_is_accepted(P5_CAN_ID_HEARTBEAT, 1U, 0U, 8U));
   CHECK(!bsp_can_header_is_accepted(P5_CAN_ID_HEARTBEAT, 0U, 1U, 8U));
   CHECK(!bsp_can_header_is_accepted(P5_CAN_ID_HEARTBEAT, 0U, 0U, 7U));
+  CHECK(!bsp_can_header_is_accepted(P5_CAN_ID_DIAGNOSTIC_RESPONSE,
+                                    0U, 0U, P5_CAN_DLC));
   return EXIT_SUCCESS;
 }
 
@@ -274,6 +277,68 @@ static void make_climate_pair(uint8_t sequence, p5_can_frame_t *primary,
        P5_CAN_RESULT_OK)) {
     abort();
   }
+}
+
+static int test_diagnostic_responder_and_single_slot(void) {
+  app_can_diagnostic_responder_t responder;
+  app_can_tx_scheduler_t scheduler;
+  app_can_diagnostic_initialize(&responder);
+  app_can_tx_scheduler_initialize(&scheduler);
+
+  const p5_can_diagnostic_request_t payload = {
+      .sequence = 0x2AU,
+      .opcode = P5_CAN_DIAGNOSTIC_OPCODE_PING,
+      .nonce = UINT32_C(0x12345678),
+  };
+  p5_can_frame_t request;
+  p5_can_frame_t response;
+  CHECK(p5_can_encode_diagnostic_request(&payload, &request) ==
+        P5_CAN_RESULT_OK);
+  CHECK(app_can_diagnostic_process(&responder, &request, 10U, &response) ==
+        APP_CAN_DIAGNOSTIC_READY);
+  CHECK(response.standard_id == P5_CAN_ID_DIAGNOSTIC_RESPONSE);
+  CHECK(app_can_tx_publish_diagnostic_response(&scheduler, &response));
+  CHECK(!app_can_tx_publish_diagnostic_response(&scheduler, &response));
+  CHECK(app_can_tx_pending(&scheduler) == 1U);
+
+  p5_can_frame_t selected;
+  p5_can_frame_t retry;
+  app_can_tx_token_t token;
+  app_can_tx_token_t retry_token;
+  CHECK(app_can_tx_peek(&scheduler, &selected, &token));
+  CHECK(token.kind == APP_CAN_TX_TOKEN_DIAGNOSTIC);
+  CHECK(app_can_tx_peek(&scheduler, &retry, &retry_token));
+  CHECK(retry.standard_id == selected.standard_id);
+  CHECK(retry.data[1] == selected.data[1]);
+  CHECK(retry_token.kind == token.kind);
+  CHECK(app_can_tx_commit(&scheduler, retry_token));
+  CHECK(app_can_tx_pending(&scheduler) == 0U);
+
+  CHECK(app_can_diagnostic_process(&responder, &request, 20U, &response) ==
+        APP_CAN_DIAGNOSTIC_DUPLICATE);
+  p5_can_frame_t next = request;
+  next.data[1] = 0x2BU;
+  next.data[4] ^= 1U;
+  CHECK(app_can_diagnostic_process(&responder, &next, 50U, &response) ==
+        APP_CAN_DIAGNOSTIC_RATE_LIMITED);
+  CHECK(app_can_diagnostic_process(&responder, &next, 110U, &response) ==
+        APP_CAN_DIAGNOSTIC_READY);
+
+  p5_can_frame_t malformed = request;
+  malformed.data[3] = 1U;
+  CHECK(app_can_diagnostic_process(&responder, &malformed, 220U, &response) ==
+        APP_CAN_DIAGNOSTIC_MALFORMED);
+  const app_can_diagnostic_counters_t diagnostic =
+      app_can_diagnostic_counters(&responder);
+  CHECK(diagnostic.valid_requests == 2U);
+  CHECK(diagnostic.duplicate_requests == 1U);
+  CHECK(diagnostic.rate_limited_requests == 1U);
+  CHECK(diagnostic.malformed_requests == 1U);
+  const app_can_tx_counters_t tx = app_can_tx_counters(&scheduler);
+  CHECK(tx.diagnostic_enqueued == 1U);
+  CHECK(tx.diagnostic_dropped == 1U);
+  CHECK(tx.diagnostic_sent == 1U);
+  return EXIT_SUCCESS;
 }
 
 static int test_event_fifo_coalesce_and_full(void) {
@@ -590,6 +655,7 @@ int main(void) {
   CHECK(test_rx_full_invalid_and_saturation() == EXIT_SUCCESS);
   CHECK(test_event_merge_and_latest_error() == EXIT_SUCCESS);
   CHECK(test_counter_saturation() == EXIT_SUCCESS);
+  CHECK(test_diagnostic_responder_and_single_slot() == EXIT_SUCCESS);
   CHECK(test_event_fifo_coalesce_and_full() == EXIT_SUCCESS);
   CHECK(test_telemetry_latest_and_climate_atomicity() == EXIT_SUCCESS);
   CHECK(test_busy_preserves_head_and_event_fairness() == EXIT_SUCCESS);

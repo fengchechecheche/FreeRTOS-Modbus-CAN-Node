@@ -8,6 +8,7 @@ static const uint16_t bsp_can_allowed_ids[] = {
     P5_CAN_ID_HEALTH_SUMMARY,    P5_CAN_ID_CLIMATE_PRIMARY,
     P5_CAN_ID_CLIMATE_SECONDARY, P5_CAN_ID_ILLUMINANCE,
     P5_CAN_ID_VIBRATION_SUMMARY,
+    P5_CAN_ID_DIAGNOSTIC_REQUEST,
 };
 
 static uint32_t bsp_can_saturating_increment(uint32_t value) {

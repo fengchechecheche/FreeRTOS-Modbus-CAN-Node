@@ -184,7 +184,17 @@ def anchor_errors(root: pathlib.Path, route_text: str) -> list[str]:
         for item in can_map.get("frames", [])
         if isinstance(item, dict)
     }
-    expected_ids = {"0x140", "0x240", "0x241", "0x340", "0x341", "0x342", "0x440"}
+    expected_ids = {
+        "0x140",
+        "0x240",
+        "0x241",
+        "0x340",
+        "0x341",
+        "0x342",
+        "0x440",
+        "0x540",
+        "0x541",
+    }
     if actual_ids != expected_ids:
         errors.append(f"CAN ID set mismatch: {sorted(actual_ids)}")
     if matrix.get("summary") != {
@@ -199,8 +209,8 @@ def anchor_errors(root: pathlib.Path, route_text: str) -> list[str]:
         "CubeMX | 6.18.0",
         "FreeRTOS | V10.3.1",
         "default slave 4；19200 8E1",
-        "500000 bit/s；0x140/240/241/340/341/342/440",
-        "Debug/Release 22 tests",
+        "500000 bit/s；0x140/240/241/340/341/342/440/540/541",
+        "Debug/Release 23 tests",
         "13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED",
     ):
         if marker not in route_text:

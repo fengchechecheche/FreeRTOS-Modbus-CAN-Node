@@ -30,6 +30,9 @@ _Static_assert(sizeof(app_can_controller_t) ==
 _Static_assert(sizeof(app_can_runtime_snapshot_t) ==
                    APP_RESOURCE_CAN_RUNTIME_SNAPSHOT_BYTES,
                "CAN runtime snapshot resource budget drifted");
+_Static_assert(sizeof(app_can_diagnostic_responder_t) ==
+                   APP_RESOURCE_CAN_DIAGNOSTIC_RESPONDER_BYTES,
+               "CAN diagnostic responder resource budget drifted");
 
 int main(void)
 {
@@ -40,8 +43,8 @@ int main(void)
   assert(APP_RESOURCE_CAN_IRQ_MAILBOX_BYTES == 156U);
   assert(APP_RESOURCE_CAN_IRQ_NOTIFIER_BYTES == 4U);
   assert(APP_RESOURCE_CAN_IRQ_STATIC_BYTES == 160U);
-  assert(APP_RESOURCE_CAN_RUNTIME_STATIC_BYTES == 500U);
-  assert(APP_RESOURCE_CAN_STATIC_BYTES == 660U);
+  assert(APP_RESOURCE_CAN_RUNTIME_STATIC_BYTES == 676U);
+  assert(APP_RESOURCE_CAN_STATIC_BYTES == 836U);
   assert(APP_RESOURCE_LINKER_HEAP_BYTES == 0U);
   assert(APP_RESOURCE_MSP_STACK_BYTES == 1024U);
   assert(APP_RESOURCE_FLASH_LIMIT_BYTES == (384U * 1024U));

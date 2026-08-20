@@ -14,6 +14,7 @@
 #define APP_CAN_RECOVERY_DELAY_MS UINT32_C(1000)
 #define APP_CAN_RECOVERY_ATTEMPT_LIMIT UINT32_C(3)
 #define APP_CAN_PERIODIC_FRAME_COUNT UINT32_C(6)
+#define APP_CAN_DIAGNOSTIC_MIN_INTERVAL_MS UINT32_C(100)
 
 #define APP_CAN_ERROR_WARNING UINT32_C(0x00000001)
 #define APP_CAN_ERROR_PASSIVE UINT32_C(0x00000002)
@@ -43,6 +44,7 @@ typedef enum {
 
 typedef enum {
   APP_CAN_TX_TOKEN_NONE = 0,
+  APP_CAN_TX_TOKEN_DIAGNOSTIC,
   APP_CAN_TX_TOKEN_EVENT,
   APP_CAN_TX_TOKEN_TELEMETRY
 } app_can_tx_token_kind_t;
@@ -70,6 +72,9 @@ typedef struct {
   uint32_t tx_committed;
   uint32_t hal_busy;
   uint32_t maximum_pending;
+  uint32_t diagnostic_enqueued;
+  uint32_t diagnostic_dropped;
+  uint32_t diagnostic_sent;
 } app_can_tx_counters_t;
 
 typedef struct {
@@ -80,8 +85,32 @@ typedef struct {
   uint8_t event_count;
   uint8_t event_streak;
   uint8_t round_robin_group;
+  bool diagnostic_pending;
+  p5_can_frame_t diagnostic_response;
   app_can_tx_counters_t counters;
 } app_can_tx_scheduler_t;
+
+typedef enum {
+  APP_CAN_DIAGNOSTIC_READY = 0,
+  APP_CAN_DIAGNOSTIC_MALFORMED,
+  APP_CAN_DIAGNOSTIC_DUPLICATE,
+  APP_CAN_DIAGNOSTIC_RATE_LIMITED
+} app_can_diagnostic_result_t;
+
+typedef struct {
+  uint32_t valid_requests;
+  uint32_t malformed_requests;
+  uint32_t duplicate_requests;
+  uint32_t rate_limited_requests;
+} app_can_diagnostic_counters_t;
+
+typedef struct {
+  bool has_last_request;
+  uint8_t last_sequence;
+  uint32_t last_nonce;
+  uint32_t last_accepted_ms;
+  app_can_diagnostic_counters_t counters;
+} app_can_diagnostic_responder_t;
 
 typedef enum {
   APP_CAN_CONTROLLER_STOPPED = 0,
@@ -142,6 +171,9 @@ bool app_can_tx_publish_telemetry(app_can_tx_scheduler_t *scheduler,
 bool app_can_tx_publish_climate_pair(app_can_tx_scheduler_t *scheduler,
                                      const p5_can_frame_t *primary,
                                      const p5_can_frame_t *secondary);
+bool app_can_tx_publish_diagnostic_response(
+    app_can_tx_scheduler_t *scheduler,
+    const p5_can_frame_t *frame);
 bool app_can_tx_peek(app_can_tx_scheduler_t *scheduler, p5_can_frame_t *frame,
                      app_can_tx_token_t *token);
 bool app_can_tx_commit(app_can_tx_scheduler_t *scheduler,
@@ -150,6 +182,14 @@ void app_can_tx_note_hal_busy(app_can_tx_scheduler_t *scheduler);
 uint32_t app_can_tx_pending(const app_can_tx_scheduler_t *scheduler);
 app_can_tx_counters_t
 app_can_tx_counters(const app_can_tx_scheduler_t *scheduler);
+void app_can_diagnostic_initialize(app_can_diagnostic_responder_t *responder);
+app_can_diagnostic_result_t app_can_diagnostic_process(
+    app_can_diagnostic_responder_t *responder,
+    const p5_can_frame_t *request,
+    uint32_t now_ms,
+    p5_can_frame_t *response);
+app_can_diagnostic_counters_t app_can_diagnostic_counters(
+    const app_can_diagnostic_responder_t *responder);
 bool app_can_build_periodic_frames(
     const app_measurement_snapshot_t *measurement,
     const app_health_decision_t *health, uint32_t image_generation,

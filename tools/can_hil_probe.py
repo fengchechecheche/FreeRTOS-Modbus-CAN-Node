@@ -21,6 +21,10 @@ CAN_SFF_MASK = 0x000007FF
 CAN_FRAME = struct.Struct("=IB3x8s")
 SCHEMA_REVISION = 1
 PERIODIC_IDS = {0x240, 0x241, 0x340, 0x341, 0x342, 0x440}
+DIAGNOSTIC_REQUEST_ID = 0x540
+DIAGNOSTIC_RESPONSE_ID = 0x541
+DIAGNOSTIC_OPCODE_PING = 0x01
+DIAGNOSTIC_STATUS_OK = 0x00
 MAX_CAPTURED_FRAMES = 128
 
 
@@ -63,9 +67,19 @@ def load_message_map(path: Path) -> dict[str, Any]:
 
     frames = document.get("frames", [])
     identifiers = {frame.get("identifier") for frame in frames}
-    expected = {0x140, 0x240, 0x241, 0x340, 0x341, 0x342, 0x440}
+    expected = {
+        0x140,
+        0x240,
+        0x241,
+        0x340,
+        0x341,
+        0x342,
+        0x440,
+        DIAGNOSTIC_REQUEST_ID,
+        DIAGNOSTIC_RESPONSE_ID,
+    }
     if identifiers != expected:
-        raise ProbeError("MAP_CONTRACT", "message map does not contain the seven frozen IDs")
+        raise ProbeError("MAP_CONTRACT", "message map does not contain the nine frozen IDs")
     return document
 
 
@@ -138,6 +152,16 @@ def decode_frame(
             "reserved_mask"
         ]:
             raise ProbeError("RESERVED_BITS", f"{name} data_flags use reserved bits")
+    elif name == "diagnostic_ping_request":
+        if values["opcode"] != DIAGNOSTIC_OPCODE_PING:
+            raise ProbeError("OUT_OF_RANGE", "diagnostic request opcode is unsupported")
+        if values["reserved"] != 0:
+            raise ProbeError("RESERVED_BITS", "diagnostic request reserved byte is nonzero")
+    elif name == "diagnostic_ping_response":
+        if values["status"] != DIAGNOSTIC_STATUS_OK:
+            raise ProbeError("OUT_OF_RANGE", "diagnostic response status is not OK")
+        if values["opcode_echo"] != DIAGNOSTIC_OPCODE_PING:
+            raise ProbeError("OUT_OF_RANGE", "diagnostic response opcode is unsupported")
 
     return {
         "identifier": f"0x{frame.identifier:03X}",
@@ -259,6 +283,17 @@ def run_self_test(message_map: dict[str, Any]) -> dict[str, Any]:
     if unpack_socketcan(packed) != good[1]:
         raise ProbeError("SELF_TEST", "SocketCAN frame packing mismatch")
 
+    diagnostic_request = build_diagnostic_request(0x2A, 0x12345678)
+    if diagnostic_request.data != bytes.fromhex("01 2A 01 00 78 56 34 12"):
+        raise ProbeError("SELF_TEST", "diagnostic request vector mismatch")
+    diagnostic_response = CanFrame(
+        DIAGNOSTIC_RESPONSE_ID,
+        bytes.fromhex("01 2A 00 01 78 56 34 12"),
+    )
+    decoded_response = decode_frame(diagnostic_response, message_map)
+    if decoded_response["fields"]["nonce"] != 0x12345678:
+        raise ProbeError("SELF_TEST", "diagnostic response decode mismatch")
+
     return {
         "mode": "self-test",
         "status": "PASS_HOST",
@@ -268,6 +303,7 @@ def run_self_test(message_map: dict[str, Any]) -> dict[str, Any]:
         "duplicate_policy": "COUNT_NOT_FAIL",
         "bme_pair_policy": "SAME_SEQUENCE_ONLY",
         "hardware": "NOT_RUN",
+        "diagnostic_ping_vector": "PASS",
     }
 
 
@@ -408,6 +444,78 @@ def run_observe(
     }, captured
 
 
+def build_diagnostic_request(sequence: int, nonce: int) -> CanFrame:
+    payload = bytes(
+        [SCHEMA_REVISION, sequence, DIAGNOSTIC_OPCODE_PING, 0]
+    ) + nonce.to_bytes(4, "little")
+    return CanFrame(DIAGNOSTIC_REQUEST_ID, payload)
+
+
+def run_diagnostic_ping(
+    interface: str,
+    sequence: int,
+    nonce: int,
+    response_timeout_s: float,
+    message_map: dict[str, Any],
+) -> tuple[dict[str, Any], list[CanFrame]]:
+    request = build_diagnostic_request(sequence, nonce)
+    can_socket = open_can_socket(interface)
+    captured: list[CanFrame] = []
+    try:
+        sent = can_socket.send(pack_socketcan(request))
+        if sent != CAN_FRAME.size:
+            raise ProbeError("SOCKET_SEND", f"sent {sent} bytes, expected 16")
+        captured = receive_bounded(can_socket, response_timeout_s)
+    except OSError as exc:
+        raise ProbeError("SOCKET_IO", str(exc)) from exc
+    finally:
+        can_socket.close()
+
+    matching = 0
+    mismatched = 0
+    for frame in captured:
+        if frame.identifier != DIAGNOSTIC_RESPONSE_ID:
+            continue
+        try:
+            decoded = decode_frame(frame, message_map)
+        except ProbeError:
+            mismatched += 1
+            continue
+        fields = decoded["fields"]
+        if (
+            fields["sequence"] == sequence
+            and fields["status"] == DIAGNOSTIC_STATUS_OK
+            and fields["opcode_echo"] == DIAGNOSTIC_OPCODE_PING
+            and fields["nonce"] == nonce
+        ):
+            matching += 1
+        else:
+            mismatched += 1
+
+    if matching > 1:
+        status = "FAIL_DUPLICATE"
+    elif mismatched > 0:
+        status = "FAIL_MISMATCH"
+    elif matching == 0:
+        status = "FAIL_TIMEOUT"
+    else:
+        status = "PASS_HARDWARE_ROUND_TRIP_CANDIDATE"
+    return {
+        "mode": "diagnostic-ping",
+        "status": status,
+        "interface": interface,
+        "request_id": "0x540",
+        "response_id": "0x541",
+        "sequence": sequence,
+        "nonce": f"0x{nonce:08X}",
+        "request_frames_sent": 1,
+        "matching_responses": matching,
+        "mismatched_responses": mismatched,
+        "captured_frames": len(captured),
+        "response_timeout_s": response_timeout_s,
+    }, captured
+
+
 def write_optional_output(
     output_dir: Path | None,
     result: dict[str, Any],
@@ -435,8 +543,12 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--vcan-self-test", action="store_true")
     mode.add_argument("--observe", action="store_true")
+    mode.add_argument("--diagnostic-ping", action="store_true")
     parser.add_argument("--interface")
     parser.add_argument("--observe-seconds", type=float, default=10.0)
+    parser.add_argument("--response-timeout", type=float, default=2.0)
+    parser.add_argument("--sequence", type=lambda value: int(value, 0), default=0x2A)
+    parser.add_argument("--nonce", type=lambda value: int(value, 0), default=0x12345678)
     parser.add_argument("--allow-send", action="store_true")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument(
@@ -452,6 +564,12 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
     message_map = load_message_map(args.map_path)
     if not 0.1 <= args.observe_seconds <= 60.0:
         raise ProbeError("ARGUMENT", "--observe-seconds must be in [0.1, 60]")
+    if not 0.1 <= args.response_timeout <= 5.0:
+        raise ProbeError("ARGUMENT", "--response-timeout must be in [0.1, 5]")
+    if not 0 <= args.sequence <= 0xFF:
+        raise ProbeError("ARGUMENT", "--sequence must be in [0, 255]")
+    if not 0 <= args.nonce <= 0xFFFFFFFF:
+        raise ProbeError("ARGUMENT", "--nonce must be in [0, 0xffffffff]")
     if args.allow_send and not args.vcan_self_test:
         raise ProbeError(
             "SEND_OWNERSHIP",
@@ -471,6 +589,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
                 "create or select an explicitly named SocketCAN interface",
                 "observe physical CAN without transmitting node-owned telemetry IDs",
                 "decode revision 1 standard DLC-8 frames",
+                "use the fixed 0x540/0x541 diagnostic pair for one bounded round trip",
                 "keep only bounded troubleshooting output",
             ],
         }, []
@@ -478,6 +597,14 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
         raise ProbeError("ARGUMENT", "interface mode requires --interface")
     if args.vcan_self_test:
         return run_vcan_test(args.interface, args.allow_send, message_map)
+    if args.diagnostic_ping:
+        return run_diagnostic_ping(
+            args.interface,
+            args.sequence,
+            args.nonce,
+            args.response_timeout,
+            message_map,
+        )
     return run_observe(args.interface, args.observe_seconds, message_map)
 
 

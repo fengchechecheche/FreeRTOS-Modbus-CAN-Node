@@ -21,6 +21,8 @@ EXPECTED_IDS = {
     "climate_secondary": 0x341,
     "illuminance": 0x342,
     "vibration_summary": 0x440,
+    "diagnostic_ping_request": 0x540,
+    "diagnostic_ping_response": 0x541,
 }
 
 CAN_TO_MODBUS_UNITS = {
@@ -48,7 +50,9 @@ DOCUMENT_MARKERS = {
         "Hardware status: `WAITING_FOR_HARDWARE`",
         "0x140",
         "0x440",
-        "0.48%",
+        "0x540",
+        "0x541",
+        "0.78%",
     ],
     Path("docs/learning/index.md"): [
         "p5_s6_t02_bxcan过滤器中断与发送队列.md",
@@ -265,14 +269,28 @@ def verify_document(document: dict[str, Any]) -> tuple[list[str], int]:
 
     periodic = scheduling.get("periodic_frames_per_second")
     event_budget = scheduling.get("event_budget_frames_per_second")
+    diagnostic_budget = scheduling.get(
+        "diagnostic_response_budget_frames_per_second"
+    )
     bits_per_frame = scheduling.get("conservative_bits_per_frame")
     bitrate = physical.get("nominal_bitrate_bit_s")
     calculated = None
-    load_inputs = (periodic, event_budget, bits_per_frame, bitrate)
+    load_inputs = (
+        periodic,
+        event_budget,
+        diagnostic_budget,
+        bits_per_frame,
+        bitrate,
+    )
     if all(isinstance(value, (int, float)) for value in load_inputs) and bitrate:
-        calculated = (periodic + event_budget) * bits_per_frame * 100.0 / bitrate
+        calculated = (
+            (periodic + event_budget + diagnostic_budget)
+            * bits_per_frame
+            * 100.0
+            / bitrate
+        )
     checked += add_check(
-        calculated is not None and abs(calculated - 0.48) < 1e-9,
+        calculated is not None and abs(calculated - 0.78) < 1e-9,
         "bus load calculation mismatch",
         errors,
     )
@@ -289,6 +307,9 @@ def verify_document(document: dict[str, Any]) -> tuple[list[str], int]:
         "tx_drain_budget": 3,
         "rx_drain_budget": 2,
         "event_fifo_depth": 8,
+        "diagnostic_response_slots": 1,
+        "diagnostic_min_interval_ms": 100,
+        "diagnostic_default_enabled": True,
         "rx_ring_depth": 4,
         "recovery_delay_ms": 1000,
         "recovery_attempt_limit": 3,
@@ -463,7 +484,7 @@ def main() -> int:
 
     print(
         "P5 CAN CONTRACT: PASS "
-        f"({checked} facts, 7 standard IDs, 500 kbit/s, runtime candidate implemented, hardware waiting)"
+        f"({checked} facts, 9 standard IDs, 500 kbit/s, runtime candidate implemented, hardware waiting)"
     )
     return 0
 

@@ -39,14 +39,16 @@ independent. Lower identifiers win arbitration:
 | `0x341` | `climate_secondary` | 1000 ms | BME humidity and age |
 | `0x342` | `illuminance` | 1000 ms | VEML value, flags and age |
 | `0x440` | `vibration_summary` | 1000 ms | ADXL feature resultant RMS, flags and age |
+| `0x540` | `diagnostic_ping_request` | explicit Host one-shot | read-only Host-to-node path check |
+| `0x541` | `diagnostic_ping_response` | one per accepted request | matching node-to-Host reply |
 
 Events have the highest priority but are not periodic. Repeated code/source
 pairs must be coalesced or rate limited by the T02 queue policy.
-All seven revision-1 IDs are produced by the STM32 node. Revision 1 defines no
-host request, configuration-write or echo ID, so a host must not inject these
-IDs while the default producer firmware is active. A bounded host-to-device ACK
-check uses the reviewed silent RX-only diagnostic, not a telemetry ID under the
-default firmware.
+The original seven revision-1 IDs are produced by the STM32 node. `0x540` is
+owned exclusively by the Host and `0x541` exclusively by the STM32 node. The
+diagnostic pair is read-only: it cannot change configuration, outputs or device
+state. A host must not inject any of the seven producer-owned telemetry/event
+IDs while the default firmware is active.
 
 
 ## Common wire rules
@@ -106,11 +108,27 @@ saturates at `0xFE`.
 age_100ms:u8`, with the same unknown and age rules as illuminance. Revision 1
 does not stream 100 Hz X/Y/Z samples or claim diagnosis/prognosis.
 
+### `0x540/0x541 diagnostic ping pair`
+
+Request `0x540` is `revision:u8, sequence:u8, opcode:u8, reserved:u8,
+nonce:u32`; revision 1 accepts only opcode `0x01` and reserved `0x00`.
+Response `0x541` is `revision:u8, sequence:u8, status:u8, opcode_echo:u8,
+nonce:u32`; status `0x00` means OK. Sequence, opcode and nonce must match the
+request. Example: `540#012A010078563412` returns
+`541#012A000178563412`.
+
+The responder has one pending response slot, suppresses an identical
+sequence/nonce retry, and admits different tokens no faster than once per
+100 ms. Processing and response admission occur in `can_task`, never in the
+ISR. A valid request emits one bounded VCP marker such as
+`P5CANDIAG1 rx=1 seq=42 nonce=12345678 reply=QUEUED`.
+
 ## Load budget
 
-Six periodic frames per second plus at most ten event frames per second are
-budgeted. Using a conservative 150 bits per 8-byte standard frame gives
-`16 * 150 / 500000 = 0.48%`, below the 1% contract limit. This is a static
+Six periodic frames per second, at most ten event frames per second and the
+100 ms diagnostic limiter's ten-response-per-second upper bound are budgeted.
+Using a conservative 150 bits per 8-byte standard frame gives
+`26 * 150 / 500000 = 0.78%`, below the 1% contract limit. This is a static
 envelope, not a measurement of arbitration, retransmission or error frames.
 
 ## Validation and boundaries

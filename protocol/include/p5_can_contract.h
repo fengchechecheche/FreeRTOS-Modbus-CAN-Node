@@ -14,6 +14,11 @@
 #define P5_CAN_ID_CLIMATE_SECONDARY UINT16_C(0x341)
 #define P5_CAN_ID_ILLUMINANCE UINT16_C(0x342)
 #define P5_CAN_ID_VIBRATION_SUMMARY UINT16_C(0x440)
+#define P5_CAN_ID_DIAGNOSTIC_REQUEST UINT16_C(0x540)
+#define P5_CAN_ID_DIAGNOSTIC_RESPONSE UINT16_C(0x541)
+
+#define P5_CAN_DIAGNOSTIC_OPCODE_PING UINT8_C(0x01)
+#define P5_CAN_DIAGNOSTIC_STATUS_OK UINT8_C(0x00)
 
 #define P5_CAN_DATA_STATE_MASK UINT8_C(0x03)
 #define P5_CAN_DATA_RETAINED UINT8_C(0x04)
@@ -93,6 +98,21 @@ typedef struct
   uint8_t age_100ms;
 } p5_can_scalar_summary_t;
 
+typedef struct
+{
+  uint8_t sequence;
+  uint8_t opcode;
+  uint32_t nonce;
+} p5_can_diagnostic_request_t;
+
+typedef struct
+{
+  uint8_t sequence;
+  uint8_t status;
+  uint8_t opcode;
+  uint32_t nonce;
+} p5_can_diagnostic_response_t;
+
 p5_can_result_t p5_can_encode_status_event(
     const p5_can_status_event_t *payload,
     p5_can_frame_t *frame);
@@ -141,6 +161,20 @@ p5_can_result_t p5_can_encode_vibration_summary(
 p5_can_result_t p5_can_decode_vibration_summary(
     const p5_can_frame_t *frame,
     p5_can_scalar_summary_t *payload);
+
+p5_can_result_t p5_can_encode_diagnostic_request(
+    const p5_can_diagnostic_request_t *payload,
+    p5_can_frame_t *frame);
+p5_can_result_t p5_can_decode_diagnostic_request(
+    const p5_can_frame_t *frame,
+    p5_can_diagnostic_request_t *payload);
+
+p5_can_result_t p5_can_encode_diagnostic_response(
+    const p5_can_diagnostic_response_t *payload,
+    p5_can_frame_t *frame);
+p5_can_result_t p5_can_decode_diagnostic_response(
+    const p5_can_frame_t *frame,
+    p5_can_diagnostic_response_t *payload);
 
 p5_can_result_t p5_can_pack_source_states(
     const uint8_t source_states[4],

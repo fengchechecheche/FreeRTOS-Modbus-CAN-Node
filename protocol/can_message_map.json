@@ -192,14 +192,48 @@
         {"name": "data_flags", "offset": 6, "width": 1, "type": "uint8"},
         {"name": "age_100ms", "offset": 7, "width": 1, "type": "uint8", "unit": "100_ms", "valid_max": 254, "unknown": 255}
       ]
+    },
+    {
+      "name": "diagnostic_ping_request",
+      "identifier": 1344,
+      "identifier_hex": "0x540",
+      "class": "diagnostic",
+      "subtype": 0,
+      "owner": "host",
+      "trigger": "explicit_single_shot",
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "opcode", "offset": 2, "width": 1, "type": "uint8", "value": 1},
+        {"name": "reserved", "offset": 3, "width": 1, "type": "uint8", "value": 0},
+        {"name": "nonce", "offset": 4, "width": 4, "type": "uint32"}
+      ]
+    },
+    {
+      "name": "diagnostic_ping_response",
+      "identifier": 1345,
+      "identifier_hex": "0x541",
+      "class": "diagnostic",
+      "subtype": 1,
+      "owner": "stm32_node",
+      "trigger": "valid_diagnostic_ping_request",
+      "fields": [
+        {"name": "schema_revision", "offset": 0, "width": 1, "type": "uint8"},
+        {"name": "sequence", "offset": 1, "width": 1, "type": "uint8"},
+        {"name": "status", "offset": 2, "width": 1, "type": "uint8", "ok": 0},
+        {"name": "opcode_echo", "offset": 3, "width": 1, "type": "uint8", "value": 1},
+        {"name": "nonce", "offset": 4, "width": 4, "type": "uint32"}
+      ]
     }
   ],
   "scheduling": {
     "periodic_frames_per_second": 6,
     "event_budget_frames_per_second": 10,
+    "diagnostic_response_budget_frames_per_second": 10,
     "event_policy": "change_only_repeat_coalesce_or_rate_limit",
+    "diagnostic_policy": "single_slot_duplicate_coalesce_100ms_minimum_interval",
     "conservative_bits_per_frame": 150,
-    "calculated_bus_load_percent": 0.48,
+    "calculated_bus_load_percent": 0.78,
     "contract_bus_load_limit_percent": 1.0
   },
   "runtime": {
@@ -209,6 +243,9 @@
     "tx_drain_budget": 3,
     "rx_drain_budget": 2,
     "event_fifo_depth": 8,
+    "diagnostic_response_slots": 1,
+    "diagnostic_min_interval_ms": 100,
+    "diagnostic_default_enabled": true,
     "rx_ring_depth": 4,
     "recovery_delay_ms": 1000,
     "recovery_attempt_limit": 3,

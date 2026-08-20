@@ -99,7 +99,7 @@ evidence and still is not physical RS485 evidence.
 |---|---|---|---|---|
 | CAN-01 | HOST | PASS | `docs/can_runtime.md` | map/codec/filter/IRQ/queue/recovery software candidate passed |
 | CAN-02 | VIRTUAL_BUS | PASS | `docs/can_hil_report.md` | vcan matrix and one can-utils frame passed |
-| CAN-03 | HARDWARE | PASS | `docs/can_hil_report.md` | admitted candleLight/Shield/common-GND route passed identity, 252-frame periodic telemetry and bounded physical ACK in both directions; no host command protocol or dual-bus concurrency is claimed |
+| CAN-03 | HARDWARE | PASS | `docs/can_hil_report.md` | admitted candleLight/Shield/common-GND route passed identity, 252-frame periodic telemetry and bounded physical ACK in both directions; the new read-only `0x540/0x541` application round trip and dual-bus concurrency remain `NOT_RUN` |
 | BUS-01 | HOST | PASS | `docs/dual_bus_fault_matrix.md` | D01-D08 Host backpressure/isolation matrix passed |
 | BUS-02 | INTEGRATION | NOT_RUN | `docs/dual_bus_fault_matrix.md` | physical RS485+CAN concurrency was not run |
 

@@ -107,6 +107,111 @@ static p5_can_result_t p5_can_validate_data_flags(uint8_t flags)
   return P5_CAN_RESULT_OK;
 }
 
+p5_can_result_t p5_can_encode_diagnostic_request(
+    const p5_can_diagnostic_request_t *payload,
+    p5_can_frame_t *frame)
+{
+  if (payload == NULL)
+  {
+    return P5_CAN_RESULT_NULL_ARGUMENT;
+  }
+  if (payload->opcode != P5_CAN_DIAGNOSTIC_OPCODE_PING)
+  {
+    return P5_CAN_RESULT_OUT_OF_RANGE;
+  }
+
+  p5_can_result_t result = p5_can_initialize_frame(
+      P5_CAN_ID_DIAGNOSTIC_REQUEST, payload->sequence, frame);
+  if (result != P5_CAN_RESULT_OK)
+  {
+    return result;
+  }
+  frame->data[2] = payload->opcode;
+  frame->data[3] = 0U;
+  p5_can_put_u32_le(&frame->data[4], payload->nonce);
+  return P5_CAN_RESULT_OK;
+}
+
+p5_can_result_t p5_can_decode_diagnostic_request(
+    const p5_can_frame_t *frame,
+    p5_can_diagnostic_request_t *payload)
+{
+  if (payload == NULL)
+  {
+    return P5_CAN_RESULT_NULL_ARGUMENT;
+  }
+  p5_can_result_t result = p5_can_validate_frame(
+      frame, P5_CAN_ID_DIAGNOSTIC_REQUEST);
+  if (result != P5_CAN_RESULT_OK)
+  {
+    return result;
+  }
+  if (frame->data[2] != P5_CAN_DIAGNOSTIC_OPCODE_PING)
+  {
+    return P5_CAN_RESULT_OUT_OF_RANGE;
+  }
+  if (frame->data[3] != 0U)
+  {
+    return P5_CAN_RESULT_RESERVED_BITS;
+  }
+  payload->sequence = frame->data[1];
+  payload->opcode = frame->data[2];
+  payload->nonce = p5_can_get_u32_le(&frame->data[4]);
+  return P5_CAN_RESULT_OK;
+}
+
+p5_can_result_t p5_can_encode_diagnostic_response(
+    const p5_can_diagnostic_response_t *payload,
+    p5_can_frame_t *frame)
+{
+  if (payload == NULL)
+  {
+    return P5_CAN_RESULT_NULL_ARGUMENT;
+  }
+  if ((payload->status != P5_CAN_DIAGNOSTIC_STATUS_OK) ||
+      (payload->opcode != P5_CAN_DIAGNOSTIC_OPCODE_PING))
+  {
+    return P5_CAN_RESULT_OUT_OF_RANGE;
+  }
+
+  p5_can_result_t result = p5_can_initialize_frame(
+      P5_CAN_ID_DIAGNOSTIC_RESPONSE, payload->sequence, frame);
+  if (result != P5_CAN_RESULT_OK)
+  {
+    return result;
+  }
+  frame->data[2] = payload->status;
+  frame->data[3] = payload->opcode;
+  p5_can_put_u32_le(&frame->data[4], payload->nonce);
+  return P5_CAN_RESULT_OK;
+}
+
+p5_can_result_t p5_can_decode_diagnostic_response(
+    const p5_can_frame_t *frame,
+    p5_can_diagnostic_response_t *payload)
+{
+  if (payload == NULL)
+  {
+    return P5_CAN_RESULT_NULL_ARGUMENT;
+  }
+  p5_can_result_t result = p5_can_validate_frame(
+      frame, P5_CAN_ID_DIAGNOSTIC_RESPONSE);
+  if (result != P5_CAN_RESULT_OK)
+  {
+    return result;
+  }
+  if ((frame->data[2] != P5_CAN_DIAGNOSTIC_STATUS_OK) ||
+      (frame->data[3] != P5_CAN_DIAGNOSTIC_OPCODE_PING))
+  {
+    return P5_CAN_RESULT_OUT_OF_RANGE;
+  }
+  payload->sequence = frame->data[1];
+  payload->status = frame->data[2];
+  payload->opcode = frame->data[3];
+  payload->nonce = p5_can_get_u32_le(&frame->data[4]);
+  return P5_CAN_RESULT_OK;
+}
+
 p5_can_result_t p5_can_encode_status_event(
     const p5_can_status_event_t *payload,
     p5_can_frame_t *frame)

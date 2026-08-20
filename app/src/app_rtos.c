@@ -56,8 +56,8 @@
 #include "task.h"
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE || APP_CAN_ACK_DIAGNOSTIC_ENABLE
 #include "main.h"
-#include "usart.h"
 #endif
+#include "usart.h"
 
 #ifndef P5_IRQ_NOTIFICATION_SMOKE_ENABLE
 #define P5_IRQ_NOTIFICATION_SMOKE_ENABLE (0)
@@ -77,6 +77,8 @@
 #define APP_CAN_EVENT_START_FAILED UINT16_C(0x0301)
 #define APP_CAN_EVENT_BUS_OFF UINT16_C(0x0302)
 #define APP_CAN_EVENT_RECOVERED UINT16_C(0x0303)
+#define APP_CAN_DIAGNOSTIC_REPORT_CAPACITY (112U)
+#define APP_CAN_DIAGNOSTIC_UART_TIMEOUT_MS UINT32_C(100)
 #define APP_IWDG_SMOKE_PRIME_FEEDS UINT32_C(3)
 #define APP_IWDG_STABLE_FEEDS UINT32_C(5)
 #if APP_CAN_ACK_DIAGNOSTIC_ENABLE
@@ -192,6 +194,10 @@ static uint32_t app_rtos_can_next_telemetry_ms;
 static uint8_t app_rtos_can_sequence;
 static bool app_rtos_can_telemetry_initialized;
 static bool app_rtos_can_hardware_started;
+#if !APP_CAN_TX_SUPPRESSED_DIAGNOSTIC_ENABLE
+static app_can_diagnostic_responder_t app_rtos_can_diagnostic_responder;
+static char app_rtos_can_diagnostic_report[APP_CAN_DIAGNOSTIC_REPORT_CAPACITY];
+#endif
 #if P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE
 static uint8_t app_rtos_can_echo_responded_mask;
 #endif
@@ -809,6 +815,155 @@ static void app_rtos_can_bounded_echo(const bsp_can_rx_frame_t *request)
 }
 #endif
 
+#if !APP_CAN_TX_SUPPRESSED_DIAGNOSTIC_ENABLE
+static size_t app_rtos_can_diagnostic_append_literal(
+    char *destination,
+    size_t capacity,
+    size_t offset,
+    const char *text)
+{
+  if ((destination == NULL) || (text == NULL))
+  {
+    return offset;
+  }
+  while ((*text != '\0') && (offset < capacity))
+  {
+    destination[offset++] = *text++;
+  }
+  return offset;
+}
+
+static size_t app_rtos_can_diagnostic_append_u8_decimal(
+    char *destination,
+    size_t capacity,
+    size_t offset,
+    uint8_t value)
+{
+  if ((destination == NULL) || (offset >= capacity))
+  {
+    return offset;
+  }
+  if (value >= UINT8_C(100))
+  {
+    destination[offset++] = (char)('0' + (value / UINT8_C(100)));
+    value %= UINT8_C(100);
+  }
+  if ((value >= UINT8_C(10)) ||
+      ((offset > 0U) && (destination[offset - 1U] >= '0') &&
+       (destination[offset - 1U] <= '9')))
+  {
+    if (offset >= capacity)
+    {
+      return offset;
+    }
+    destination[offset++] = (char)('0' + (value / UINT8_C(10)));
+  }
+  if (offset < capacity)
+  {
+    destination[offset++] = (char)('0' + (value % UINT8_C(10)));
+  }
+  return offset;
+}
+
+static size_t app_rtos_can_diagnostic_append_u32_hex(
+    char *destination,
+    size_t capacity,
+    size_t offset,
+    uint32_t value)
+{
+  static const char digits[] = "0123456789ABCDEF";
+  for (uint32_t nibble = 0U; nibble < 8U; ++nibble)
+  {
+    if (offset >= capacity)
+    {
+      break;
+    }
+    const uint32_t shift = 28U - (nibble * 4U);
+    destination[offset++] = digits[(value >> shift) & UINT32_C(0x0F)];
+  }
+  return offset;
+}
+
+static void app_rtos_can_diagnostic_report_once(
+    const p5_can_diagnostic_request_t *request,
+    bool queued)
+{
+  if (request == NULL)
+  {
+    return;
+  }
+  size_t length = 0U;
+  length = app_rtos_can_diagnostic_append_literal(
+      app_rtos_can_diagnostic_report,
+      sizeof(app_rtos_can_diagnostic_report),
+      length,
+      "P5CANDIAG1 rx=1 seq=");
+  length = app_rtos_can_diagnostic_append_u8_decimal(
+      app_rtos_can_diagnostic_report,
+      sizeof(app_rtos_can_diagnostic_report),
+      length,
+      request->sequence);
+  length = app_rtos_can_diagnostic_append_literal(
+      app_rtos_can_diagnostic_report,
+      sizeof(app_rtos_can_diagnostic_report),
+      length,
+      " nonce=");
+  length = app_rtos_can_diagnostic_append_u32_hex(
+      app_rtos_can_diagnostic_report,
+      sizeof(app_rtos_can_diagnostic_report),
+      length,
+      request->nonce);
+  length = app_rtos_can_diagnostic_append_literal(
+      app_rtos_can_diagnostic_report,
+      sizeof(app_rtos_can_diagnostic_report),
+      length,
+      queued ? " reply=QUEUED\r\n" : " reply=DROPPED\r\n");
+  (void)HAL_UART_Transmit(&huart2,
+                          (uint8_t *)app_rtos_can_diagnostic_report,
+                          (uint16_t)length,
+                          APP_CAN_DIAGNOSTIC_UART_TIMEOUT_MS);
+}
+
+static void app_rtos_can_diagnostic_request(
+    const bsp_can_rx_frame_t *received,
+    uint32_t now_ms)
+{
+  if ((received == NULL) ||
+      (received->standard_id != P5_CAN_ID_DIAGNOSTIC_REQUEST) ||
+      app_rtos_can_scheduler.diagnostic_pending)
+  {
+    return;
+  }
+  p5_can_frame_t request = {
+      .standard_id = (uint16_t)received->standard_id,
+      .dlc = (uint8_t)received->dlc,
+      .data = {0U},
+  };
+  for (uint32_t index = 0U; index < P5_CAN_DLC; ++index)
+  {
+    request.data[index] = received->data[index];
+  }
+
+  p5_can_frame_t response;
+  if (app_can_diagnostic_process(&app_rtos_can_diagnostic_responder,
+                                 &request,
+                                 now_ms,
+                                 &response) != APP_CAN_DIAGNOSTIC_READY)
+  {
+    return;
+  }
+  p5_can_diagnostic_request_t decoded;
+  if (p5_can_decode_diagnostic_request(&request, &decoded) !=
+      P5_CAN_RESULT_OK)
+  {
+    return;
+  }
+  const bool queued = app_can_tx_publish_diagnostic_response(
+      &app_rtos_can_scheduler, &response);
+  app_rtos_can_diagnostic_report_once(&decoded, queued);
+}
+#endif
+
 static void app_rtos_can_enqueue_event(uint16_t event_code,
                                        uint8_t severity,
                                        uint16_t detail)
@@ -986,8 +1141,10 @@ static void app_rtos_can_service(uint32_t now_ms)
             frame.dlc,
             frame.data,
             now_ms);
-#else
+#elif P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE
         (void)frame;
+#else
+        app_rtos_can_diagnostic_request(&frame, now_ms);
 #endif
       }
     }
@@ -1762,6 +1919,9 @@ app_rtos_status_t app_rtos_initialize(void)
   app_measurement_model_initialize(&app_rtos_measurement_model);
   app_sensor_monitor_initialize(&app_rtos_sensor_monitor);
   app_can_tx_scheduler_initialize(&app_rtos_can_scheduler);
+#if !APP_CAN_TX_SUPPRESSED_DIAGNOSTIC_ENABLE
+  app_can_diagnostic_initialize(&app_rtos_can_diagnostic_responder);
+#endif
   app_can_controller_initialize(&app_rtos_can_controller);
   app_rtos_can_snapshot = (app_can_runtime_snapshot_t){0};
   app_rtos_can_next_telemetry_ms = 0U;

@@ -158,6 +158,54 @@ static int test_scalar_frames_and_boundaries(void)
   return EXIT_SUCCESS;
 }
 
+static int test_diagnostic_ping(void)
+{
+  static const uint8_t request_expected[P5_CAN_DLC] =
+      {0x01U, 0x2AU, 0x01U, 0x00U, 0x78U, 0x56U, 0x34U, 0x12U};
+  static const uint8_t response_expected[P5_CAN_DLC] =
+      {0x01U, 0x2AU, 0x00U, 0x01U, 0x78U, 0x56U, 0x34U, 0x12U};
+  const p5_can_diagnostic_request_t request = {
+      0x2AU, P5_CAN_DIAGNOSTIC_OPCODE_PING, UINT32_C(0x12345678)};
+  const p5_can_diagnostic_response_t response = {
+      0x2AU, P5_CAN_DIAGNOSTIC_STATUS_OK,
+      P5_CAN_DIAGNOSTIC_OPCODE_PING, UINT32_C(0x12345678)};
+  p5_can_diagnostic_request_t decoded_request = {0U, 0U, 0U};
+  p5_can_diagnostic_response_t decoded_response = {0U, 0U, 0U, 0U};
+  p5_can_frame_t frame = {0U, 0U, {0U}};
+
+  CHECK(p5_can_encode_diagnostic_request(&request, &frame) ==
+        P5_CAN_RESULT_OK);
+  CHECK(frame_equals(&frame, P5_CAN_ID_DIAGNOSTIC_REQUEST,
+                     request_expected));
+  CHECK(p5_can_decode_diagnostic_request(&frame, &decoded_request) ==
+        P5_CAN_RESULT_OK);
+  CHECK(decoded_request.sequence == request.sequence);
+  CHECK(decoded_request.opcode == request.opcode);
+  CHECK(decoded_request.nonce == request.nonce);
+
+  CHECK(p5_can_encode_diagnostic_response(&response, &frame) ==
+        P5_CAN_RESULT_OK);
+  CHECK(frame_equals(&frame, P5_CAN_ID_DIAGNOSTIC_RESPONSE,
+                     response_expected));
+  CHECK(p5_can_decode_diagnostic_response(&frame, &decoded_response) ==
+        P5_CAN_RESULT_OK);
+  CHECK(decoded_response.sequence == response.sequence);
+  CHECK(decoded_response.status == response.status);
+  CHECK(decoded_response.opcode == response.opcode);
+  CHECK(decoded_response.nonce == response.nonce);
+
+  frame = (p5_can_frame_t){
+      P5_CAN_ID_DIAGNOSTIC_REQUEST, P5_CAN_DLC,
+      {0x01U, 0x2AU, 0x01U, 0x01U, 0x78U, 0x56U, 0x34U, 0x12U}};
+  CHECK(p5_can_decode_diagnostic_request(&frame, &decoded_request) ==
+        P5_CAN_RESULT_RESERVED_BITS);
+  frame.data[3] = 0U;
+  frame.data[2] = 2U;
+  CHECK(p5_can_decode_diagnostic_request(&frame, &decoded_request) ==
+        P5_CAN_RESULT_OUT_OF_RANGE);
+  return EXIT_SUCCESS;
+}
+
 static int test_invalid_inputs(void)
 {
   p5_can_frame_t frame = {0U, 0U, {0U}};
@@ -214,6 +262,7 @@ int main(void)
   CHECK(test_health_and_source_states() == EXIT_SUCCESS);
   CHECK(test_climate_pair() == EXIT_SUCCESS);
   CHECK(test_scalar_frames_and_boundaries() == EXIT_SUCCESS);
+  CHECK(test_diagnostic_ping() == EXIT_SUCCESS);
   CHECK(test_invalid_inputs() == EXIT_SUCCESS);
   puts("P5 host CAN contract: PASS");
   return EXIT_SUCCESS;

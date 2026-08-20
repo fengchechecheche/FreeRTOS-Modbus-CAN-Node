@@ -14,10 +14,11 @@
 > admitted candleLight/`gs_usb` adapter, Waveshare Shield and common-GND wiring.
 > The default firmware produced 252 valid periodic frames, 42 per required ID;
 > separate RX-only and TX-once diagnostics proved physical delivery/ACK in both
-> directions with both sides ERROR-ACTIVE and zero errors. Revision 1 still has
-> no host command/echo protocol, and physical RS485+CAN concurrency remains
-> `NOT_RUN`. The verified default firmware was restored and both devices were
-> powered off. See [`docs/can_hil_report.md`](docs/can_hil_report.md).
+> directions with both sides ERROR-ACTIVE and zero errors. The default firmware
+> now adds a read-only `0x540` Host request / `0x541` STM32 response diagnostic;
+> its Host/ARM path is implemented, while its dedicated physical round trip and
+> RS485+CAN concurrency remain `NOT_RUN`. See
+> [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
 > 2026-08-19 RS485 hardware update: physical H01 was attempted but timed out.
 > A bounded diagnostic proved STM32-to-Shield-to-USB-RS485 transmission, while
@@ -133,7 +134,7 @@ FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核
 map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻辑候选；stream parser、
 RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响应、122-register image 和
 易失地址写入候选。T05 无硬件路径已增加默认只读、显式解锁地址写入的 HIL 探针；串口保持
-`NOT_RUN`，项目三地址 4 profile 仍为 `not_created`。P5-S6-T01 已冻结七个 11 位标准 CAN ID、
+`NOT_RUN`，项目三地址 4 profile 仍为 `not_created`。P5-S6-T01 已冻结九个 11 位标准 CAN ID、
 8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；P5-S6-T02
 已接入 filter、IRQ、固定队列、task notification 与 bus-off 恢复软件候选，硬件保持
 `WAITING_FOR_HARDWARE`。P5-S6-T04 已用一个直接链接生产模块的 Host 矩阵验证双总线背压和
@@ -196,12 +197,12 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。
   T05 HIL self-test/dry-run 不打开串口；真实 249 B response、地址迁移、UART/RS485 总线和项目三联调
   仍为 `WAITING_FOR_HARDWARE` / `NOT_RUN`。
-- CAN 合同使用节点 4 的 `0x140/0x240/0x241/0x340/0x341/0x342/0x440`、500 kbit/s、
-  standard data frame、DLC 8 和 little-endian。纯 codec、精确 filter、固定 IRQ/RX mailbox、
-  latest-wins 周期发送、事件合并及 1 s/3 次 bus-off 恢复均达到软件候选；candleLight、收发器和
-  物理接收帧已通过，但受限主机发送失败。P5-S6-T03 已用 raw SocketCAN/`vcan` 完成 12 帧有界软件矩阵；
-  `can-utils` 2023.03-1 已安装且 `candump`/`cansend` 单帧 vcan smoke 通过；candleLight/实物 HIL
-  双向实物 HIL 仍为 `FAIL / OPEN`。T04 的 D01～D08 Host 矩阵进一步验证 RS485 CRC/timeout 与 CAN busy、FIFO full、
+- CAN 合同使用节点 4 的七个节点遥测/事件 ID 以及专用诊断 `0x540/0x541`、500 kbit/s、
+  standard data frame、DLC 8 和 little-endian。纯 codec、八项精确接收 filter、固定 IRQ/RX mailbox、
+  latest-wins 周期发送、事件合并、单槽诊断应答及 1 s/3 次 bus-off 恢复均达到软件候选；公共 GND
+  条件下的周期遥测和双向物理 ACK 已通过。新的 `0x540/0x541` 应用层往返仍待实物补验。
+  P5-S6-T03 已用 raw SocketCAN/`vcan` 完成有界软件矩阵；T04 的 D01～D08 Host 矩阵进一步验证
+  RS485 CRC/timeout 与 CAN busy、FIFO full、
   bus-off 同时发生时，健康链路、采集和 health task model 仍有进度；虚拟 tick 不构成物理恢复时间。
 - 项目自有代码采用 MIT，公开 holder 为 `fengchechecheche`；CubeMX、CMSIS、HAL、FreeRTOS 和其他
   独立通知材料仍受各自条款约束，见根 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`。
@@ -239,14 +240,17 @@ python3 tools/verify_can_contract.py --self-test
 
 CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；
 SocketCAN/`vcan` 为 `PASS_HOST`。实物 CAN 在公共 GND 条件下通过周期遥测和两方向物理
-ACK 的有界补验，`CAN-03` 为 `PASS_HARDWARE_LIMITED`；revision 1 没有电脑下发命令/
-回复协议，`BUS-02` 双总线并发仍为 `NOT_RUN`。
+ACK 的有界补验，`CAN-03` 为 `PASS_HARDWARE_LIMITED`；revision 1 新增只读
+`0x540/0x541` 诊断往返，其实物应用层应答仍为 `NOT_RUN`，`BUS-02` 双总线并发也仍为
+`NOT_RUN`。
 
 CAN HIL 软件预检：
 
 ```bash
 python3 tools/can_hil_probe.py --self-test
 python3 tools/can_hil_probe.py --dry-run
+python3 tools/can_hil_probe.py --diagnostic-ping --interface can0 \
+  --sequence 0x2A --nonce 0x12345678 --response-timeout 2
 ```
 
 `can-utils` 的 `candump`/`cansend` 单帧 vcan smoke 已通过。`vcan` 的显式发送矩阵和到货后的接线/接口步骤见
