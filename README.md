@@ -10,14 +10,14 @@
 > blockers and the `UNRELEASED` state are unchanged. See
 > [`docs/reproduction_report_repro_002.md`](docs/reproduction_report_repro_002.md).
 
-> 2026-08-19 CAN hardware update: candleLight/`gs_usb` identity and the
-> periodic STM32-to-host route passed at 500 kbit/s with a bounded `75%` host
-> sample point: six IDs, field decoding and BME frame pairing were observed.
-> One bounded host-to-device `0x140` transmission consistently caused
-> ERROR-PASSIVE/BUS-OFF, and an `80%` STM32 diagnostic did not improve the
-> route. `CAN-03` is therefore `FAIL_BIDIRECTIONAL / PASS_RECEIVE_ONLY`; the
-> verified default firmware was restored and both CAN devices were powered
-> off. See [`docs/can_hil_report.md`](docs/can_hil_report.md).
+> 2026-08-20 CAN hardware update: `CAN-03` is `PASS_HARDWARE_LIMITED` for the
+> admitted candleLight/`gs_usb` adapter, Waveshare Shield and common-GND wiring.
+> The default firmware produced 252 valid periodic frames, 42 per required ID;
+> separate RX-only and TX-once diagnostics proved physical delivery/ACK in both
+> directions with both sides ERROR-ACTIVE and zero errors. Revision 1 still has
+> no host command/echo protocol, and physical RS485+CAN concurrency remains
+> `NOT_RUN`. The verified default firmware was restored and both devices were
+> powered off. See [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
 > 2026-08-19 RS485 hardware update: physical H01 was attempted but timed out.
 > A bounded diagnostic proved STM32-to-Shield-to-USB-RS485 transmission, while
@@ -46,9 +46,9 @@
 > default ELF SHA-256 is
 > `4b4fa7f110e74244d0b3850d3a313b8fc17b795eca0fee67039e503f34d772c7`.
 > A later S3 supplement passed bare-board stack watermarks, default health feed,
-> one controlled IWDG reset and reset-only `.noinit` retention. Sensors, RS485,
-> physical CAN and hardware soak remain `NOT_RUN`, so `HW-001` and the Hardware
-> Release gate remain open. See [`docs/bsp_validation.md`](docs/bsp_validation.md)
+> one controlled IWDG reset and reset-only `.noinit` retention. At that board
+> supplement stage, sensors and physical buses were not exercised; current domain
+> status is tracked separately. The Hardware Release gate remains open. See [`docs/bsp_validation.md`](docs/bsp_validation.md)
 > and [`docs/health_recovery_report.md`](docs/health_recovery_report.md).
 
 > P5-S7-T05 update: intended version `v0.1.0` remains `UNRELEASED`. The current
@@ -103,16 +103,17 @@
 > [`docs/dual_bus_fault_matrix.md`](docs/dual_bus_fault_matrix.md).
 
 > P5-S6-T03 update: the standard-library SocketCAN probe, dry-run and bounded
-> `vcan` matrix are `PASS_HOST`; the later candleLight supplement passed only
-> the physical device-to-host receive direction and failed bounded host TX.
-> `can-utils` 2023.03-1 and a one-frame
-> `candump`/`cansend` vcan smoke are also verified. See
+> `vcan` matrix are `PASS_HOST`; the common-GND candleLight supplement is
+> `PASS_HARDWARE_LIMITED` for periodic telemetry and physical ACK in both
+> directions. `can-utils` 2023.03-1 and a one-frame `candump`/`cansend` vcan
+> smoke are also verified. See
 > [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
 > P5-S6-T02 update: `CAN_CONTRACT_CANDIDATE_VALIDATED +
 > CAN_RUNTIME_CANDIDATE_IMPLEMENTED`. Exact filters, bounded IRQ mailboxes,
-> task-owned TX scheduling and bus-off recovery are integrated; hardware remains
-> `WAITING_FOR_HARDWARE`. See [`docs/can_runtime.md`](docs/can_runtime.md).
+> task-owned TX scheduling and bus-off recovery are integrated. This T02 claim
+> remains software-only; the later bounded physical result is recorded separately
+> in [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
 > P5-S5-T05 update: the default firmware is unchanged; a bounded HIL probe now
 > provides self-test/dry-run preparation without opening a serial port. Physical
@@ -236,8 +237,10 @@ python3 tools/verify_can_contract.py
 python3 tools/verify_can_contract.py --self-test
 ```
 
-CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；raw
-SocketCAN/`vcan` 为 `PASS_HOST`；candleLight identity 和 device-to-host periodic frames 已通过，但 bounded host TX 触发 ERROR-PASSIVE/BUS-OFF，因此双向物理 CAN 仍未验收。
+CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；
+SocketCAN/`vcan` 为 `PASS_HOST`。实物 CAN 在公共 GND 条件下通过周期遥测和两方向物理
+ACK 的有界补验，`CAN-03` 为 `PASS_HARDWARE_LIMITED`；revision 1 没有电脑下发命令/
+回复协议，`BUS-02` 双总线并发仍为 `NOT_RUN`。
 
 CAN HIL 软件预检：
 

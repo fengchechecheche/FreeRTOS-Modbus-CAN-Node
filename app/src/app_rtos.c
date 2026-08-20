@@ -12,8 +12,14 @@
 #define P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE (0)
 #endif
 
+#ifndef P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE
+#define P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE (0)
+#endif
+
 #define APP_CAN_ACK_DIAGNOSTIC_ENABLE                                      \
   (P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE || P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE)
+#define APP_CAN_TX_SUPPRESSED_DIAGNOSTIC_ENABLE                            \
+  (APP_CAN_ACK_DIAGNOSTIC_ENABLE || P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE)
 
 #include <stddef.h>
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE || APP_CAN_ACK_DIAGNOSTIC_ENABLE
@@ -186,6 +192,9 @@ static uint32_t app_rtos_can_next_telemetry_ms;
 static uint8_t app_rtos_can_sequence;
 static bool app_rtos_can_telemetry_initialized;
 static bool app_rtos_can_hardware_started;
+#if P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE
+static uint8_t app_rtos_can_echo_responded_mask;
+#endif
 #if APP_CAN_ACK_DIAGNOSTIC_ENABLE
 static app_can_ack_diagnostic_t app_rtos_can_ack_diagnostic;
 static char app_rtos_can_ack_report[APP_CAN_ACK_REPORT_CAPACITY];
@@ -730,11 +739,81 @@ static void app_rtos_can_ack_service(uint32_t now_ms,
 }
 #endif
 
+#if P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE
+static bool app_rtos_can_echo_id_bit(uint32_t standard_id, uint8_t *bit)
+{
+  if (bit == NULL)
+  {
+    return false;
+  }
+
+  switch (standard_id)
+  {
+    case P5_CAN_ID_STATUS_EVENT:
+      *bit = UINT8_C(1) << 0U;
+      return true;
+    case P5_CAN_ID_HEARTBEAT:
+      *bit = UINT8_C(1) << 1U;
+      return true;
+    case P5_CAN_ID_HEALTH_SUMMARY:
+      *bit = UINT8_C(1) << 2U;
+      return true;
+    case P5_CAN_ID_CLIMATE_PRIMARY:
+      *bit = UINT8_C(1) << 3U;
+      return true;
+    case P5_CAN_ID_CLIMATE_SECONDARY:
+      *bit = UINT8_C(1) << 4U;
+      return true;
+    case P5_CAN_ID_ILLUMINANCE:
+      *bit = UINT8_C(1) << 5U;
+      return true;
+    case P5_CAN_ID_VIBRATION_SUMMARY:
+      *bit = UINT8_C(1) << 6U;
+      return true;
+    default:
+      *bit = 0U;
+      return false;
+  }
+}
+
+static void app_rtos_can_bounded_echo(const bsp_can_rx_frame_t *request)
+{
+  uint8_t response_bit = 0U;
+  if ((request == NULL) ||
+      !app_rtos_can_echo_id_bit(request->standard_id, &response_bit) ||
+      ((app_rtos_can_echo_responded_mask & response_bit) != 0U))
+  {
+    return;
+  }
+
+  app_rtos_can_echo_responded_mask |= response_bit;
+  uint8_t payload_xor = 0U;
+  for (uint32_t index = 0U; index < P5_CAN_DLC; ++index)
+  {
+    payload_xor ^= request->data[index];
+  }
+
+  const p5_can_frame_t response = {
+      .standard_id = P5_CAN_ID_STATUS_EVENT,
+      .dlc = P5_CAN_DLC,
+      .data = {UINT8_C(0xE1),
+               UINT8_C(0x00),
+               (uint8_t)((request->standard_id >> 8U) & UINT32_C(0x07)),
+               (uint8_t)(request->standard_id & UINT32_C(0xFF)),
+               (uint8_t)request->dlc,
+               request->data[0],
+               request->data[1],
+               payload_xor},
+  };
+  (void)bsp_can_send(&response);
+}
+#endif
+
 static void app_rtos_can_enqueue_event(uint16_t event_code,
                                        uint8_t severity,
                                        uint16_t detail)
 {
-#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+#if APP_CAN_TX_SUPPRESSED_DIAGNOSTIC_ENABLE
   (void)event_code;
   (void)severity;
   (void)detail;
@@ -785,7 +864,7 @@ static void app_rtos_can_update_snapshot(uint32_t last_hal_error)
 
 static void app_rtos_can_publish_periodic(uint32_t now_ms)
 {
-#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+#if APP_CAN_TX_SUPPRESSED_DIAGNOSTIC_ENABLE
   (void)now_ms;
 #else
   if (!app_rtos_can_telemetry_initialized)
@@ -898,7 +977,9 @@ static void app_rtos_can_service(uint32_t now_ms)
            bsp_can_take_received(&frame);
            ++received)
       {
-#if P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE
+#if P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE
+        app_rtos_can_bounded_echo(&frame);
+#elif P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE
         (void)app_can_ack_diagnostic_observe_rx(
             &app_rtos_can_ack_diagnostic,
             frame.standard_id,
@@ -976,7 +1057,7 @@ static void app_rtos_can_service(uint32_t now_ms)
 
 #if APP_CAN_ACK_DIAGNOSTIC_ENABLE
   app_rtos_can_ack_service(now_ms, last_hal_error);
-#else
+#elif !P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE
   app_rtos_can_publish_periodic(now_ms);
   if ((app_rtos_can_controller.state == APP_CAN_CONTROLLER_ACTIVE) ||
       (app_rtos_can_controller.state == APP_CAN_CONTROLLER_WARNING) ||

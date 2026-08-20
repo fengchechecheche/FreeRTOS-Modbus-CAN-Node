@@ -13,9 +13,15 @@ option(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC "Route ADXL345 DATA_READY to INT2 for bo
 option(P5_ADXL345_POLLING_DIAGNOSTIC "Poll ADXL345 DATA_READY for bounded HIL diagnosis" OFF)
 option(P5_CAN_ACK_RX_DIAGNOSTIC "Enable one-shot host-to-STM32 ACK diagnosis" OFF)
 option(P5_CAN_ACK_TX_DIAGNOSTIC "Enable one-shot STM32-to-host ACK diagnosis" OFF)
+option(P5_CAN_BOUNDED_ECHO_DIAGNOSTIC "Enable one response per accepted CAN ID per boot" OFF)
 
 if(P5_CAN_ACK_RX_DIAGNOSTIC AND P5_CAN_ACK_TX_DIAGNOSTIC)
   message(FATAL_ERROR "CAN ACK RX and TX diagnostics are mutually exclusive")
+endif()
+
+if(P5_CAN_BOUNDED_ECHO_DIAGNOSTIC AND
+   (P5_CAN_ACK_RX_DIAGNOSTIC OR P5_CAN_ACK_TX_DIAGNOSTIC))
+  message(FATAL_ERROR "CAN bounded Echo and ACK diagnostics are mutually exclusive")
 endif()
 
 if(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC AND NOT P5_ADXL345_HIL_DIAGNOSTIC)

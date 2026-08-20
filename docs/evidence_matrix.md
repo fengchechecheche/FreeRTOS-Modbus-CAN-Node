@@ -7,7 +7,7 @@
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Board supplement evidence: `[044] d409a8161669aae8ea4c01246df577d36212650a`
 > Watchdog supplement evidence: `[046] 96fa46b41c38a0a0bb249876d9a0736165ac1642`
-> Row summary: `24 = 17 PASS + 2 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
+> Row summary: `24 = 18 PASS + 1 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
 ## Purpose
@@ -99,12 +99,13 @@ evidence and still is not physical RS485 evidence.
 |---|---|---|---|---|
 | CAN-01 | HOST | PASS | `docs/can_runtime.md` | map/codec/filter/IRQ/queue/recovery software candidate passed |
 | CAN-02 | VIRTUAL_BUS | PASS | `docs/can_hil_report.md` | vcan matrix and one can-utils frame passed |
-| CAN-03 | HARDWARE | FAIL | `docs/can_hil_report.md` | candleLight/gs_usb identity and periodic device-to-host frames passed at a bounded 75% host sample point, but one bounded host TX caused ERROR-PASSIVE/BUS-OFF; bidirectional ACK and recovery are not accepted |
+| CAN-03 | HARDWARE | PASS | `docs/can_hil_report.md` | admitted candleLight/Shield/common-GND route passed identity, 252-frame periodic telemetry and bounded physical ACK in both directions; no host command protocol or dual-bus concurrency is claimed |
 | BUS-01 | HOST | PASS | `docs/dual_bus_fault_matrix.md` | D01-D08 Host backpressure/isolation matrix passed |
 | BUS-02 | INTEGRATION | NOT_RUN | `docs/dual_bus_fault_matrix.md` | physical RS485+CAN concurrency was not run |
 
-`CAN-02` proves Linux SocketCAN behavior only. A local send return or TX echo
-does not establish MCU acceptance or a physical ACK.
+`CAN-02` proves Linux SocketCAN behavior only. `CAN-03` physical ACK is bound to
+the reviewed RX-only/TX-once diagnostics and common-GND wiring; a local send
+return or TX echo alone does not establish MCU acceptance or physical ACK.
 
 ## Soak
 
@@ -122,7 +123,7 @@ P5-HW-SNS-00 在基线 `d48f2c75b048dc60320045233312ad6df050e88e` 上以 SHA-256
 连续采样、补偿复算、光照响应、ADXL345 DATA_READY/轴向/振动响应或计量精度，
 且 ADXL345 单模块 SPI 鲁棒性保持 `NOT_CLAIMED`，因此 SNS-01..03 仍为
 `SNS-03` 保持 `NOT_RUN`；RS485-03 的后续实测保持 `FAIL`。SNS-01/SNS-02 补验通过后，
-当前矩阵总计为 `17 PASS + 2 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`。
+当前矩阵总计为 `18 PASS + 1 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`。
 
 ## Release blocker projection
 
@@ -130,7 +131,7 @@ P5-HW-SNS-00 在基线 `d48f2c75b048dc60320045233312ad6df050e88e` 上以 SHA-256
 |---|---|---|
 | HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | OPEN; BSP-02 and WDG-01 passed, three sensor functional supplements remain |
 | HW-002 RS485 and Project Three | RS485-03, P3-01 | OPEN |
-| HW-003 CAN and physical dual bus | CAN-03, BUS-02 | OPEN |
+| HW-003 CAN and physical dual bus | CAN-03, BUS-02 | OPEN; CAN-03 passed, BUS-02 remains NOT_RUN |
 | HW-004 hardware soak | SOAK-02 | OPEN |
 
 The software source and both clean-reproduction blockers are closed. `BSP-02`

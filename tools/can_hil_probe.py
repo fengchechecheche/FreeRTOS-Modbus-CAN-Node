@@ -380,17 +380,11 @@ def run_vcan_test(
 def run_observe(
     interface: str,
     observe_seconds: float,
-    allow_send: bool,
     message_map: dict[str, Any],
 ) -> tuple[dict[str, Any], list[CanFrame]]:
     can_socket = open_can_socket(interface)
     try:
         captured = receive_bounded(can_socket, observe_seconds)
-        send_attempted = False
-        if allow_send:
-            test_frame = CanFrame(0x240, bytes.fromhex("01 A5 00 00 00 00 00 00"))
-            can_socket.send(pack_socketcan(test_frame))
-            send_attempted = True
     except OSError as exc:
         raise ProbeError("SOCKET_IO", str(exc)) from exc
     finally:
@@ -398,21 +392,17 @@ def run_observe(
 
     summary = summarize_frames(captured, message_map)
     receive_pass = not summary["missing_periodic_ids"] and summary["bme_pairs"] >= 1
-    if receive_pass and send_attempted:
-        status = "PASS_INTEGRATION_CANDIDATE"
-    elif receive_pass:
-        status = "PASS_HARDWARE_RX_CANDIDATE"
-    else:
-        status = "FAIL_OBSERVE"
+    status = "PASS_HARDWARE_RX_CANDIDATE" if receive_pass else "FAIL_OBSERVE"
     return {
         "mode": "observe",
         "status": status,
         "interface": interface,
         "observe_seconds": observe_seconds,
         "captured": len(captured),
-        "host_send_attempted": send_attempted,
+        "host_send_attempted": False,
         "host_send_evidence_boundary": (
-            "local send completion is not remote ACK or MCU application acceptance"
+            "physical observe is receive-only; use the reviewed RX_ONLY diagnostic "
+            "for bounded host-to-device ACK evidence"
         ),
         "summary": summary,
     }, captured
@@ -462,8 +452,11 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
     message_map = load_message_map(args.map_path)
     if not 0.1 <= args.observe_seconds <= 60.0:
         raise ProbeError("ARGUMENT", "--observe-seconds must be in [0.1, 60]")
-    if args.allow_send and not (args.vcan_self_test or args.observe):
-        raise ProbeError("ARGUMENT", "--allow-send is valid only with an interface mode")
+    if args.allow_send and not args.vcan_self_test:
+        raise ProbeError(
+            "SEND_OWNERSHIP",
+            "--allow-send is reserved for --vcan-self-test; physical observe is receive-only",
+        )
 
     if args.self_test:
         return run_self_test(message_map), []
@@ -476,7 +469,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
             "planned_ids": [f"0x{value:03X}" for value in sorted(frame_definitions(message_map))],
             "planned_steps": [
                 "create or select an explicitly named SocketCAN interface",
-                "observe before any optional send",
+                "observe physical CAN without transmitting node-owned telemetry IDs",
                 "decode revision 1 standard DLC-8 frames",
                 "keep only bounded troubleshooting output",
             ],
@@ -485,7 +478,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
         raise ProbeError("ARGUMENT", "interface mode requires --interface")
     if args.vcan_self_test:
         return run_vcan_test(args.interface, args.allow_send, message_map)
-    return run_observe(args.interface, args.observe_seconds, args.allow_send, message_map)
+    return run_observe(args.interface, args.observe_seconds, message_map)
 
 
 def main() -> int:

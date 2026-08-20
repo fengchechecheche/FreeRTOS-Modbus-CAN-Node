@@ -21,9 +21,10 @@ The machine-readable authority is
 The candidate uses 11-bit standard data frames, 500 kbit/s, DLC 8 and no CAN
 FD, extended or remote frames. The current CubeMX candidate has a 45 MHz APB1
 clock, prescaler 6 and 15 time quanta (`1 + 12 + 2`), giving 500 kbit/s and an
-86.67% sample point. Pins are PB8/CAN1_RX and PB9/CAN1_TX. These configuration
-facts are cross-build candidates; transceiver, termination and waveform remain
-`NOT_RUN`.
+86.67% sample point. Pins are PB8/CAN1_RX and PB9/CAN1_TX. The bounded physical
+check passed with the admitted Shield/`gs_usb` adapter, 500 kbit/s and a common
+USB-CAN-to-Shield ground; this does not claim waveform quality or arbitrary
+adapter interoperability.
 
 The node ID is 4. IDs use `class_base + (node_id << 4) + subtype`; this happens
 to reuse the numeric Modbus default address but the two address spaces are
@@ -41,6 +42,12 @@ independent. Lower identifiers win arbitration:
 
 Events have the highest priority but are not periodic. Repeated code/source
 pairs must be coalesced or rate limited by the T02 queue policy.
+All seven revision-1 IDs are produced by the STM32 node. Revision 1 defines no
+host request, configuration-write or echo ID, so a host must not inject these
+IDs while the default producer firmware is active. A bounded host-to-device ACK
+check uses the reviewed silent RX-only diagnostic, not a telemetry ID under the
+default firmware.
+
 
 ## Common wire rules
 
@@ -117,6 +124,7 @@ software path. Runtime architecture and troubleshooting are recorded in
 [`can_runtime.md`](can_runtime.md).
 
 Hardware follow-up requires the S2 admission gate, known transceiver/jumpers,
-CANH/CANL/GND, exactly two end terminators for a two-node bench, matching
-bitrate, candleLight/SocketCAN and representative decoded frames. That work is
-not part of T01/T02.
+CANH/CANL/common GND, reviewed termination, matching bitrate,
+candleLight/SocketCAN and representative decoded frames. The bounded admitted
+route is recorded in [`can_hil_report.md`](can_hil_report.md); physical dual-bus
+concurrency remains outside T01/T02 and is still `NOT_RUN`.

@@ -28,7 +28,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | REPRO-002 | REPRO | CLOSED | BINARY,HARDWARE | `[047]` completed the independent no-network/no-cache Host, contract, ARM and resource replay | `docs/reproduction_report_repro_002.md`; `artifacts/release/p5_repro_002_replay.json`; REPRO-002 SHA-256 manifest |
 | HW-001 | HW | OPEN | HARDWARE | BME280 sampling/reset and VEML7700 light-response/range checks passed; ADXL345 interrupt/axis checks and standalone SPI robustness are not complete | Run the remaining bounded ADXL345 functional supplement after its hardware uncertainty is resolved |
 | HW-002 | HW | OPEN | HARDWARE | Physical H01 failed with a bounded RS485 return-path framing error; adapter versus Shield/PA10 is not yet isolated, and Project Three interoperability is not run | Cross-check with the newly selected USB-RS485, then resume H01-H11 before Project Three integration |
-| HW-003 | HW | OPEN | HARDWARE | candleLight identity and periodic device-to-host frames passed, but one bounded host TX caused ERROR-PASSIVE/BUS-OFF; bidirectional ACK, recovery and dual-bus concurrency are not complete | Cross-check the USB-CAN transmitter versus the Shield transceiver/CAN_RX path with known-good hardware before resuming CAN H06 and dual-bus work |
+| HW-003 | HW | OPEN | HARDWARE | CAN-03 passed for the admitted common-GND route: identity, periodic telemetry and physical ACK in both directions; BUS-02 dual-bus concurrency is not run | Complete RS485-03, then run the bounded physical RS485+CAN concurrency/fault-isolation matrix |
 | HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
 
 ## Current license inventory result
@@ -137,7 +137,7 @@ than being inferred from the clean build.
 `docs/demo_guide.md` provides one software-only demonstration path and a
 separate hardware sequence marked `NOT_RUN`. The six role-specific candidate
 sentences in `docs/recruitment_claim_ledger.md` cite only matrix `PASS` rows and
-remain `NOT_PUBLISHED`; physical sensors, Project Three, physical CAN,
+remain `NOT_PUBLISHED`; incomplete sensor boundaries, Project Three,
 simultaneous physical buses and hardware soak stay ineligible.
 
 All 35 tutorials now exist and are `FROZEN` after user content review. This

@@ -9,10 +9,10 @@
     "docs/bsp_validation.md"
   ],
   "summary": {
-    "FAIL": 2,
+    "FAIL": 1,
     "NOT_CLAIMED": 1,
     "NOT_RUN": 4,
-    "PASS": 17,
+    "PASS": 18,
     "REVIEW_REQUIRED": 0
   },
   "rows": [
@@ -393,12 +393,12 @@
     {
       "id": "CAN-03",
       "domain": "CAN",
-      "capability": "candleLight identity, ACK, physical frames and bus-off recovery",
+      "capability": "candleLight identity, physical frames and bounded ACK",
       "execution_layer": "HARDWARE",
-      "result": "FAIL",
-      "evidence_commit": "285a894d52ff817bf9683a5a7034c01c27675e89",
+      "result": "PASS",
+      "evidence_commit": "db84dccd1eaaeaf5403b57482497c39a99d4ca3e",
       "regression_anchor": null,
-      "firmware_sha256": "d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca",
+      "firmware_sha256": "d611f7c4ed9935a70f2e43b8fce100d30f0c8d26f9f42e35bc2a9ab2efc0996e",
       "hardware_identity": "NUCLEO-F446RE + Waveshare RS485 CAN Shield + candleLight/CANable-class gs_usb adapter; serial omitted",
       "config_refs": [
         "freertos_modbus_can_node.ioc",
@@ -409,7 +409,7 @@
         "docs/can_hil_report.md",
         "docs/release_readiness.md"
       ],
-      "allowed_claim": "已执行但失败：candleLight/gs_usb identity and the periodic STM32-to-host receive path passed at a bounded 75% host sample point: six IDs, decode and BME pairing were observed. One bounded host 0x140 TX caused ERROR-PASSIVE/BUS-OFF under either single-termination placement, so bidirectional ACK, host-to-device transfer and bus-off recovery failed and remain unclaimed."
+      "allowed_claim": "在公共 GND 的已准入 NUCLEO-F446RE、Waveshare Shield 和 candleLight/gs_usb 路径上，500 kbit/s 周期遥测与两方向物理 ACK 的有界诊断通过；revision 1 不包含主机命令/回复协议，未自然观察 0x140 状态事件，未声明物理 bus-off 恢复，也未执行物理双总线并发。"
     },
     {
       "id": "BUS-01",

@@ -75,10 +75,10 @@ def matrix_rows(matrix: object) -> tuple[dict[str, dict[str, object]], list[str]
     if matrix.get("schema") != "P5_EVIDENCE_MATRIX_V1":
         errors.append("evidence matrix schema mismatch")
     if matrix.get("summary") != {
-        "FAIL": 0,
+        "FAIL": 1,
         "NOT_CLAIMED": 1,
-        "NOT_RUN": 8,
-        "PASS": 15,
+        "NOT_RUN": 4,
+        "PASS": 18,
         "REVIEW_REQUIRED": 0,
     }:
         errors.append("evidence matrix summary mismatch")
@@ -152,7 +152,7 @@ def validate_restrictions(
     expected = {
         row_id
         for row_id, row in evidence.items()
-        if row.get("result") in {"NOT_RUN", "NOT_CLAIMED"}
+        if row.get("result") in {"FAIL", "NOT_RUN", "NOT_CLAIMED"}
     }
     covered: set[str] = set()
     for restriction_id, refs, _boundary, eligibility in rows:
@@ -165,7 +165,7 @@ def validate_restrictions(
             matrix_row = evidence.get(row_id)
             if matrix_row is None:
                 errors.append(f"{restriction_id}: unknown evidence row {row_id}")
-            elif matrix_row.get("result") in {"NOT_RUN", "NOT_CLAIMED"}:
+            elif matrix_row.get("result") in {"FAIL", "NOT_RUN", "NOT_CLAIMED"}:
                 covered.add(row_id)
                 row_has_restricted_evidence = True
             elif matrix_row.get("result") != "PASS":
@@ -250,7 +250,7 @@ def check_repository(root: pathlib.Path) -> tuple[list[str], int, int]:
         "Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`",
         "Current software-test baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`",
         "Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`",
-        "Evidence matrix: `24 = 15 PASS + 8 NOT_RUN + 1 NOT_CLAIMED`",
+        "Evidence matrix: `24 = 18 PASS + 1 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`",
         "Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`",
         "Tag / remote Release: `ABSENT / NOT_RUN`",
     )))
@@ -296,7 +296,7 @@ def check_repository(root: pathlib.Path) -> tuple[list[str], int, int]:
 
     eligible = sum(row.get("result") == "PASS" for row in evidence.values())
     restricted = sum(
-        row.get("result") in {"NOT_RUN", "NOT_CLAIMED"}
+        row.get("result") in {"FAIL", "NOT_RUN", "NOT_CLAIMED"}
         for row in evidence.values()
     )
     return errors, eligible, restricted
@@ -307,11 +307,13 @@ def run_self_test() -> int:
     pass_row = {"result": "PASS"}
     restricted_row = {"result": "NOT_RUN"}
     not_claimed_row = {"result": "NOT_CLAIMED"}
+    failed_row = {"result": "FAIL"}
     evidence = {
         "SW-01": pass_row,
         "FW-01": pass_row,
         "BSP-02": restricted_row,
         "REP-02": not_claimed_row,
+        "RS485-03": failed_row,
     }
     valid = [
         ["CLM-EMB-01", "EMBEDDED", "Host evidence", "SW-01", "HOST+CROSS_BUILD", "NOT_PUBLISHED"],
@@ -353,6 +355,7 @@ def run_self_test() -> int:
     restrictions = [
         ["LIM-HW-01", "BSP-02", "not run", "NOT_ELIGIBLE"],
         ["LIM-REPRO-01", "REP-02", "not claimed", "NOT_ELIGIBLE"],
+        ["LIM-RS485-01", "RS485-03", "failed", "NOT_ELIGIBLE"],
     ]
     assert not validate_restrictions(restrictions, evidence)
     checks += 1

@@ -1,16 +1,17 @@
 # P5-S6-T03 SocketCAN / candleLight HIL report
 
 > Software status: `PASS_HOST`
-> Hardware status: `PASS_RECEIVE_ONLY / FAIL_BIDIRECTIONAL`
+> Hardware status: `PASS_HARDWARE_LIMITED`
 > Integration status: `NOT_RUN`
 > Baseline: `4a581aea31dc97c6deec51726ed0ccf7325579bd` (`[032]`)
-> Hardware supplement source: `285a894d52ff817bf9683a5a7034c01c27675e89`
+> Historical hardware supplement source: `285a894d52ff817bf9683a5a7034c01c27675e89`
+> Current hardware supplement source: `[057] db84dccd1eaaeaf5403b57482497c39a99d4ca3e`
 
 ## Scope and boundary
 
-This report closes the hardware-free SocketCAN preflight only. The Python probe
-uses the standard-library `AF_CAN/CAN_RAW` API and the frozen
-`protocol/can_message_map.json`; it does not add a CAN command, modify firmware,
+This report records the hardware-free SocketCAN preflight and the later bounded
+physical supplement. The Python probe uses the standard-library `AF_CAN/CAN_RAW`
+API and the frozen `protocol/can_message_map.json`; it does not add a CAN command
 or treat local loopback as physical evidence.
 
 The current CAN revision has no request, configuration-write or echo command.
@@ -55,15 +56,16 @@ python3 tools/can_hil_probe.py \
 sudo ip link del vcan0
 ```
 
-A future hardware observation defaults to receive-only:
+A physical hardware observation is receive-only:
 
 ```bash
 python3 tools/can_hil_probe.py \
   --observe --interface <can-interface> --observe-seconds 10
 ```
 
-Adding `--allow-send` sends exactly one frozen standard/DLC-8 heartbeat test
-frame after the passive observation. It does not enable a control operation.
+`--allow-send` is reserved for `--vcan-self-test`. Physical `--observe` rejects
+that flag with `SEND_OWNERSHIP`; bounded host-to-device ACK evidence uses the
+reviewed silent `RX_ONLY` diagnostic rather than a producer-owned telemetry ID.
 Output files are created only when `--output-dir` is explicitly supplied, and
 the capture is capped at 128 frames.
 
@@ -102,10 +104,10 @@ Debug `text/data/bss = 53272/160/13224` and Release
 |---|---|---|
 | H01 | candleLight identity and `gs_usb` netdev in WSL | PASS |
 | H02 | 500 kbit/s, UP, initial ERROR-ACTIVE | PASS_LIMITED: host sample point `75%` |
-| H03 | six periodic IDs in an approximately 10 s window | PASS: 60/60 accepted, 10 per ID |
+| H03 | six periodic IDs in a bounded default-firmware window | PASS: 252/252 accepted, 42 per ID |
 | H04 | revision/DLC/fields decode | PASS |
-| H05 | one matching `0x340/0x341` pair | PASS: 10 pairs, 0 mismatch |
-| H06 | one bounded host TX without new interface errors | FAIL: ERROR-PASSIVE/BUS-OFF |
+| H05 | one matching `0x340/0x341` pair | PASS: 42 pairs observed |
+| H06 | one bounded host-to-device frame with physical ACK | PASS: `RX_ONLY rxacc=1`, both sides ERROR-ACTIVE and zero errors with common GND |
 | H07 | state event if naturally observed | NOT_OBSERVED_ALLOWED |
 | H08 | interface-down, USB detach and default-firmware restore | PASS |
 
@@ -143,6 +145,50 @@ Consequently `CAN-03` is `FAIL`, not `PASS`: identity and the periodic
 device-to-host frame/decode/pairing route passed, while physical bidirectional
 ACK, bounded host-to-device transfer, bus-off recovery and dual-bus concurrency
 remain unaccepted. `vcan` results continue to be Host-only evidence.
+
+## 2026-08-20 common-ground closure
+
+The 2026-08-19 failure above remains the historical observation. The follow-up
+separated receive-only and transmit-once behavior with bounded diagnostics from
+`[057] db84dccd1eaaeaf5403b57482497c39a99d4ca3e`. The RX-only ELF SHA-256 was
+`aec9f0d3b200467c330c4e6692d8448dd82bce47b0e1bb70927772162b48d003`;
+the TX-once NART ELF SHA-256 was
+`230468db28157c2b53a387ee92e6b0e623d50098081cb8a673b177fcbf0f1f68`.
+
+Without a public USB-CAN-to-Shield ground, one host userspace send of `0x240`
+was accepted 17 times by the STM32 RX-only diagnostic (`rxacc=17`) while the
+host accumulated CAN errors. This proves lower-layer retries of one userspace
+request and explains why the earlier Echo experiment amplified into repeated
+responses. It does not support attributing every repeated frame to STM32
+hardware retransmission.
+
+After adding `USB-CAN GND <-> Shield GND`, the same one-send RX-only check gave
+`rxacc=1`, `rxdrop=0`, and zero STM32/host error counters; both sides remained
+ERROR-ACTIVE. The separate TX-once NART check delivered
+`140#A15A54584F4E4345` to the host and reported `txc=1`, TEC/REC/LEC zero. Thus
+the physical host-to-STM32 delivery/ACK direction and STM32-to-host/ACK
+direction both passed with the common reference connected.
+
+The verified default firmware SHA-256
+`d611f7c4ed9935a70f2e43b8fce100d30f0c8d26f9f42e35bc2a9ab2efc0996e`
+was then restored. A passive window captured 252 valid periodic frames: 42 each
+of `0x240`, `0x241`, `0x340`, `0x341`, `0x342` and `0x440`; the interface
+remained ERROR-ACTIVE with zero errors. The interface was subsequently brought
+down and both devices were powered off.
+
+A later manual host transmission under the default firmware reused `0x140`,
+which revision 1 assigns to STM32-produced status events, while normal producer
+traffic was active. Its resulting errors are not a valid H06 result: revision 1
+defines no host command/echo ID, and injecting any of the seven node-owned IDs
+can create a same-ID data-phase conflict. The physical probe now enforces this
+ownership boundary by rejecting `--observe --allow-send`.
+
+Consequently `CAN-03` is `PASS_HARDWARE_LIMITED` for the admitted adapter,
+Shield, wiring, 500 kbit/s Classical CAN, periodic telemetry, physical ACK in
+both directions and default-firmware restore. This does not claim a host command
+protocol, application-level response, naturally observed `0x140` event,
+arbitrary CAN adapter interoperability, physical bus-off recovery, or physical
+RS485+CAN concurrency. `BUS-02` therefore remains `NOT_RUN` and `HW-003` remains open.
 
 ## Lightweight evidence rule
 
