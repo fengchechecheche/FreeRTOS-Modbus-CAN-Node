@@ -47,7 +47,7 @@ DOCUMENT_MARKERS = {
     Path("docs/can_contract.md"): [
         "Contract status: `CANDIDATE_VALIDATED`",
         "Runtime status: `CANDIDATE_IMPLEMENTED`",
-        "Hardware status: `WAITING_FOR_HARDWARE`",
+        "Hardware status: `PASS`",
         "0x140",
         "0x440",
         "0x540",
@@ -66,7 +66,7 @@ DOCUMENT_MARKERS = {
     Path("docs/can_runtime.md"): [
         "CAN_RUNTIME_CANDIDATE_IMPLEMENTED",
         "RECOVERY_LATCHED",
-        "WAITING_FOR_HARDWARE",
+        "Hardware status: `PASS`",
     ],
 }
 
@@ -151,7 +151,7 @@ def verify_document(document: dict[str, Any]) -> tuple[list[str], int]:
         errors,
     )
     checked += add_check(
-        metadata.get("hardware_status") == "waiting_for_hardware",
+        metadata.get("hardware_status") == "pass",
         "hardware boundary changed",
         errors,
     )
@@ -165,7 +165,7 @@ def verify_document(document: dict[str, Any]) -> tuple[list[str], int]:
         "can_fd": False,
         "extended_frames": False,
         "remote_frames": False,
-        "hardware_validation": "not_run",
+        "hardware_validation": "pass",
     }
     for key, value in expected_physical.items():
         checked += add_check(
@@ -484,7 +484,8 @@ def main() -> int:
 
     print(
         "P5 CAN CONTRACT: PASS "
-        f"({checked} facts, 9 standard IDs, 500 kbit/s, runtime candidate implemented, hardware waiting)"
+        f"({checked} facts, 9 standard IDs, 500 kbit/s, runtime candidate implemented, "
+        "hardware acceptance pass; physical runtime recovery unclaimed)"
     )
     return 0
 

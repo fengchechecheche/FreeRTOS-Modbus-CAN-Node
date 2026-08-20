@@ -72,7 +72,7 @@ The following remain incomplete and are not candidate accomplishments:
 
 - BME280 bounded sampling/reset and VEML7700 light-response/range checks passed without metrology claims; ADXL345 interrupt/axis checks remain `NOT_RUN`;
 - USB-RS485 H01 failed on the physical return path and awaits a second-adapter cross-check; H02-H11, physical timing and Project Three interoperability remain `NOT_RUN`;
-- the admitted common-GND candleLight route passed periodic telemetry and physical ACK in both directions; the new read-only `0x540/0x541` diagnostic has software verification only, and its physical application round trip plus arbitrary-adapter interoperability remain unclaimed;
+- the admitted common-GND candleLight route passed periodic telemetry, physical ACK in both directions and one bounded read-only `0x540/0x541` application round trip at 500 kbit/s with Host sample point `0.75`; arbitrary-adapter interoperability, physical bus-off recovery and simultaneous RS485+CAN remain unclaimed;
 - simultaneous physical RS485/CAN behavior;
 - the 10-minute, 60-minute and formal 8-hour hardware sessions.
 

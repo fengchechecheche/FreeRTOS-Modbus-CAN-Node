@@ -3,7 +3,7 @@
 > Contract status: `CANDIDATE_VALIDATED`
 > Codec status: `CANDIDATE_VALIDATED`
 > Runtime status: `CANDIDATE_IMPLEMENTED`
-> Hardware status: `WAITING_FOR_HARDWARE`
+> Hardware status: `PASS`
 
 ## Scope
 
@@ -25,6 +25,11 @@ clock, prescaler 6 and 15 time quanta (`1 + 12 + 2`), giving 500 kbit/s and an
 check passed with the admitted Shield/`gs_usb` adapter, 500 kbit/s and a common
 USB-CAN-to-Shield ground; this does not claim waveform quality or arbitrary
 adapter interoperability.
+
+The admitted Host interface must be configured explicitly with
+`bitrate 500000 sample-point 0.75`. This Host-side `75%` setting does not change
+the MCU's frozen CubeMX timing above. Omitting the Host sample point selected
+`0.875` in the tested environment and did not produce a valid physical route.
 
 The node ID is 4. IDs use `class_base + (node_id << 4) + subtype`; this happens
 to reuse the numeric Modbus default address but the two address spaces are
@@ -141,7 +146,7 @@ ARM builds establish `CANDIDATE_VALIDATED + CANDIDATE_IMPLEMENTED` only for the
 software path. Runtime architecture and troubleshooting are recorded in
 [`can_runtime.md`](can_runtime.md).
 
-Hardware follow-up requires the S2 admission gate, known transceiver/jumpers,
+Hardware sessions require the S2 admission gate, known transceiver/jumpers,
 CANH/CANL/common GND, reviewed termination, matching bitrate,
 candleLight/SocketCAN and representative decoded frames. The bounded admitted
 route is recorded in [`can_hil_report.md`](can_hil_report.md); physical dual-bus

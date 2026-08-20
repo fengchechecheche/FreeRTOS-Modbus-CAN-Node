@@ -6,7 +6,7 @@
     "status": "candidate_validated",
     "runtime_task_id": "P5-S6-T02",
     "runtime_status": "candidate_implemented",
-    "hardware_status": "waiting_for_hardware"
+    "hardware_status": "pass"
   },
   "physical_layer": {
     "protocol": "classical_can_2_0a",
@@ -19,7 +19,7 @@
     "remote_frames": false,
     "configured_time_quanta": 15,
     "configured_sample_point_percent": 86.67,
-    "hardware_validation": "not_run"
+    "hardware_validation": "pass"
   },
   "addressing": {
     "node_id": 4,

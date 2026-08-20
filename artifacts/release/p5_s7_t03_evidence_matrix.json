@@ -393,12 +393,12 @@
     {
       "id": "CAN-03",
       "domain": "CAN",
-      "capability": "candleLight identity, physical frames and bounded ACK",
+      "capability": "candleLight identity, physical telemetry, bounded ACK and diagnostic application round trip",
       "execution_layer": "HARDWARE",
       "result": "PASS",
-      "evidence_commit": "db84dccd1eaaeaf5403b57482497c39a99d4ca3e",
-      "regression_anchor": null,
-      "firmware_sha256": "d611f7c4ed9935a70f2e43b8fce100d30f0c8d26f9f42e35bc2a9ab2efc0996e",
+      "evidence_commit": "39c6114eba1b547d29741d142582f3828a902dc7",
+      "regression_anchor": "39c6114eba1b547d29741d142582f3828a902dc7",
+      "firmware_sha256": "bd72b55c84350d433aebb7c0eaee14705b3ae3422604f19c732d54fd2808f73f",
       "hardware_identity": "NUCLEO-F446RE + Waveshare RS485 CAN Shield + candleLight/CANable-class gs_usb adapter; serial omitted",
       "config_refs": [
         "freertos_modbus_can_node.ioc",
@@ -409,7 +409,7 @@
         "docs/can_hil_report.md",
         "docs/release_readiness.md"
       ],
-      "allowed_claim": "在公共 GND 的已准入 NUCLEO-F446RE、Waveshare Shield 和 candleLight/gs_usb 路径上，500 kbit/s 周期遥测与两方向物理 ACK 的有界诊断通过；revision 1 不包含主机命令/回复协议，未自然观察 0x140 状态事件，未声明物理 bus-off 恢复，也未执行物理双总线并发。"
+      "allowed_claim": "在公共 GND 的已准入 NUCLEO-F446RE、Waveshare Shield 和 candleLight/gs_usb 路径上，500 kbit/s、Host sample point 0.75 的周期遥测、两方向物理 ACK 与单次只读 0x540/0x541 应用层诊断往返通过；未自然观察 0x140 状态事件，不声明任意适配器互操作、物理 bus-off 恢复或物理双总线并发。"
     },
     {
       "id": "BUS-01",

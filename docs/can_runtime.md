@@ -1,7 +1,7 @@
 # P5-S6-T02 bxCAN runtime
 
 > Software status: `CAN_RUNTIME_CANDIDATE_IMPLEMENTED`
-> Hardware status: `WAITING_FOR_HARDWARE`
+> Hardware status: `PASS`
 > Review gate: `CONTENT_REVIEW_PASSED`
 
 ## Runtime boundary
@@ -54,9 +54,48 @@ counts duplicates without failing normal periodic repetition, and pairs
 
 The current environment has `vcan` and `gs_usb` kernel modules. `can-utils`
 2023.03-1 is installed, and a one-frame `candump`/`cansend` smoke on temporary
-`vcan0` is `PASS_HOST`. candleLight and physical CAN remain `NOT_RUN`. A local
-SocketCAN loopback or adapter TX echo is not an ACK or MCU application-acceptance
-result.
+`vcan0` is `PASS_HOST`. The admitted candleLight physical route is `PASS` for
+periodic telemetry, bounded physical ACK in both
+directions and the dedicated `0x540/0x541` application round trip. A local
+SocketCAN loopback or adapter TX echo alone is still not an ACK or MCU
+application-acceptance result.
+
+## Default WSL physical CAN setup
+
+Every physical CAN session must explicitly use 500 kbit/s and sample point
+`0.75`. Omitting `sample-point 0.75` selected `0.875` in the tested host
+environment and produced a non-working route; a run that reports `0.875` is
+invalid for this project and must not be promoted to hardware evidence.
+
+In Windows PowerShell, first refresh the USB identity and attach the already
+shared candleLight device with the current usbipd syntax:
+
+```powershell
+usbipd.exe list
+usbipd.exe attach --wsl --busid 5-2
+```
+
+`5-2` is the BUSID observed in the 2026-08-21 pass, not a permanent hardware
+identity. Run `usbipd.exe list` again after changing USB port or rebooting and
+replace it when necessary. Do not use the obsolete
+`usbipd.exe attach --wsl Ubuntu-24.04-STM32 ...` form; current usbipd selects
+the active WSL distribution automatically.
+
+The `stm32` account may require an interactive sudo password. For a bounded
+host-side test launched from Windows, use WSL's root startup parameter instead
+of first failing with `sudo -n`:
+
+```powershell
+wsl.exe -d Ubuntu-24.04-STM32 -u root -- ip link set can0 down
+wsl.exe -d Ubuntu-24.04-STM32 -u root -- ip link set can0 type can bitrate 500000 sample-point 0.75
+wsl.exe -d Ubuntu-24.04-STM32 -u root -- ip link set can0 up
+wsl.exe -d Ubuntu-24.04-STM32 -- ip -details -statistics link show can0
+```
+
+The gate is `bitrate 500000`, `sample-point 0.750`, `ERROR-ACTIVE` and zero
+initial error counters. The admitted `gs_usb` adapter does not support
+`restart-ms`; do not add that option to the default command. Bring `can0` down
+after a bounded transmit test.
 
 `--diagnostic-ping` is the only physical mode that transmits. It sends exactly
 one fixed-format `0x540` request and waits at most five seconds for exactly one
@@ -99,6 +138,9 @@ throughput result. See [`dual_bus_fault_matrix.md`](dual_bus_fault_matrix.md).
 4. If only climate data appears inconsistent, match revision and sequence across
    `0x340/0x341`; never combine mismatched halves.
 
-Until NUCLEO-F446RE, transceiver, CANH/CANL/GND, two end terminators and a known
-500 kbit/s peer are available, waveform, ACK, arbitration, real bus-off recovery
-and candleLight/candump remain `NOT_RUN`.
+The admitted NUCLEO-F446RE, Shield, common-GND candleLight route has passed
+bounded 500 kbit/s telemetry, physical ACK and the read-only diagnostic round
+trip at sample point `0.75`. Waveform measurement, arbitrary-adapter
+interoperability, natural arbitration/event observation, physical bus-off
+recovery and simultaneous physical RS485+CAN operation remain unclaimed or
+`NOT_RUN`.

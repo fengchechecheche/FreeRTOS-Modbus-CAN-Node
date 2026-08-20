@@ -10,14 +10,15 @@
 > blockers and the `UNRELEASED` state are unchanged. See
 > [`docs/reproduction_report_repro_002.md`](docs/reproduction_report_repro_002.md).
 
-> 2026-08-20 CAN hardware update: `CAN-03` is `PASS_HARDWARE_LIMITED` for the
+> 2026-08-21 CAN hardware update: `CAN-03` is `PASS` for the
 > admitted candleLight/`gs_usb` adapter, Waveshare Shield and common-GND wiring.
 > The default firmware produced 252 valid periodic frames, 42 per required ID;
 > separate RX-only and TX-once diagnostics proved physical delivery/ACK in both
-> directions with both sides ERROR-ACTIVE and zero errors. The default firmware
-> now adds a read-only `0x540` Host request / `0x541` STM32 response diagnostic;
-> its Host/ARM path is implemented, while its dedicated physical round trip and
-> RS485+CAN concurrency remain `NOT_RUN`. See
+> directions with both sides ERROR-ACTIVE and zero errors. Source `[060]` then
+> passed the read-only `0x540` Host request / `0x541` STM32 response application
+> round trip at 500 kbit/s and Host sample point `0.75`: one request, one matching
+> response, zero CAN errors and the matching VCP acceptance marker. Physical
+> RS485+CAN concurrency remains `NOT_RUN`. See
 > [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
 > 2026-08-19 RS485 hardware update: physical H01 was attempted but timed out.
@@ -105,9 +106,9 @@
 
 > P5-S6-T03 update: the standard-library SocketCAN probe, dry-run and bounded
 > `vcan` matrix are `PASS_HOST`; the common-GND candleLight supplement is
-> `PASS_HARDWARE_LIMITED` for periodic telemetry and physical ACK in both
-> directions. `can-utils` 2023.03-1 and a one-frame `candump`/`cansend` vcan
-> smoke are also verified. See
+> `PASS` for periodic telemetry, physical ACK in both directions and the
+> dedicated read-only application round trip. `can-utils` 2023.03-1 and a
+> one-frame `candump`/`cansend` vcan smoke are also verified. See
 > [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
 > P5-S6-T02 update: `CAN_CONTRACT_CANDIDATE_VALIDATED +
@@ -190,17 +191,18 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
   不触发全局恢复或复位。Host 虚拟故障矩阵不是实物断线或 60 分钟运行证据。
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 已完成 ST-LINK、烧录/校验/复位、VCP、运行时时钟、GPIO 寄存器状态、有限
-  scheduler smoke、裸板栈水位、IWDG 单次恢复和断电重连补验；UART loopback、传感器、
-  RS485/CAN physical layer 与长稳仍保持 `WAITING_FOR_HARDWARE / NOT_RUN`。
+  scheduler smoke、裸板栈水位、IWDG 单次恢复和断电重连补验；CAN 已完成已准入路径的有限
+  实物补验，传感器完整中断验收、RS485 回程交叉验证与长稳仍保持开放。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。
   T05 HIL self-test/dry-run 不打开串口；真实 249 B response、地址迁移、UART/RS485 总线和项目三联调
   仍为 `WAITING_FOR_HARDWARE` / `NOT_RUN`。
 - CAN 合同使用节点 4 的七个节点遥测/事件 ID 以及专用诊断 `0x540/0x541`、500 kbit/s、
-  standard data frame、DLC 8 和 little-endian。纯 codec、八项精确接收 filter、固定 IRQ/RX mailbox、
-  latest-wins 周期发送、事件合并、单槽诊断应答及 1 s/3 次 bus-off 恢复均达到软件候选；公共 GND
-  条件下的周期遥测和双向物理 ACK 已通过。新的 `0x540/0x541` 应用层往返仍待实物补验。
+  standard data frame、DLC 8 和 little-endian。接收侧仅启用一个 16-bit ID-list filter bank，
+  四条硬件表项均重复 Host-owned `0x540`；发送侧独立允许七个 STM32 遥测/事件 ID 和 `0x541`。
+  固定 IRQ/RX mailbox、latest-wins 周期发送、事件合并、单槽诊断应答及 1 s/3 次 bus-off 恢复均达到
+  软件候选；公共 GND 条件下的周期遥测、双向物理 ACK 和 `0x540/0x541` 应用层往返均已通过。
   P5-S6-T03 已用 raw SocketCAN/`vcan` 完成有界软件矩阵；T04 的 D01～D08 Host 矩阵进一步验证
   RS485 CRC/timeout 与 CAN busy、FIFO full、
   bus-off 同时发生时，健康链路、采集和 health task model 仍有进度；虚拟 tick 不构成物理恢复时间。
@@ -240,11 +242,15 @@ python3 tools/verify_can_contract.py --self-test
 
 CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；
 SocketCAN/`vcan` 为 `PASS_HOST`。实物 CAN 在公共 GND 条件下通过周期遥测和两方向物理
-ACK 的有界补验，`CAN-03` 为 `PASS_HARDWARE_LIMITED`；revision 1 新增只读
-`0x540/0x541` 诊断往返，其实物应用层应答仍为 `NOT_RUN`，`BUS-02` 双总线并发也仍为
-`NOT_RUN`。
+ACK 的有界补验；revision 1 的只读 `0x540/0x541` 实物应用层往返也已通过，`CAN-03`
+保持 `PASS`。`BUS-02` 双总线并发仍为 `NOT_RUN`。
 
 CAN HIL 软件预检：
+
+实物 `can0` 的项目默认配置必须显式包含
+`ip link set can0 type can bitrate 500000 sample-point 0.75`；不得依赖曾选择
+`0.875` 的主机默认值。usbipd 附加和 WSL root 配置命令见
+[`docs/can_runtime.md`](docs/can_runtime.md#default-wsl-physical-can-setup)。
 
 ```bash
 python3 tools/can_hil_probe.py --self-test

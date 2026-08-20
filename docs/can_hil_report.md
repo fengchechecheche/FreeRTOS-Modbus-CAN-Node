@@ -1,11 +1,11 @@
 # P5-S6-T03 SocketCAN / candleLight HIL report
 
 > Software status: `PASS_HOST`
-> Hardware status: `PASS_HARDWARE_LIMITED`
+> Hardware status: `PASS`
 > Integration status: `NOT_RUN`
 > Baseline: `4a581aea31dc97c6deec51726ed0ccf7325579bd` (`[032]`)
 > Historical hardware supplement source: `285a894d52ff817bf9683a5a7034c01c27675e89`
-> Current hardware supplement source: `[057] db84dccd1eaaeaf5403b57482497c39a99d4ca3e`
+> Current hardware supplement source: `[060] 39c6114eba1b547d29741d142582f3828a902dc7`
 
 ## Scope and boundary
 
@@ -31,7 +31,7 @@ matching response and the bounded VCP receive marker.
 | `vcan` | kernel module present | PASS_READY |
 | `gs_usb` | kernel module present | PASS_READY |
 | `can-utils` | 2023.03-1, `/usr/bin/candump`, `/usr/bin/cansend` | PASS |
-| physical CAN netdev | none | EXPECTED_NO_HARDWARE |
+| physical CAN netdev during original Host-only preflight | none | EXPECTED_NO_HARDWARE |
 
 After user-managed installation, a bounded CLI smoke created a temporary
 `vcan0`, captured one `0x240` heartbeat with `candump`, sent it with `cansend`,
@@ -82,6 +82,11 @@ producer-owned telemetry ID.
 Output files are created only when `--output-dir` is explicitly supplied, and
 the capture is capped at 128 frames.
 
+Before opening a physical interface, apply the mandatory Windows/WSL setup in
+[`can_runtime.md`](can_runtime.md#default-wsl-physical-can-setup). The project
+default is explicitly `500000 bit/s` with `sample-point 0.75`; a session that
+omits the sample point or reports `0.875` is not valid hardware evidence.
+
 ## Hardware-free results
 
 | ID | Check | Result |
@@ -116,7 +121,7 @@ Debug `text/data/bss = 53272/160/13224` and Release
 | ID | Required observation | Status |
 |---|---|---|
 | H01 | candleLight identity and `gs_usb` netdev in WSL | PASS |
-| H02 | 500 kbit/s, UP, initial ERROR-ACTIVE | PASS_LIMITED: host sample point `75%` |
+| H02 | 500 kbit/s, UP, initial ERROR-ACTIVE | PASS: mandatory project sample point `75%` |
 | H03 | six periodic IDs in a bounded default-firmware window | PASS: 252/252 accepted, 42 per ID |
 | H04 | revision/DLC/fields decode | PASS |
 | H05 | one matching `0x340/0x341` pair | PASS: 42 pairs observed |
@@ -203,15 +208,45 @@ protocol, application-level response, naturally observed `0x140` event,
 arbitrary CAN adapter interoperability, physical bus-off recovery, or physical
 RS485+CAN concurrency. `BUS-02` therefore remains `NOT_RUN` and `HW-003` remains open.
 
-## Dedicated diagnostic extension awaiting physical rerun
+## 2026-08-21 dedicated diagnostic physical pass
 
-The default firmware now implements the read-only `0x540/0x541` diagnostic
-pair with a one-slot response queue, duplicate suppression and a 100 ms minimum
-interval for different tokens. Host and ARM verification establish the
-software path only. Until the command above is run on the admitted common-GND
-hardware route, the new application-level round trip remains
-`NOT_RUN_HARDWARE`; the earlier physical ACK evidence is not rewritten as a
-pass for this new protocol.
+The read-only `0x540/0x541` application round trip was run on source
+`[060] 39c6114eba1b547d29741d142582f3828a902dc7`. The tested default Debug ELF
+SHA-256 was
+`bd72b55c84350d433aebb7c0eaee14705b3ae3422604f19c732d54fd2808f73f`.
+The route kept CANH-to-CANH, CANL-to-CANL, common GND and the USB-CAN `120R`
+setting. The Host explicitly configured 500 kbit/s and sample point `0.75`;
+`can0` was ERROR-ACTIVE with zero initial error counters.
+
+A passive three-second window first observed three consecutive sets of
+`0x240`, `0x241`, `0x340`, `0x341`, `0x342` and `0x440` periodic frames. The
+Host then sent exactly one request, sequence `0x2C` and nonce `0x10203040`:
+
+```bash
+python3 tools/can_hil_probe.py \
+  --diagnostic-ping --interface can0 \
+  --sequence 0x2C --nonce 0x10203040 \
+  --response-timeout 2
+```
+
+The probe reported `PASS_HARDWARE_ROUND_TRIP_CANDIDATE`, one request sent, one
+matching `0x541` response, zero mismatches and 13 captured frames. The VCP
+marker independently confirmed MCU application acceptance:
+
+```text
+P5CANDIAG1 rx=1 seq=44 nonce=10203040 reply=QUEUED
+```
+
+The matching Host response proves that the queued response subsequently left
+the STM32. After the exchange, SocketCAN reported 236 RX packets, one TX packet,
+zero dropped/error packets, zero warning/passive/bus-off transitions and
+ERROR-ACTIVE state. `can0` was then brought down and both devices were powered
+off.
+
+This closes the dedicated application round trip as `PASS` on
+the admitted adapter/Shield/common-GND route. It does not claim arbitrary
+adapter interoperability, natural `0x140` observation, waveform quality,
+physical bus-off recovery or simultaneous physical RS485+CAN operation.
 
 ## Lightweight evidence rule
 

@@ -99,13 +99,17 @@ evidence and still is not physical RS485 evidence.
 |---|---|---|---|---|
 | CAN-01 | HOST | PASS | `docs/can_runtime.md` | map/codec/filter/IRQ/queue/recovery software candidate passed |
 | CAN-02 | VIRTUAL_BUS | PASS | `docs/can_hil_report.md` | vcan matrix and one can-utils frame passed |
-| CAN-03 | HARDWARE | PASS | `docs/can_hil_report.md` | admitted candleLight/Shield/common-GND route passed identity, 252-frame periodic telemetry and bounded physical ACK in both directions; the new read-only `0x540/0x541` application round trip and dual-bus concurrency remain `NOT_RUN` |
+| CAN-03 | HARDWARE | PASS | `docs/can_hil_report.md` | admitted candleLight/Shield/common-GND route passed identity, 252-frame periodic telemetry, bounded physical ACK in both directions and one read-only `0x540/0x541` application round trip at 500 kbit/s with Host sample point `0.75`; dual-bus concurrency remains `NOT_RUN` |
 | BUS-01 | HOST | PASS | `docs/dual_bus_fault_matrix.md` | D01-D08 Host backpressure/isolation matrix passed |
 | BUS-02 | INTEGRATION | NOT_RUN | `docs/dual_bus_fault_matrix.md` | physical RS485+CAN concurrency was not run |
 
 `CAN-02` proves Linux SocketCAN behavior only. `CAN-03` physical ACK is bound to
-the reviewed RX-only/TX-once diagnostics and common-GND wiring; a local send
-return or TX echo alone does not establish MCU acceptance or physical ACK.
+the reviewed RX-only/TX-once diagnostics and common-GND wiring. Its application
+round trip is separately bound to source `[060]`, Debug ELF SHA-256
+`bd72b55c84350d433aebb7c0eaee14705b3ae3422604f19c732d54fd2808f73f`, one
+`0x540` request, one matching `0x541` response and the matching VCP marker; a
+local send return or TX echo alone does not establish MCU acceptance or
+physical ACK.
 
 ## Soak
 
