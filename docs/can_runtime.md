@@ -13,10 +13,12 @@ added. Sensor values are copied from the unified snapshot before HAL calls, so
 CAN never reads SPI/I2C directly and a CAN failure cannot stop acquisition or
 Modbus.
 
-The two exact 16-bit list filter banks use all eight entries to admit `0x140`,
-`0x240`, `0x241`, `0x340`, `0x341`, `0x342`, `0x440` and the Host-owned
-diagnostic request `0x540`. The outgoing `0x541` response does not consume a
-receive-filter entry. Revision 1 accepts standard data frames with DLC 8 only.
+One active exact 16-bit list filter bank repeats the Host-owned diagnostic
+request `0x540` in all four hardware entries, so the receive path admits only
+that ID. The seven STM32-owned producer IDs and the outgoing `0x541` response
+are rejected by the RX direction contract; `0x541` is admitted by the separate
+TX contract and consumes no receive-filter entry. Revision 1 accepts standard
+data frames with DLC 8 only.
 The IRQ path performs one HAL RX copy into a four-frame ring,
 merges TX/error bits in a fixed mailbox, and wakes `can_task`; parsing, sending
 and recovery stay in task context.

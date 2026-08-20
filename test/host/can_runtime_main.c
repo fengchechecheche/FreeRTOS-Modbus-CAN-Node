@@ -25,20 +25,17 @@ static bsp_can_rx_frame_t make_frame(uint16_t standard_id, uint8_t sequence) {
 }
 
 static int test_exact_filter_plan(void) {
-  static const uint16_t expected_ids[] = {
-      P5_CAN_ID_STATUS_EVENT,      P5_CAN_ID_HEARTBEAT,
-      P5_CAN_ID_HEALTH_SUMMARY,    P5_CAN_ID_CLIMATE_PRIMARY,
-      P5_CAN_ID_CLIMATE_SECONDARY, P5_CAN_ID_ILLUMINANCE,
-      P5_CAN_ID_VIBRATION_SUMMARY, P5_CAN_ID_DIAGNOSTIC_REQUEST,
-  };
   bsp_can_filter_plan_t plan;
   bsp_can_filter_plan_build(&plan);
 
+  CHECK(BSP_CAN_FILTER_BANK_COUNT == UINT32_C(1));
   for (uint32_t index = 0U;
-       index < (sizeof(expected_ids) / sizeof(expected_ids[0])); ++index) {
+       index < (BSP_CAN_FILTER_BANK_COUNT * BSP_CAN_FILTER_ENTRIES_PER_BANK);
+       ++index) {
     uint16_t encoded = 0U;
-    CHECK(bsp_can_filter_encode_standard_id(expected_ids[index], &encoded));
-    CHECK(encoded == (uint16_t)(expected_ids[index] << 5U));
+    CHECK(bsp_can_filter_encode_standard_id(P5_CAN_ID_DIAGNOSTIC_REQUEST,
+                                            &encoded));
+    CHECK(encoded == (uint16_t)(P5_CAN_ID_DIAGNOSTIC_REQUEST << 5U));
     CHECK(plan.banks[index / BSP_CAN_FILTER_ENTRIES_PER_BANK]
               .entries[index % BSP_CAN_FILTER_ENTRIES_PER_BANK] == encoded);
   }
@@ -48,26 +45,51 @@ static int test_exact_filter_plan(void) {
   return EXIT_SUCCESS;
 }
 
-static int test_header_whitelist(void) {
-  static const uint16_t accepted_ids[] = {
+static int test_directional_header_whitelists(void) {
+  static const uint16_t rx_rejected_ids[] = {
       P5_CAN_ID_STATUS_EVENT,      P5_CAN_ID_HEARTBEAT,
       P5_CAN_ID_HEALTH_SUMMARY,    P5_CAN_ID_CLIMATE_PRIMARY,
       P5_CAN_ID_CLIMATE_SECONDARY, P5_CAN_ID_ILLUMINANCE,
-      P5_CAN_ID_VIBRATION_SUMMARY,
-      P5_CAN_ID_DIAGNOSTIC_REQUEST,
+      P5_CAN_ID_VIBRATION_SUMMARY, P5_CAN_ID_DIAGNOSTIC_RESPONSE,
   };
+  static const uint16_t tx_accepted_ids[] = {
+      P5_CAN_ID_STATUS_EVENT,      P5_CAN_ID_HEARTBEAT,
+      P5_CAN_ID_HEALTH_SUMMARY,    P5_CAN_ID_CLIMATE_PRIMARY,
+      P5_CAN_ID_CLIMATE_SECONDARY, P5_CAN_ID_ILLUMINANCE,
+      P5_CAN_ID_VIBRATION_SUMMARY, P5_CAN_ID_DIAGNOSTIC_RESPONSE,
+  };
+  CHECK(bsp_can_rx_header_is_accepted(P5_CAN_ID_DIAGNOSTIC_REQUEST,
+                                      BSP_CAN_IDE_STANDARD, BSP_CAN_RTR_DATA,
+                                      P5_CAN_DLC));
   for (uint32_t index = 0U;
-       index < (sizeof(accepted_ids) / sizeof(accepted_ids[0])); ++index) {
-    CHECK(bsp_can_header_is_accepted(accepted_ids[index], BSP_CAN_IDE_STANDARD,
-                                     BSP_CAN_RTR_DATA, P5_CAN_DLC));
+       index < (sizeof(rx_rejected_ids) / sizeof(rx_rejected_ids[0]));
+       ++index) {
+    CHECK(!bsp_can_rx_header_is_accepted(rx_rejected_ids[index],
+                                         BSP_CAN_IDE_STANDARD, BSP_CAN_RTR_DATA,
+                                         P5_CAN_DLC));
   }
-  CHECK(!bsp_can_header_is_accepted(UINT32_C(0x13f), 0U, 0U, 8U));
-  CHECK(!bsp_can_header_is_accepted(UINT32_C(0x141), 0U, 0U, 8U));
-  CHECK(!bsp_can_header_is_accepted(P5_CAN_ID_HEARTBEAT, 1U, 0U, 8U));
-  CHECK(!bsp_can_header_is_accepted(P5_CAN_ID_HEARTBEAT, 0U, 1U, 8U));
-  CHECK(!bsp_can_header_is_accepted(P5_CAN_ID_HEARTBEAT, 0U, 0U, 7U));
-  CHECK(!bsp_can_header_is_accepted(P5_CAN_ID_DIAGNOSTIC_RESPONSE,
-                                    0U, 0U, P5_CAN_DLC));
+  for (uint32_t index = 0U;
+       index < (sizeof(tx_accepted_ids) / sizeof(tx_accepted_ids[0]));
+       ++index) {
+    CHECK(bsp_can_tx_header_is_accepted(tx_accepted_ids[index],
+                                        BSP_CAN_IDE_STANDARD, BSP_CAN_RTR_DATA,
+                                        P5_CAN_DLC));
+  }
+
+  CHECK(!bsp_can_tx_header_is_accepted(P5_CAN_ID_DIAGNOSTIC_REQUEST,
+                                       BSP_CAN_IDE_STANDARD, BSP_CAN_RTR_DATA,
+                                       P5_CAN_DLC));
+  CHECK(!bsp_can_rx_header_is_accepted(UINT32_C(0x13f), 0U, 0U, 8U));
+  CHECK(!bsp_can_rx_header_is_accepted(UINT32_C(0x141), 0U, 0U, 8U));
+  CHECK(!bsp_can_rx_header_is_accepted(P5_CAN_ID_HEARTBEAT, 1U, 0U, 8U));
+  CHECK(!bsp_can_rx_header_is_accepted(P5_CAN_ID_HEARTBEAT, 0U, 1U, 8U));
+  CHECK(!bsp_can_rx_header_is_accepted(P5_CAN_ID_HEARTBEAT, 0U, 0U, 7U));
+  CHECK(!bsp_can_tx_header_is_accepted(P5_CAN_ID_DIAGNOSTIC_RESPONSE, 1U, 0U,
+                                       P5_CAN_DLC));
+  CHECK(!bsp_can_tx_header_is_accepted(P5_CAN_ID_DIAGNOSTIC_RESPONSE, 0U, 1U,
+                                       P5_CAN_DLC));
+  CHECK(!bsp_can_tx_header_is_accepted(P5_CAN_ID_DIAGNOSTIC_RESPONSE, 0U, 0U,
+                                       7U));
   return EXIT_SUCCESS;
 }
 
@@ -77,7 +99,8 @@ static int test_rx_ring_wrap_and_take(void) {
   bsp_can_irq_mailbox_initialize(&mailbox);
 
   for (uint8_t sequence = 0U; sequence < 4U; ++sequence) {
-    const bsp_can_rx_frame_t frame = make_frame(P5_CAN_ID_HEARTBEAT, sequence);
+    const bsp_can_rx_frame_t frame =
+        make_frame(P5_CAN_ID_DIAGNOSTIC_REQUEST, sequence);
     CHECK(bsp_can_irq_mailbox_publish_rx(&mailbox, &frame) ==
           BSP_CAN_IRQ_EVENT_RX_READY);
   }
@@ -91,7 +114,8 @@ static int test_rx_ring_wrap_and_take(void) {
     CHECK(frame.data[0] == sequence);
   }
   for (uint8_t sequence = 4U; sequence < 6U; ++sequence) {
-    const bsp_can_rx_frame_t frame = make_frame(P5_CAN_ID_HEARTBEAT, sequence);
+    const bsp_can_rx_frame_t frame =
+        make_frame(P5_CAN_ID_DIAGNOSTIC_REQUEST, sequence);
     CHECK(bsp_can_irq_mailbox_publish_rx(&mailbox, &frame) != 0U);
   }
   for (uint8_t sequence = 2U; sequence < 6U; ++sequence) {
@@ -109,7 +133,8 @@ static int test_rx_ring_wrap_and_take(void) {
 static int test_rx_full_invalid_and_saturation(void) {
   bsp_can_irq_mailbox_t mailbox;
   bsp_can_irq_mailbox_initialize(&mailbox);
-  const bsp_can_rx_frame_t valid = make_frame(P5_CAN_ID_HEALTH_SUMMARY, 1U);
+  const bsp_can_rx_frame_t valid =
+      make_frame(P5_CAN_ID_DIAGNOSTIC_REQUEST, 1U);
   for (uint32_t index = 0U; index < BSP_CAN_RX_RING_CAPACITY; ++index) {
     CHECK(bsp_can_irq_mailbox_publish_rx(&mailbox, &valid) != 0U);
   }
@@ -650,7 +675,7 @@ static int test_periodic_invalid_projection(void) {
 
 int main(void) {
   CHECK(test_exact_filter_plan() == EXIT_SUCCESS);
-  CHECK(test_header_whitelist() == EXIT_SUCCESS);
+  CHECK(test_directional_header_whitelists() == EXIT_SUCCESS);
   CHECK(test_rx_ring_wrap_and_take() == EXIT_SUCCESS);
   CHECK(test_rx_full_invalid_and_saturation() == EXIT_SUCCESS);
   CHECK(test_event_merge_and_latest_error() == EXIT_SUCCESS);

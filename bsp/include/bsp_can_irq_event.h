@@ -6,7 +6,7 @@
 
 #include "p5_can_contract.h"
 
-#define BSP_CAN_FILTER_BANK_COUNT UINT32_C(2)
+#define BSP_CAN_FILTER_BANK_COUNT UINT32_C(1)
 #define BSP_CAN_FILTER_ENTRIES_PER_BANK UINT32_C(4)
 #define BSP_CAN_RX_RING_CAPACITY UINT32_C(4)
 
@@ -74,8 +74,10 @@ typedef struct {
 
 bool bsp_can_filter_encode_standard_id(uint16_t standard_id, uint16_t *encoded);
 void bsp_can_filter_plan_build(bsp_can_filter_plan_t *plan);
-bool bsp_can_header_is_accepted(uint32_t standard_id, uint32_t ide,
-                                uint32_t rtr, uint32_t dlc);
+bool bsp_can_rx_header_is_accepted(uint32_t standard_id, uint32_t ide,
+                                   uint32_t rtr, uint32_t dlc);
+bool bsp_can_tx_header_is_accepted(uint32_t standard_id, uint32_t ide,
+                                   uint32_t rtr, uint32_t dlc);
 
 void bsp_can_irq_mailbox_initialize(bsp_can_irq_mailbox_t *mailbox);
 uint32_t bsp_can_irq_mailbox_publish_rx(bsp_can_irq_mailbox_t *mailbox,

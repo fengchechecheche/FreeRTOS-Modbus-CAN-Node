@@ -92,8 +92,8 @@ bool bsp_can_stop(void) {
 
 bsp_can_send_result_t bsp_can_send(const p5_can_frame_t *frame) {
   if ((frame == NULL) ||
-      !bsp_can_header_is_accepted(frame->standard_id, BSP_CAN_IDE_STANDARD,
-                                  BSP_CAN_RTR_DATA, frame->dlc)) {
+      !bsp_can_tx_header_is_accepted(frame->standard_id, BSP_CAN_IDE_STANDARD,
+                                     BSP_CAN_RTR_DATA, frame->dlc)) {
     return BSP_CAN_SEND_ERROR;
   }
 

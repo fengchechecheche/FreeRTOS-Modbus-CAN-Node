@@ -3,12 +3,15 @@
 #include <stddef.h>
 #include <string.h>
 
-static const uint16_t bsp_can_allowed_ids[] = {
+static const uint16_t bsp_can_rx_allowed_ids[] = {
+    P5_CAN_ID_DIAGNOSTIC_REQUEST,
+};
+
+static const uint16_t bsp_can_tx_allowed_ids[] = {
     P5_CAN_ID_STATUS_EVENT,      P5_CAN_ID_HEARTBEAT,
     P5_CAN_ID_HEALTH_SUMMARY,    P5_CAN_ID_CLIMATE_PRIMARY,
     P5_CAN_ID_CLIMATE_SECONDARY, P5_CAN_ID_ILLUMINANCE,
-    P5_CAN_ID_VIBRATION_SUMMARY,
-    P5_CAN_ID_DIAGNOSTIC_REQUEST,
+    P5_CAN_ID_VIBRATION_SUMMARY, P5_CAN_ID_DIAGNOSTIC_RESPONSE,
 };
 
 static uint32_t bsp_can_saturating_increment(uint32_t value) {
@@ -50,31 +53,54 @@ void bsp_can_filter_plan_build(bsp_can_filter_plan_t *plan) {
        index < (BSP_CAN_FILTER_BANK_COUNT * BSP_CAN_FILTER_ENTRIES_PER_BANK);
        ++index) {
     const uint32_t id_count =
-        sizeof(bsp_can_allowed_ids) / sizeof(bsp_can_allowed_ids[0]);
+        sizeof(bsp_can_rx_allowed_ids) / sizeof(bsp_can_rx_allowed_ids[0]);
     const uint32_t id_index = (index < id_count) ? index : (id_count - 1U);
     uint16_t encoded = 0U;
-    (void)bsp_can_filter_encode_standard_id(bsp_can_allowed_ids[id_index],
+    (void)bsp_can_filter_encode_standard_id(bsp_can_rx_allowed_ids[id_index],
                                             &encoded);
     plan->banks[index / BSP_CAN_FILTER_ENTRIES_PER_BANK]
         .entries[index % BSP_CAN_FILTER_ENTRIES_PER_BANK] = encoded;
   }
 }
 
-bool bsp_can_header_is_accepted(uint32_t standard_id, uint32_t ide,
-                                uint32_t rtr, uint32_t dlc) {
+static bool bsp_can_header_has_valid_shape(uint32_t ide, uint32_t rtr,
+                                           uint32_t dlc) {
   if ((ide != BSP_CAN_IDE_STANDARD) || (rtr != BSP_CAN_RTR_DATA) ||
       (dlc != P5_CAN_DLC)) {
     return false;
   }
+  return true;
+}
 
-  for (uint32_t index = 0U;
-       index < (sizeof(bsp_can_allowed_ids) / sizeof(bsp_can_allowed_ids[0]));
-       ++index) {
-    if (standard_id == bsp_can_allowed_ids[index]) {
+static bool bsp_can_id_is_allowed(uint32_t standard_id,
+                                  const uint16_t *allowed_ids,
+                                  size_t allowed_count) {
+  if (allowed_ids == NULL) {
+    return false;
+  }
+
+  for (size_t index = 0U; index < allowed_count; ++index) {
+    if (standard_id == allowed_ids[index]) {
       return true;
     }
   }
   return false;
+}
+
+bool bsp_can_rx_header_is_accepted(uint32_t standard_id, uint32_t ide,
+                                   uint32_t rtr, uint32_t dlc) {
+  return bsp_can_header_has_valid_shape(ide, rtr, dlc) &&
+         bsp_can_id_is_allowed(standard_id, bsp_can_rx_allowed_ids,
+                               sizeof(bsp_can_rx_allowed_ids) /
+                                   sizeof(bsp_can_rx_allowed_ids[0]));
+}
+
+bool bsp_can_tx_header_is_accepted(uint32_t standard_id, uint32_t ide,
+                                   uint32_t rtr, uint32_t dlc) {
+  return bsp_can_header_has_valid_shape(ide, rtr, dlc) &&
+         bsp_can_id_is_allowed(standard_id, bsp_can_tx_allowed_ids,
+                               sizeof(bsp_can_tx_allowed_ids) /
+                                   sizeof(bsp_can_tx_allowed_ids[0]));
 }
 
 void bsp_can_irq_mailbox_initialize(bsp_can_irq_mailbox_t *mailbox) {
@@ -88,8 +114,8 @@ uint32_t bsp_can_irq_mailbox_publish_rx(bsp_can_irq_mailbox_t *mailbox,
   if ((mailbox == NULL) || (frame == NULL)) {
     return 0U;
   }
-  if (!bsp_can_header_is_accepted(frame->standard_id, frame->ide, frame->rtr,
-                                  frame->dlc)) {
+  if (!bsp_can_rx_header_is_accepted(frame->standard_id, frame->ide, frame->rtr,
+                                     frame->dlc)) {
     mailbox->counters.invalid_headers =
         bsp_can_saturating_increment(mailbox->counters.invalid_headers);
     return 0U;

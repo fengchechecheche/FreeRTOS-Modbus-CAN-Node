@@ -220,6 +220,26 @@ CHECKS: CheckTable = {
     Path("bsp/include/bsp_can.h"): [
         ("can handle api", "bsp_can_handle(void)"),
     ],
+    Path("bsp/include/bsp_can_irq_event.h"): [
+        ("one active can rx filter bank", "BSP_CAN_FILTER_BANK_COUNT UINT32_C(1)"),
+        ("four can ids per list bank", "BSP_CAN_FILTER_ENTRIES_PER_BANK UINT32_C(4)"),
+    ],
+    Path("bsp/src/bsp_can_irq_event.c"): [
+        ("can rx whitelist separated", "bsp_can_rx_allowed_ids[]"),
+        ("can tx whitelist separated", "bsp_can_tx_allowed_ids[]"),
+        (
+            "can diagnostic request only rx id",
+            "static const uint16_t bsp_can_rx_allowed_ids[] = {\n"
+            "    P5_CAN_ID_DIAGNOSTIC_REQUEST,\n"
+            "};",
+        ),
+        ("can diagnostic response tx", "P5_CAN_ID_DIAGNOSTIC_RESPONSE,"),
+        ("can rx directional validator", "bsp_can_rx_header_is_accepted("),
+        ("can tx directional validator", "bsp_can_tx_header_is_accepted("),
+    ],
+    Path("bsp/src/bsp_can.c"): [
+        ("can send uses tx whitelist", "!bsp_can_tx_header_is_accepted("),
+    ],
     Path("CMakeLists.txt"): [
         (
             "rs485 smoke default off",
