@@ -4,8 +4,19 @@
 #define P5_ADXL345_HIL_DIAGNOSTIC_ENABLE (0)
 #endif
 
+#ifndef P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE
+#define P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE (0)
+#endif
+
+#ifndef P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE
+#define P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE (0)
+#endif
+
+#define APP_CAN_ACK_DIAGNOSTIC_ENABLE                                      \
+  (P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE || P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE)
+
 #include <stddef.h>
-#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE || APP_CAN_ACK_DIAGNOSTIC_ENABLE
 #include <stdio.h>
 #endif
 
@@ -13,6 +24,9 @@
 #include "app_adxl345.h"
 #include "app_bme280.h"
 #include "app_boot.h"
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+#include "app_can_ack_diagnostic.h"
+#endif
 #include "app_can_runtime.h"
 #include "app_health_policy.h"
 #include "app_measurement.h"
@@ -34,7 +48,7 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
 #include "task.h"
-#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
+#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE || APP_CAN_ACK_DIAGNOSTIC_ENABLE
 #include "main.h"
 #include "usart.h"
 #endif
@@ -59,6 +73,14 @@
 #define APP_CAN_EVENT_RECOVERED UINT16_C(0x0303)
 #define APP_IWDG_SMOKE_PRIME_FEEDS UINT32_C(3)
 #define APP_IWDG_STABLE_FEEDS UINT32_C(5)
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+#define APP_CAN_ACK_RX_TIMEOUT_MS UINT32_C(3000)
+#define APP_CAN_ACK_TX_DELAY_MS UINT32_C(2000)
+#define APP_CAN_ACK_TX_TIMEOUT_MS UINT32_C(1000)
+#define APP_CAN_ACK_RX_REPORT_DELAY_MS UINT32_C(250)
+#define APP_CAN_ACK_REPORT_CAPACITY (384U)
+#define APP_CAN_ACK_UART_TIMEOUT_MS UINT32_C(100)
+#endif
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
 #define APP_ADXL345_HIL_REPORT_CAPACITY (448U)
 #define APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)
@@ -164,6 +186,16 @@ static uint32_t app_rtos_can_next_telemetry_ms;
 static uint8_t app_rtos_can_sequence;
 static bool app_rtos_can_telemetry_initialized;
 static bool app_rtos_can_hardware_started;
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+static app_can_ack_diagnostic_t app_rtos_can_ack_diagnostic;
+static char app_rtos_can_ack_report[APP_CAN_ACK_REPORT_CAPACITY];
+static const p5_can_frame_t app_rtos_can_ack_tx_frame = {
+    .standard_id = P5_CAN_ID_STATUS_EVENT,
+    .dlc = P5_CAN_DLC,
+    .data = {UINT8_C(0xA1), UINT8_C(0x5A), UINT8_C(0x54), UINT8_C(0x58),
+             UINT8_C(0x4F), UINT8_C(0x4E), UINT8_C(0x43), UINT8_C(0x45)},
+};
+#endif
 #if P5_IRQ_NOTIFICATION_SMOKE_ENABLE
 static volatile uint32_t app_rtos_irq_first_cycles;
 static volatile bool app_rtos_irq_first_cycles_valid;
@@ -508,10 +540,205 @@ static uint32_t app_rtos_can_error_bits(uint32_t hal_error)
   return error_bits;
 }
 
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+static const char *app_rtos_can_ack_mode_token(void)
+{
+#if P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE
+  return "RX_ONLY";
+#else
+  return "TX_ONCE";
+#endif
+}
+
+static const char *app_rtos_can_ack_phase_token(
+    app_can_ack_diagnostic_phase_t phase)
+{
+  switch (phase)
+  {
+    case APP_CAN_ACK_PHASE_DONE:
+      return "DONE";
+    case APP_CAN_ACK_PHASE_TIMEOUT:
+      return "TIMEOUT";
+    case APP_CAN_ACK_PHASE_ERROR:
+      return "ERROR";
+    case APP_CAN_ACK_PHASE_ARMED:
+      return "ARMED";
+    case APP_CAN_ACK_PHASE_RX_LATCHED:
+      return "RX_LATCHED";
+    case APP_CAN_ACK_PHASE_WAIT_TX_RESULT:
+      return "WAIT_TX";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+static const char *app_rtos_can_ack_send_token(
+    app_can_ack_diagnostic_send_result_t result)
+{
+  switch (result)
+  {
+    case APP_CAN_ACK_SEND_OK:
+      return "OK";
+    case APP_CAN_ACK_SEND_BUSY:
+      return "BUSY";
+    case APP_CAN_ACK_SEND_ERROR:
+      return "ERROR";
+    case APP_CAN_ACK_SEND_NA:
+    default:
+      return "NA";
+  }
+}
+
+static const char *app_rtos_can_controller_state_token(
+    app_can_controller_state_t state)
+{
+  switch (state)
+  {
+    case APP_CAN_CONTROLLER_STOPPED:
+      return "STOPPED";
+    case APP_CAN_CONTROLLER_STARTING:
+      return "STARTING";
+    case APP_CAN_CONTROLLER_ACTIVE:
+      return "ACTIVE";
+    case APP_CAN_CONTROLLER_WARNING:
+      return "WARNING";
+    case APP_CAN_CONTROLLER_PASSIVE:
+      return "PASSIVE";
+    case APP_CAN_CONTROLLER_BUS_OFF:
+      return "BUS_OFF";
+    case APP_CAN_CONTROLLER_RECOVERY_WAIT:
+      return "RECOVERY_WAIT";
+    case APP_CAN_CONTROLLER_RECOVERY_LATCHED:
+      return "RECOVERY_LATCHED";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+static app_can_ack_diagnostic_send_result_t
+app_rtos_can_ack_map_send_result(bsp_can_send_result_t result)
+{
+  if (result == BSP_CAN_SEND_OK)
+  {
+    return APP_CAN_ACK_SEND_OK;
+  }
+  if (result == BSP_CAN_SEND_BUSY)
+  {
+    return APP_CAN_ACK_SEND_BUSY;
+  }
+  return APP_CAN_ACK_SEND_ERROR;
+}
+
+static void app_rtos_can_ack_initialize(uint32_t now_ms)
+{
+#if P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE
+  app_can_ack_diagnostic_initialize(&app_rtos_can_ack_diagnostic,
+                                    APP_CAN_ACK_MODE_RX_ONLY,
+                                    now_ms,
+                                    0U,
+                                    APP_CAN_ACK_RX_TIMEOUT_MS,
+                                    APP_CAN_ACK_RX_REPORT_DELAY_MS);
+#else
+  app_can_ack_diagnostic_initialize(&app_rtos_can_ack_diagnostic,
+                                    APP_CAN_ACK_MODE_TX_ONCE,
+                                    now_ms,
+                                    APP_CAN_ACK_TX_DELAY_MS,
+                                    APP_CAN_ACK_TX_TIMEOUT_MS,
+                                    0U);
+  app_rtos_can_ack_diagnostic.standard_id =
+      app_rtos_can_ack_tx_frame.standard_id;
+  app_rtos_can_ack_diagnostic.dlc = app_rtos_can_ack_tx_frame.dlc;
+  app_rtos_can_ack_diagnostic.data_xor = 0U;
+  for (uint32_t index = 0U; index < P5_CAN_DLC; ++index)
+  {
+    app_rtos_can_ack_diagnostic.data[index] =
+        app_rtos_can_ack_tx_frame.data[index];
+    app_rtos_can_ack_diagnostic.data_xor ^=
+        app_rtos_can_ack_tx_frame.data[index];
+  }
+#endif
+}
+
+static void app_rtos_can_ack_report_once(uint32_t last_hal_error)
+{
+  if (!app_can_ack_diagnostic_take_report(&app_rtos_can_ack_diagnostic))
+  {
+    return;
+  }
+
+  const bsp_can_irq_event_counters_t irq = bsp_can_irq_counters();
+  CAN_HandleTypeDef *const handle = bsp_can_handle();
+  const uint32_t esr = handle->Instance->ESR;
+  const uint32_t tec = (esr & CAN_ESR_TEC) >> CAN_ESR_TEC_Pos;
+  const uint32_t rec = (esr & CAN_ESR_REC) >> CAN_ESR_REC_Pos;
+  const uint32_t lec = (esr & CAN_ESR_LEC) >> CAN_ESR_LEC_Pos;
+  const int written = snprintf(
+      app_rtos_can_ack_report,
+      sizeof(app_rtos_can_ack_report),
+      "P5CANACK1 mode=%s phase=%s id=%03lX dlc=%lu d0=%02X d1=%02X "
+      "xor=%02X rxacc=%lu rxdrop=%lu coal=%lu send=%s txc=%lu txa=%lu "
+      "ack=%lu hal=%08lX state=%s esr=%08lX tec=%lu rec=%lu lec=%lu\r\n",
+      app_rtos_can_ack_mode_token(),
+      app_rtos_can_ack_phase_token(app_rtos_can_ack_diagnostic.phase),
+      (unsigned long)app_rtos_can_ack_diagnostic.standard_id,
+      (unsigned long)app_rtos_can_ack_diagnostic.dlc,
+      (unsigned int)app_rtos_can_ack_diagnostic.data[0],
+      (unsigned int)app_rtos_can_ack_diagnostic.data[1],
+      (unsigned int)app_rtos_can_ack_diagnostic.data_xor,
+      (unsigned long)irq.rx_accepted,
+      (unsigned long)irq.rx_dropped,
+      (unsigned long)irq.coalesced_events,
+      app_rtos_can_ack_send_token(app_rtos_can_ack_diagnostic.send_result),
+      (unsigned long)irq.tx_completed,
+      (unsigned long)irq.tx_aborted,
+      (unsigned long)app_rtos_can_controller.counters.ack_errors,
+      (unsigned long)last_hal_error,
+      app_rtos_can_controller_state_token(app_rtos_can_controller.state),
+      (unsigned long)esr,
+      (unsigned long)tec,
+      (unsigned long)rec,
+      (unsigned long)lec);
+  if (written > 0)
+  {
+    const size_t report_length =
+        (size_t)written < sizeof(app_rtos_can_ack_report)
+            ? (size_t)written
+            : (sizeof(app_rtos_can_ack_report) - 1U);
+    (void)HAL_UART_Transmit(&huart2,
+                            (uint8_t *)app_rtos_can_ack_report,
+                            (uint16_t)report_length,
+                            APP_CAN_ACK_UART_TIMEOUT_MS);
+  }
+}
+
+static void app_rtos_can_ack_service(uint32_t now_ms,
+                                     uint32_t last_hal_error)
+{
+#if P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE
+  if (app_can_ack_diagnostic_tx_due(&app_rtos_can_ack_diagnostic, now_ms))
+  {
+    const bsp_can_send_result_t result =
+        bsp_can_send(&app_rtos_can_ack_tx_frame);
+    app_can_ack_diagnostic_record_send_result(
+        &app_rtos_can_ack_diagnostic,
+        app_rtos_can_ack_map_send_result(result),
+        now_ms);
+  }
+#endif
+  app_can_ack_diagnostic_poll(&app_rtos_can_ack_diagnostic, now_ms);
+  app_rtos_can_ack_report_once(last_hal_error);
+}
+#endif
+
 static void app_rtos_can_enqueue_event(uint16_t event_code,
                                        uint8_t severity,
                                        uint16_t detail)
 {
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+  (void)event_code;
+  (void)severity;
+  (void)detail;
+#else
   const p5_can_status_event_t payload = {
       .sequence = app_rtos_can_sequence++,
       .event_code = event_code,
@@ -527,6 +754,7 @@ static void app_rtos_can_enqueue_event(uint16_t event_code,
                                    APP_CAN_EVENT_SOURCE,
                                    &frame);
   }
+#endif
 }
 
 static void app_rtos_can_update_snapshot(uint32_t last_hal_error)
@@ -557,6 +785,9 @@ static void app_rtos_can_update_snapshot(uint32_t last_hal_error)
 
 static void app_rtos_can_publish_periodic(uint32_t now_ms)
 {
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+  (void)now_ms;
+#else
   if (!app_rtos_can_telemetry_initialized)
   {
     app_rtos_can_next_telemetry_ms = now_ms + APP_CAN_TELEMETRY_PERIOD_MS;
@@ -616,6 +847,7 @@ static void app_rtos_can_publish_periodic(uint32_t now_ms)
       &app_rtos_can_scheduler,
       APP_CAN_TELEMETRY_VIBRATION,
       &frames[APP_CAN_PERIODIC_VIBRATION]);
+#endif
 }
 
 static void app_rtos_can_drain_tx(uint32_t now_ms)
@@ -666,7 +898,16 @@ static void app_rtos_can_service(uint32_t now_ms)
            bsp_can_take_received(&frame);
            ++received)
       {
+#if P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE
+        (void)app_can_ack_diagnostic_observe_rx(
+            &app_rtos_can_ack_diagnostic,
+            frame.standard_id,
+            frame.dlc,
+            frame.data,
+            now_ms);
+#else
         (void)frame;
+#endif
       }
     }
     uint32_t error_bits = 0U;
@@ -693,6 +934,28 @@ static void app_rtos_can_service(uint32_t now_ms)
         }
       }
     }
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+    if (error_bits != 0U)
+    {
+      uint32_t diagnostic_error = APP_CAN_ACK_DIAGNOSTIC_ERROR_TX;
+      if ((error_bits & APP_CAN_ERROR_ACK) != 0U)
+      {
+        diagnostic_error |= APP_CAN_ACK_DIAGNOSTIC_ERROR_ACK;
+      }
+      app_can_ack_diagnostic_record_error(
+          &app_rtos_can_ack_diagnostic, diagnostic_error, now_ms);
+    }
+    else if ((irq.event_mask & BSP_CAN_IRQ_EVENT_TX_ABORT) != 0U)
+    {
+      app_can_ack_diagnostic_record_tx_abort(
+          &app_rtos_can_ack_diagnostic, now_ms);
+    }
+    else if ((irq.event_mask & BSP_CAN_IRQ_EVENT_TX_COMPLETE) != 0U)
+    {
+      app_can_ack_diagnostic_record_tx_complete(
+          &app_rtos_can_ack_diagnostic, now_ms);
+    }
+#endif
   }
 
   if (app_can_controller_recovery_due(&app_rtos_can_controller, now_ms))
@@ -711,6 +974,9 @@ static void app_rtos_can_service(uint32_t now_ms)
     }
   }
 
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+  app_rtos_can_ack_service(now_ms, last_hal_error);
+#else
   app_rtos_can_publish_periodic(now_ms);
   if ((app_rtos_can_controller.state == APP_CAN_CONTROLLER_ACTIVE) ||
       (app_rtos_can_controller.state == APP_CAN_CONTROLLER_WARNING) ||
@@ -718,6 +984,7 @@ static void app_rtos_can_service(uint32_t now_ms)
   {
     app_rtos_can_drain_tx(now_ms);
   }
+#endif
   app_rtos_can_update_snapshot(last_hal_error);
 }
 
@@ -1275,6 +1542,9 @@ static _Noreturn void app_rtos_run_can(void)
   app_task_runtime_t *runtime = &app_rtos_task_runtime[APP_TASK_CAN];
   uint32_t now_ms = (uint32_t)xTaskGetTickCount();
   app_task_runtime_initialize(runtime, now_ms);
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+  app_rtos_can_ack_initialize(now_ms);
+#endif
   if (!app_can_controller_begin_initial_start(&app_rtos_can_controller))
   {
     app_rtos_fail_stop(APP_RTOS_FAULT_MODEL);
@@ -1285,6 +1555,12 @@ static _Noreturn void app_rtos_run_can(void)
       &app_rtos_can_controller, started, now_ms);
   if (!started)
   {
+#if APP_CAN_ACK_DIAGNOSTIC_ENABLE
+    app_can_ack_diagnostic_record_error(
+        &app_rtos_can_ack_diagnostic,
+        APP_CAN_ACK_DIAGNOSTIC_ERROR_TX,
+        now_ms);
+#endif
     app_rtos_can_enqueue_event(
         APP_CAN_EVENT_START_FAILED,
         UINT8_C(2),

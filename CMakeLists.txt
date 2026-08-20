@@ -11,6 +11,12 @@ option(P5_IWDG_RESET_SMOKE "Enable one controlled IWDG reset smoke" OFF)
 option(P5_ADXL345_HIL_DIAGNOSTIC "Enable bounded ADXL345 HIL diagnostic output" OFF)
 option(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC "Route ADXL345 DATA_READY to INT2 for bounded HIL diagnosis" OFF)
 option(P5_ADXL345_POLLING_DIAGNOSTIC "Poll ADXL345 DATA_READY for bounded HIL diagnosis" OFF)
+option(P5_CAN_ACK_RX_DIAGNOSTIC "Enable one-shot host-to-STM32 ACK diagnosis" OFF)
+option(P5_CAN_ACK_TX_DIAGNOSTIC "Enable one-shot STM32-to-host ACK diagnosis" OFF)
+
+if(P5_CAN_ACK_RX_DIAGNOSTIC AND P5_CAN_ACK_TX_DIAGNOSTIC)
+  message(FATAL_ERROR "CAN ACK RX and TX diagnostics are mutually exclusive")
+endif()
 
 if(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC AND NOT P5_ADXL345_HIL_DIAGNOSTIC)
   message(FATAL_ERROR "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC requires P5_ADXL345_HIL_DIAGNOSTIC=ON")
@@ -54,6 +60,14 @@ else()
         app/include bsp/include protocol/include sensors/include)
     p5_apply_project_warnings(p5_host_can_runtime)
     add_test(NAME p5.host.can_runtime COMMAND p5_host_can_runtime)
+
+    add_executable(p5_host_can_ack_diagnostic
+        test/host/can_ack_diagnostic_main.c
+        app/src/app_can_ack_diagnostic.c)
+    target_include_directories(p5_host_can_ack_diagnostic PRIVATE app/include)
+    p5_apply_project_warnings(p5_host_can_ack_diagnostic)
+    add_test(NAME p5.host.can_ack_diagnostic
+             COMMAND p5_host_can_ack_diagnostic)
 
     add_executable(p5_host_clock
         test/host/clock_main.c

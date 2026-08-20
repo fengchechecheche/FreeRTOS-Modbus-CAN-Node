@@ -4,6 +4,10 @@
 
 #include "can.h"
 
+#ifndef P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE
+#define P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE (0)
+#endif
+
 static bsp_can_irq_mailbox_t bsp_can_irq_mailbox;
 static bsp_can_irq_notifier_t bsp_can_irq_notifier;
 
@@ -57,9 +61,20 @@ bool bsp_can_configure_filters(void) {
 }
 
 bool bsp_can_start(void) {
+#if P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE
+  if (!bsp_can_configure_filters()) {
+    return false;
+  }
+  /* TX_ONCE must remain wire-bounded even when no other node acknowledges. */
+  SET_BIT(hcan1.Instance->MCR, CAN_MCR_NART);
+  if (HAL_CAN_Start(&hcan1) != HAL_OK) {
+    return false;
+  }
+#else
   if (!bsp_can_configure_filters() || (HAL_CAN_Start(&hcan1) != HAL_OK)) {
     return false;
   }
+#endif
   if (HAL_CAN_ActivateNotification(&hcan1, BSP_CAN_NOTIFICATION_MASK) !=
       HAL_OK) {
     (void)HAL_CAN_Stop(&hcan1);
