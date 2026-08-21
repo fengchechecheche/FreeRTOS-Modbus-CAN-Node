@@ -11,8 +11,8 @@
   "summary": {
     "FAIL": 0,
     "NOT_CLAIMED": 1,
-    "NOT_RUN": 3,
-    "PASS": 20,
+    "NOT_RUN": 2,
+    "PASS": 21,
     "REVIEW_REQUIRED": 0
   },
   "rows": [
@@ -225,22 +225,23 @@
     {
       "id": "SNS-03",
       "domain": "SENSOR",
-      "capability": "ADXL345 physical identity, DATA_READY and coherent sampling",
+      "capability": "ADXL345 physical identity, bounded DATA_READY polling and coherent sampling",
       "execution_layer": "HARDWARE",
-      "result": "NOT_RUN",
-      "evidence_commit": "603a351ce9818ce8b0ab4a284c95993cc20fa8f5",
-      "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "result": "PASS",
+      "evidence_commit": "7cedd353f2e9657702770ed1abc88b1ac612b5fe",
+      "regression_anchor": "7cedd353f2e9657702770ed1abc88b1ac612b5fe",
+      "firmware_sha256": "d076ddf743020fe1a043e776ba3196ea1f02153a17c5d98451cc722d6ac0018f",
+      "hardware_identity": "NUCLEO-F446RE + BME280 + ADXL345 + VEML7700 in admitted final topology; ADXL345 INT1/INT2 disconnected; serials omitted",
       "config_refs": [
-        "freertos_modbus_can_node.ioc",
-        "sensors/src/adxl345.c"
+        "CMakeLists.txt",
+        "sensors/src/adxl345.c",
+        "app/src/app_adxl345.c"
       ],
       "evidence_refs": [
         "docs/adxl345_report.md",
         "docs/device_probe_report.md"
       ],
-      "allowed_claim": "未执行完整 ADXL345 硬件验收；P5-HW-SNS-00 仅通过最终三模块拓扑下的 0xE5 identity，单模块 SPI 鲁棒性不声明，DATA_READY、轴向和振动响应仍未完成。"
+      "allowed_claim": "[066] 默认固件在最终三传感器拓扑、中断线断开的边界内，以每 20 ms 最多一次 INT_SOURCE 和最多一组 XYZ 的有界轮询后备持续推进 ADXL sample/feature；姿态与轻微扰动趋势、复位/上电恢复及 10 轮 Modbus 对外数据推进通过。物理 INT1/INT2、100 Hz 无丢样、计量精度和单模块 SPI 鲁棒性不声明。"
     },
     {
       "id": "WDG-01",

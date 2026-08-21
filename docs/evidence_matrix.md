@@ -7,7 +7,7 @@
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Board supplement evidence: `[044] d409a8161669aae8ea4c01246df577d36212650a`
 > Watchdog supplement evidence: `[046] 96fa46b41c38a0a0bb249876d9a0736165ac1642`
-> Row summary: `24 = 20 PASS + 0 FAIL + 3 NOT_RUN + 1 NOT_CLAIMED`
+> Row summary: `24 = 21 PASS + 0 FAIL + 2 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
 ## Purpose
@@ -74,12 +74,12 @@ Cross-build PASS does not establish flashing, startup, timing or communication.
 | BSP-02 | HARDWARE | PASS | `docs/bsp_validation.md` | NUCLEO-F446RE ST-LINK, flash/verify/reset, VCP boot, runtime clock, GPIO register state, limited scheduler smoke and one power cycle passed |
 | SNS-01 | HARDWARE | PASS | `docs/bme280_report.md` | `0x60` identity, five fresh bounded samples with increasing sequence, application compensation output and reset reinitialization passed; metrology accuracy remains not claimed |
 | SNS-02 | HARDWARE | PASS | `docs/veml7700_report.md` | `0x10` config access, five-sample sequence progress,遮挡/恢复方向 and two bounded range changes passed; metrology accuracy remains not claimed |
-| SNS-03 | HARDWARE | NOT_RUN | `docs/adxl345_report.md` | `0xE5` identity passed only in the final topology; standalone SPI robustness is not claimed and DATA_READY/axis/vibration checks remain incomplete |
+| SNS-03 | HARDWARE | PASS | `docs/adxl345_report.md` | `[066]` default bounded polling passed final-topology identity, continuous sample/feature progress, axis/vibration trend, restart and 10-cycle Modbus visibility; physical INT1/INT2, exact rate, metrology and standalone SPI robustness are not claimed |
 | WDG-01 | HARDWARE | PASS | `docs/health_recovery_report.md` | default health feed, one IWDG reset, reset-reason decode and reset-only `.noinit` retention passed; no power-loss claim |
 
 The three sensor drivers also have Host/cross-build software evidence inside
-`SW-01` and the domain reports. The rows above intentionally describe only the
-missing physical claims.
+`SW-01` and the domain reports. The rows above intentionally describe only
+their bounded physical claims and exclusions.
 
 ## RS485 and Project Three
 
@@ -125,24 +125,28 @@ P5-HW-SNS-00 在基线 `d48f2c75b048dc60320045233312ad6df050e88e` 上以 SHA-256
 `d011125dfbf8b96702da03d8c808476687639610d3b59acb7f23b1f42b6f8c4d`
 的 one-shot probe ELF 完成最终三模块拓扑 3/3 身份/存在性准入。该补验不包含
 连续采样、补偿复算、光照响应、ADXL345 DATA_READY/轴向/振动响应或计量精度，
-且 ADXL345 单模块 SPI 鲁棒性保持 `NOT_CLAIMED`，因此 `SNS-03` 保持 `NOT_RUN`。
+且在当时不升级 `SNS-03`。后续 `[066] 7cedd353f2e9657702770ed1abc88b1ac612b5fe`
+以默认有界轮询后备完成 ADXL345 连续样本/特征推进、轴向与振动趋势、重启以及
+10 轮 Modbus 对外可见性补验，因此 `SNS-03` 现为 `PASS`。物理 INT1/INT2、精确
+采样率、计量精度和单模块 SPI 鲁棒性仍不声明。
 RS485-03 已在参考 CH340、固定地址 4 的边界内通过；BUS-02 也已在参考转换器、已准入
 CAN 路径和一次有界短暂断线的边界内通过。有效地址迁移和项目三互操作仍未执行。当前矩阵
-总计为 `20 PASS + 0 FAIL + 3 NOT_RUN + 1 NOT_CLAIMED`。
+总计为 `21 PASS + 0 FAIL + 2 NOT_RUN + 1 NOT_CLAIMED`；剩余 `NOT_RUN` 仅为
+`P3-01` 与 `SOAK-02`。
 
 ## Release blocker projection
 
 | Blocker | Matrix rows | Current state |
 |---|---|---|
-| HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | OPEN; BSP-02 and WDG-01 passed, three sensor functional supplements remain |
+| HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | CLOSED; all rows passed within their documented bounded routes |
 | HW-002 RS485 and Project Three | RS485-03, P3-01 | OPEN; RS485-03 passed, P3-01 remains NOT_RUN |
 | HW-003 CAN and physical dual bus | CAN-03, BUS-02 | CLOSED; both rows passed within their admitted bounded routes |
 | HW-004 hardware soak | SOAK-02 | OPEN |
 
 The software source and both clean-reproduction blockers are closed. `BSP-02`
-now passes at its narrow board-admission layer and `WDG-01` passes at its
-bounded reset-only layer, but `HW-001` remains open for three sensor functional
-supplements. No other hardware blocker is closed.
+passes at its narrow board-admission layer, `WDG-01` at its bounded reset-only
+layer, and `SNS-01..03` at their documented bounded sensor routes, so `HW-001`
+is closed. `HW-003` is also closed; `HW-002` and `HW-004` remain open.
 
 ## Public and local evidence
 

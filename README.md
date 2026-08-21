@@ -42,6 +42,17 @@
 > errors; no lux-meter accuracy or full-range claim is made. See
 > [`docs/veml7700_report.md`](docs/veml7700_report.md).
 
+> 2026-08-21 ADXL345 hardware update: `SNS-03` is `PASS_BOUNDED_POLLING`.
+> Source `[066] 7cedd353f2e9657702770ed1abc88b1ac612b5fe` defaults to one bounded
+> DATA_READY poll per 20 ms acquisition release, with at most one XYZ read when
+> ready. In the final three-sensor topology with INT1/INT2 disconnected, sample
+> and feature sequences, three posture trends, vibration RMS/peak response,
+> restart and 10 consecutive Modbus snapshots passed. The default Ubuntu
+> authority Debug ELF SHA-256 is
+> `d076ddf743020fe1a043e776ba3196ea1f02153a17c5d98451cc722d6ac0018f`.
+> Physical INT1/INT2, exact rate, metrology and standalone SPI robustness remain
+> excluded. See [`docs/adxl345_report.md`](docs/adxl345_report.md).
+
 > 2026-08-15 board supplement: NUCLEO-F446RE `BSP-02` is
 > `PASS_HARDWARE_LIMITED`. ST-LINK V2J48M35, default Debug ELF
 > flash/verify/reset, VCP boot, runtime clock, GPIO register safe-state,
@@ -57,8 +68,9 @@
 > P5-S7-T05 update: intended version `v0.1.0` remains `UNRELEASED`. The current
 > result is a `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`, with a software demo and
 > matrix-bound recruitment wording that are not published. `HW-003` is now
-> closed by bounded CAN and physical dual-bus evidence; the sensor/Project
-> Three/soak blockers remain open. No tag, binary attachment or remote Release exists. See
+> closed by bounded CAN and physical dual-bus evidence, and `HW-001` is closed
+> by the bounded sensor/watchdog routes. Project Three and soak blockers remain
+> open. No tag, binary attachment or remote Release exists. See
 > [`docs/v0_1_0_software_candidate.md`](docs/v0_1_0_software_candidate.md),
 > [`docs/demo_guide.md`](docs/demo_guide.md), and
 > [`docs/recruitment_claim_ledger.md`](docs/recruitment_claim_ledger.md).
@@ -71,7 +83,7 @@
 > [`docs/learning/problem_ledger.md`](docs/learning/problem_ledger.md).
 
 > P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
-> 20 `PASS`, 0 `FAIL`, 3 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
+> 21 `PASS`, 0 `FAIL`, 2 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
 > software, board, RS485, or CAN evidence layer; no software result is promoted
 > to a physical-hardware claim. The hardware Release gate remains
 > `BLOCKED_WAITING_FOR_HARDWARE`. See
@@ -128,11 +140,13 @@
 
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
 汇总为 BSP 软件候选合同；2026-08-15 裸板补验已将 `BSP-02` 提升为
-`PASS_HARDWARE_LIMITED`，但 Shield、传感器和物理总线仍未实测。P5-S3-T01 已集成随包
+`PASS_HARDWARE_LIMITED`；后续三传感器、RS485、CAN 和一次有界双总线补验也已分别完成。
+P5-S3-T01 已集成随包
 FreeRTOS V10.3.1 和五任务静态调度骨架，内容已于 2026-08-14 审核冻结。P5-S4-T01 BME280 内容
 已经审核冻结；P5-S4-T02 VEML7700 整数照度、有限自动量程与 acquisition task 软件候选也已完成
-内容审核，等待硬件补验。P5-S4-T03 ADXL345 DATA_READY 中断采样、整数工程量和
-100 样本振动趋势特征已经完成内容审核。P5-S4-T04 已形成统一 sequence、单调时间、
+有界硬件补验。P5-S4-T03 ADXL345 整数工程量和 100 样本振动趋势特征已完成内容审核，
+当前模块通过默认有界 DATA_READY 轮询路线完成硬件补验；物理中断路径仍不声明。
+P5-S4-T04 已形成统一 sequence、单调时间、
 质量和新鲜度的软件候选。P5-S4-T05 已增加固定大小的多传感器监测摘要与确定性
 联合故障矩阵，内容已审核冻结。P5-S5-T01 已形成地址 4 的 Modbus register contract 和机器可读
 map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻辑候选；stream parser、
@@ -170,8 +184,9 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - `P5_DEVICE_PROBE_SMOKE` 默认关闭；临时启用时只探测一次并通过 USART2 输出紧凑摘要，设备缺失
   不阻塞正常启动。
 - FreeRTOS 任务使用静态分配，`protocol_task` 接管有限 RS485 poll，`diagnostic_task` 接管有限
-  heartbeat；`acquisition_task` 保持 20 ms 绝对释放推进 BME280/VEML7700，并接收 ADXL345
-  DATA_READY 计数通知；每批通知最多读取一帧。
+  heartbeat；`acquisition_task` 保持 20 ms 绝对释放推进 BME280/VEML7700，并处理 ADXL345
+  DATA_READY 通知。默认生产后备每次释放最多读取一次 `INT_SOURCE`，仅在 ready 时最多读取
+  一组 XYZ；轮询计数不伪装为 EXTI 证据。
 - 五个应用任务栈各为 256 words，Host/ARM 资源门已通过；裸板最小剩余为
   `215/168/115/53/215` words，均高于 32-word 门限，传感器和物理总线负载仍需重测。
 - 默认固件启用约 8 s 标称 IWDG，只有 `health_task` 根据健康策略刷新；
@@ -180,12 +195,14 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - SPI/I²C 候选不使用 DMA、RTOS 或动态内存；timeout/bus error 最多请求一次 recovery，当前 HAL
   adapter 不伪造未实测的 SCL pulse 或重新初始化。
 - BME280 使用 1 Hz forced mode、T/P/H x1、filter off 和 5 ms SPI timeout；raw 与整数工程量保存在
-  owner-local snapshot；实物 ID、采集与精度仍为 `NOT_RUN`。
+  owner-local snapshot；实物 ID、连续采集和复位后重新初始化已通过，计量精度不声明。
 - VEML7700 使用 7-bit `0x10`、默认 gain x1/8 与 100 ms integration，以 9 级有限自动量程输出整数
-  millilux；高照度修正只标记不伪造，实物 ACK、采集、量程切换与精度仍为 `NOT_RUN`/`NOT_CLAIMED`。
+  millilux；实物配置访问、连续采集、遮挡/恢复趋势和有限量程变化已通过，照度计精度不声明。
 - ADXL345 候选为 100 Hz、full-resolution、±4 g、FIFO bypass，DATA_READY 映射到 PB4/EXTI4
   priority 6/0；六字节 coherent read 使用 `0xF2` wire command。100 样本窗口只保存
-  sum/sum-square/min/max，输出去直流 RMS/peak 和三轴合成 RMS，不构成故障诊断或校准结论。
+  sum/sum-square/min/max，输出去直流 RMS/peak 和三轴合成 RMS。当前最终拓扑使用默认有界
+  轮询后备通过样本/特征、姿态和振动趋势补验；物理 INT1/INT2、精确采样率、单模块 SPI
+  鲁棒性、故障诊断和校准结论均不声明。
 - 统一 measurement schema 将 BME、VEML、ADXL sample 和 ADXL feature 作为四个独立 source；
   使用 17 个逻辑 field ID、固定整数单位和 `fresh/stale/offline/invalid` 状态。field ID 不是
   Modbus register 或 CAN ID，invalid 不输出伪造工程量，stale/offline last-good 显式 retained。
@@ -196,12 +213,13 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - NUCLEO-F446RE 已完成 ST-LINK、烧录/校验/复位、VCP、运行时时钟、GPIO 寄存器状态、有限
   scheduler smoke、裸板栈水位、IWDG 单次恢复和断电重连补验；CAN 已完成已准入路径的有限
   实物补验；RS485 固定地址 4 的参考转换器矩阵及一次有界物理双总线并发/故障隔离也已通过。
-  传感器完整中断验收、项目三互操作与长稳仍保持开放。
+  三传感器已在各自有界路线内通过，物理 ADXL345 INT 路径继续作为排除项；项目三互操作与
+  10 分钟、60 分钟、8 小时长稳仍保持开放。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。
-  T05 HIL self-test/dry-run 不打开串口；真实 249 B response、地址迁移、UART/RS485 总线和项目三联调
-  仍为 `WAITING_FOR_HARDWARE` / `NOT_RUN`。
+  T05 HIL self-test/dry-run 不打开串口；参考 CH340 路径的真实 249 B response 已通过，地址迁移
+  与项目三联调仍为 `NOT_RUN`。
 - CAN 合同使用节点 4 的七个节点遥测/事件 ID 以及专用诊断 `0x540/0x541`、500 kbit/s、
   standard data frame、DLC 8 和 little-endian。接收侧仅启用一个 16-bit ID-list filter bank，
   四条硬件表项均重复 Host-owned `0x540`；发送侧独立允许七个 STM32 遥测/事件 ID 和 `0x541`。

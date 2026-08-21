@@ -2,7 +2,7 @@
 
 > Software: `PASS_HOST + PASS_CROSS_BUILD + PASS_EXTI_CONTRACT`  
 > Content: `FROZEN_SOFTWARE + HARDWARE_APPENDIX` (updated 2026-08-20)
-> Hardware: `PARTIAL_HARDWARE_EVIDENCE`
+> Hardware: `PASS_BOUNDED_POLLING`
 > Identity / polling axis and vibration response: `PASS_BOUNDED`
 > Physical DATA_READY IRQ: `FAIL_CURRENT_MODULE_PATH`
 
@@ -165,11 +165,12 @@ MCU 端与 ADXL345 端波形。不得在模块未供电时仅接入 SCK，以免
 在获得上述证据前，这些方向均保持 `HYPOTHESIS`，不用于宣称根因，不触发
 CubeMX、SPI 模式、引脚、驱动接口或协议架构修改。
 
-## P5-HW-SNS-03 有界功能补验（2026-08-19 至 2026-08-20）
+## P5-HW-SNS-03 有界功能补验（2026-08-19 至 2026-08-21）
 
 本轮在最终三传感器拓扑下继续使用 SPI，不修改 CubeMX、引脚或正式驱动接口。
-诊断选项均默认关闭，INT2 映射与 DATA_READY 轮询互斥。原始串口输出不进入大型
-证据包，仅在本节保留足以复核结论的摘要。
+HIL 与 INT2 映射诊断默认关闭；`[066]` 起生产固件默认启用有界 DATA_READY 轮询
+后备，且 INT2 映射与轮询后备互斥。原始串口输出不进入大型证据包，仅在本节保留
+足以复核结论的摘要。
 
 ### DATA_READY 中断路径
 
@@ -227,21 +228,61 @@ rrms=320 mg
 重新采集均通过有界轮询补验。该结果不证明物理 IRQ、100 Hz 实际输出率、计量
 精度、零偏、安装方向、频响、FFT 或振动故障诊断。
 
+### `[066]` 生产轮询后备与默认固件验收（2026-08-21）
+
+提交 `7cedd353f2e9657702770ed1abc88b1ac612b5fe` 将上述轮询路径收口为默认开启的
+生产后备：acquisition owner 每 20 ms 最多读取一次 `INT_SOURCE`，仅在 DATA_READY
+有效时最多读取并发布一组 XYZ。该实现不使用忙轮询、不伪造 EXTI 计数，也不改变
+任务数量、动态内存策略、CubeMX 引脚或 SPI 合同。
+
+显式启用 HIL 输出、轮询后备开启且 INT2 诊断关闭时，诊断 ELF SHA-256 为
+`7af3fb9ce6dcf0a51c631821dd42812870c9fe3dcdf12f382f0dfb0297123fbb`。
+在三传感器最终拓扑且 INT1/INT2 均断开的边界内，静止约 30 秒得到：
+
+```text
+poll_attempt=4248 poll_ready=4248 poll_error=0
+sseq=4248 irq=0 drop=0 err=0 rec=0/0
+```
+
+样本与特征序列持续推进；三种明显姿态产生方向性轴值变化，轻敲/轻微晃动时
+RMS、peak 与 resultant RMS 明显升高，停止扰动后回落。默认配置随后关闭 HIL 输出、
+保留轮询后备并重新构建、烧录；Ubuntu 权威 Debug ELF SHA-256 为
+`d076ddf743020fe1a043e776ba3196ea1f02153a17c5d98451cc722d6ac0018f`。
+默认固件启动、时钟与五次 heartbeat 正常，未出现诊断刷屏、HardFault 或复位循环。
+
+通过新 CH340 USB-RS485、地址 4、19200 8E1 读取 10 次完整 122 输入寄存器快照：
+
+```text
+valid_mask = 0x000F (10/10)
+BME sequence = 40 -> 50
+VEML sequence = 41 -> 51
+ADXL sample sequence = 2078 -> 2607
+ADXL feature sequence = 20 -> 26
+ADXL irq/drop = 0/0; sensor faults = 0/0/0; health = 1
+```
+
+首次快照曾因 BME280 接触不良显示离线；有界停止、断电压紧连接并重新上电后，
+上述 10 轮全部通过。该事件支持“接触问题已通过复插消除”，不构成固件回归证据。
+本轮只证明最终三传感器拓扑、默认有界轮询、样本/特征/趋势推进、复位或上电后
+重新初始化以及 Modbus 对外可见性；仍不声明物理 INT1/INT2 路径、100 Hz 无丢样、
+精确采样率、计量精度、安装方向校准、频响、FFT、故障诊断或单模块 SPI 鲁棒性。
+
 ```text
 adxl345_identity_final_topology = PASS
 adxl345_internal_data_ready = PASS
 adxl345_polling_continuous_sampling = PASS
+adxl345_default_bounded_polling = PASS
 adxl345_axis_response = PASS_BOUNDED_POLLING
 adxl345_vibration_features = PASS_BOUNDED_POLLING
 adxl345_reset_reinitialize = PASS_BOUNDED_POLLING
+adxl345_external_modbus_progress = PASS
 adxl345_physical_data_ready_irq = FAIL_CURRENT_MODULE_PATH
 adxl345_standalone_spi_robustness = NOT_CLAIMED
 adxl345_metrology_and_frequency_response = NOT_CLAIMED
-hardware = PARTIAL_HARDWARE_EVIDENCE
+hardware = PASS_BOUNDED_POLLING
 ```
 
-因此 `SNS-03` 不升级为完整 `PASS`：轮询采集、轴向和振动趋势子项已通过，物理
-DATA_READY IRQ 要求仍未满足；`HW-001` 继续保持 `OPEN`。后续优先更换来源和
-原理图可靠的 ADXL345 模块复验 IRQ；在此之前，当前模块不阻塞 BME280、
-VEML7700、RS485、CAN 和其他硬件路线。轮询固件仅用于故障隔离，取证结束后
-必须关闭诊断选项并恢复默认固件。
+因此 `SNS-03` 在明确限定的默认有界轮询路线下升级为 `PASS`，`HW-001` 随三传感器
+和看门狗各自通过而关闭。物理 DATA_READY IRQ 仍是当前模块路径的已知失败子项，
+不被该状态掩盖或提升为通过；后续更换来源和原理图可靠的 ADXL345 模块时可单独
+复验，但它不再阻塞项目三联调。HIL 输出保持默认关闭，板上最终保留上述默认固件。
