@@ -315,22 +315,29 @@ timing remain `NOT_MEASURED` until the relevant hardware is available.
 `P5_SOAK_DIAGNOSTIC` adds no task, queue, mutex, heap or CubeMX resource. The
 existing diagnostic task keeps its 256-word static stack and 200 ms deadline;
 its execution budget is 100 ms only in the diagnostic build, versus 2 ms when
-the option is OFF. The larger budget bounds one formatter call and one blocking
-USART2 write; actual runtime watermarks and timing remain pending the 10-minute
-hardware admission.
+the option is OFF. Snapshot scratch storage is diagnostic-only static BSS. A
+bounded integer writer replaces the original large-varargs `snprintf` call, so
+the task stack is not enlarged merely to accommodate formatting. The larger
+execution budget bounds one formatter call and one blocking USART2 write;
+actual runtime watermarks and timing remain pending a new 10-minute hardware
+admission.
 
 | Build | Option | text | data | bss | Flash | Linked RAM |
 |---|---|---:|---:|---:|---:|---:|
 | Debug | OFF | 55484 B | 160 B | 13480 B | 55644 B | 13640 B |
-| Debug | ON | 61212 B | 240 B | 14840 B | 61452 B | 15080 B |
+| Debug | ON | 58204 B | 160 B | 15752 B | 58364 B | 15912 B |
 | Release | OFF | 46152 B | 156 B | 13472 B | 46308 B | 13628 B |
-| Release | ON | 51416 B | 236 B | 14832 B | 51652 B | 15068 B |
+| Release | ON | 48516 B | 156 B | 15752 B | 48672 B | 15908 B |
 
-The diagnostic delta is 5728/80/1360 B in Debug and 5264/80/1360 B in
-Release. Both variants remain far below 384 KiB Flash and 96 KiB linked RAM.
-The OFF build has no `P5DIAG1` runtime path; source-line changes may still alter
-a Debug ELF hash, so identity is always bound to the exact post-submit ELF
-rather than inferred from a historical hash.
+The diagnostic delta is 2720/0/2272 B in Debug and 2364/0/2280 B in Release.
+The BSS increase is the deliberate bounded replacement for task-stack scratch;
+both variants remain far below 384 KiB Flash and 96 KiB linked RAM. Debug ARM
+disassembly shows 128 B of explicit stack in the diagnostic service and 72 B
+in the formatter entry, versus the rejected 1252 B and 540 B frames. The OFF
+build remains byte-for-byte at the recorded resource totals and has no
+`P5DIAG1` runtime path.
+Source-line changes may still alter a Debug ELF hash, so identity is always
+bound to the exact post-submit ELF rather than inferred from a historical hash.
 
 ## 2026-08-15 bare-board resource and IWDG supplement
 

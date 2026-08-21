@@ -170,6 +170,16 @@ static uint32_t app_rtos_soak_diagnostic_last_report_ms;
 static bool app_rtos_soak_diagnostic_has_report;
 static char app_rtos_soak_diagnostic_report[
     APP_SOAK_DIAGNOSTIC_LINE_CAPACITY];
+static app_rtos_health_snapshot_t app_rtos_soak_health;
+static app_rtos_resource_snapshot_t app_rtos_soak_resource;
+static app_rtos_transport_snapshot_t app_rtos_soak_transport;
+static app_can_runtime_snapshot_t app_rtos_soak_can;
+static app_measurement_snapshot_t app_rtos_soak_measurement;
+static app_sensor_monitor_snapshot_t app_rtos_soak_monitor;
+static app_reset_decoded_t app_rtos_soak_reset;
+static app_reset_record_t app_rtos_soak_record;
+static app_modbus_transport_diagnostics_t app_rtos_soak_modbus;
+static app_soak_diagnostic_snapshot_t app_rtos_soak_snapshot;
 #endif
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
 static app_adxl345_snapshot_t app_rtos_adxl345_snapshot;
@@ -1649,96 +1659,120 @@ static void app_rtos_soak_diagnostic_service(void)
     return;
   }
 
-  app_rtos_health_snapshot_t health;
-  app_rtos_resource_snapshot_t resource;
-  app_rtos_transport_snapshot_t transport;
-  app_can_runtime_snapshot_t can;
-  app_measurement_snapshot_t measurement;
-  app_sensor_monitor_snapshot_t monitor;
-  app_reset_decoded_t reset;
-  app_reset_record_t record;
-  if (!app_rtos_get_health_snapshot(&health) ||
-      !app_rtos_get_resource_snapshot(&resource) ||
-      !app_rtos_get_transport_snapshot(&transport) ||
-      !app_rtos_get_can_snapshot(&can) ||
-      !app_rtos_get_measurement_snapshot(&measurement) ||
-      !app_rtos_get_sensor_monitor_snapshot(&monitor) ||
-      !app_rtos_get_reset_reason(&reset) ||
-      !app_rtos_get_reset_record(&record))
+  if (!app_rtos_get_health_snapshot(&app_rtos_soak_health) ||
+      !app_rtos_get_resource_snapshot(&app_rtos_soak_resource) ||
+      !app_rtos_get_transport_snapshot(&app_rtos_soak_transport) ||
+      !app_rtos_get_can_snapshot(&app_rtos_soak_can) ||
+      !app_rtos_get_measurement_snapshot(&app_rtos_soak_measurement) ||
+      !app_rtos_get_sensor_monitor_snapshot(&app_rtos_soak_monitor) ||
+      !app_rtos_get_reset_reason(&app_rtos_soak_reset) ||
+      !app_rtos_get_reset_record(&app_rtos_soak_record))
   {
     return;
   }
 
-  const app_modbus_transport_diagnostics_t modbus =
-      app_modbus_transport_get_diagnostics();
-  app_soak_diagnostic_snapshot_t snapshot = {0};
-  snapshot.now_ms = now_ms;
-  snapshot.boot_count = record.boot_count;
+  app_rtos_soak_modbus = app_modbus_transport_get_diagnostics();
+  app_rtos_soak_snapshot = (app_soak_diagnostic_snapshot_t){0};
+  app_rtos_soak_snapshot.now_ms = now_ms;
+  app_rtos_soak_snapshot.boot_count = app_rtos_soak_record.boot_count;
   for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
   {
-    snapshot.task[index].release = health.task[index].release_count;
-    snapshot.task[index].missed = health.task[index].missed_release_count;
-    snapshot.task[index].deadline_miss =
-        health.task[index].deadline_miss_count;
-    snapshot.task[index].budget_overrun =
-        health.task[index].budget_overrun_count;
-    snapshot.task[index].configured_words =
-        resource.task[index].configured_words;
-    snapshot.task[index].minimum_free_words =
-        resource.task[index].minimum_free_words;
-    snapshot.task[index].measured = resource.task[index].measured;
+    app_rtos_soak_snapshot.task[index].release =
+        app_rtos_soak_health.task[index].release_count;
+    app_rtos_soak_snapshot.task[index].missed =
+        app_rtos_soak_health.task[index].missed_release_count;
+    app_rtos_soak_snapshot.task[index].deadline_miss =
+        app_rtos_soak_health.task[index].deadline_miss_count;
+    app_rtos_soak_snapshot.task[index].budget_overrun =
+        app_rtos_soak_health.task[index].budget_overrun_count;
+    app_rtos_soak_snapshot.task[index].configured_words =
+        app_rtos_soak_resource.task[index].configured_words;
+    app_rtos_soak_snapshot.task[index].minimum_free_words =
+        app_rtos_soak_resource.task[index].minimum_free_words;
+    app_rtos_soak_snapshot.task[index].measured =
+        app_rtos_soak_resource.task[index].measured;
   }
-  snapshot.queue_current = transport.current_pending;
-  snapshot.queue_maximum = transport.maximum_pending;
-  snapshot.queue_depth = transport.depth;
-  snapshot.queue_dropped = transport.counters.event_dropped_full_count;
-  snapshot.queue_drained = transport.counters.event_drained_count;
-  snapshot.health_state = (uint32_t)health.decision.state;
-  snapshot.health_warning_mask = health.decision.warning_mask;
-  snapshot.health_stalled_mask = health.decision.stalled_task_mask;
-  snapshot.watchdog_feed = (uint32_t)health.decision.feed_decision;
-  snapshot.fault_code = app_rtos_fault_code();
-  snapshot.reset_primary = (uint32_t)reset.primary;
-  snapshot.reset_raw_flags = reset.hardware_raw_flags;
-  snapshot.reset_loop = app_reset_record_loop_latched(&record);
-  snapshot.rs485_accepted = modbus.server.addressed_requests;
-  snapshot.rs485_error_count = health.rs485_error_count;
-  snapshot.can_state = (uint32_t)can.controller_state;
-  snapshot.can_pending = can.pending_frames;
-  snapshot.can_capacity = APP_SOAK_CAN_CAPACITY;
-  snapshot.can_maximum_pending = can.tx_counters.maximum_pending;
-  snapshot.can_event_dropped = can.tx_counters.event_dropped;
-  snapshot.can_hal_busy = can.tx_counters.hal_busy;
-  snapshot.can_bus_off = can.controller_counters.bus_off_transitions;
-  snapshot.can_recovery_attempts = can.controller_counters.recovery_attempts;
+  app_rtos_soak_snapshot.queue_current = app_rtos_soak_transport.current_pending;
+  app_rtos_soak_snapshot.queue_maximum = app_rtos_soak_transport.maximum_pending;
+  app_rtos_soak_snapshot.queue_depth = app_rtos_soak_transport.depth;
+  app_rtos_soak_snapshot.queue_dropped =
+      app_rtos_soak_transport.counters.event_dropped_full_count;
+  app_rtos_soak_snapshot.queue_drained =
+      app_rtos_soak_transport.counters.event_drained_count;
+  app_rtos_soak_snapshot.health_state =
+      (uint32_t)app_rtos_soak_health.decision.state;
+  app_rtos_soak_snapshot.health_warning_mask =
+      app_rtos_soak_health.decision.warning_mask;
+  app_rtos_soak_snapshot.health_stalled_mask =
+      app_rtos_soak_health.decision.stalled_task_mask;
+  app_rtos_soak_snapshot.watchdog_feed =
+      (uint32_t)app_rtos_soak_health.decision.feed_decision;
+  app_rtos_soak_snapshot.fault_code = app_rtos_fault_code();
+  app_rtos_soak_snapshot.reset_primary =
+      (uint32_t)app_rtos_soak_reset.primary;
+  app_rtos_soak_snapshot.reset_raw_flags =
+      app_rtos_soak_reset.hardware_raw_flags;
+  app_rtos_soak_snapshot.reset_loop =
+      app_reset_record_loop_latched(&app_rtos_soak_record);
+  app_rtos_soak_snapshot.rs485_accepted =
+      app_rtos_soak_modbus.server.addressed_requests;
+  app_rtos_soak_snapshot.rs485_error_count =
+      app_rtos_soak_health.rs485_error_count;
+  app_rtos_soak_snapshot.can_state =
+      (uint32_t)app_rtos_soak_can.controller_state;
+  app_rtos_soak_snapshot.can_pending = app_rtos_soak_can.pending_frames;
+  app_rtos_soak_snapshot.can_capacity = APP_SOAK_CAN_CAPACITY;
+  app_rtos_soak_snapshot.can_maximum_pending =
+      app_rtos_soak_can.tx_counters.maximum_pending;
+  app_rtos_soak_snapshot.can_event_dropped =
+      app_rtos_soak_can.tx_counters.event_dropped;
+  app_rtos_soak_snapshot.can_hal_busy =
+      app_rtos_soak_can.tx_counters.hal_busy;
+  app_rtos_soak_snapshot.can_bus_off =
+      app_rtos_soak_can.controller_counters.bus_off_transitions;
+  app_rtos_soak_snapshot.can_recovery_attempts =
+      app_rtos_soak_can.controller_counters.recovery_attempts;
 
-  snapshot.sensor[0].state = (uint32_t)measurement.bme280.metadata.state;
-  snapshot.sensor[0].sequence = measurement.bme280.metadata.sequence;
-  snapshot.sensor[0].fault_count =
-      monitor.device[APP_SENSOR_DEVICE_BME280].fault_episode_count;
-  snapshot.sensor[0].recovery_count =
-      monitor.device[APP_SENSOR_DEVICE_BME280].recovery_success_count;
-  snapshot.sensor[1].state = (uint32_t)measurement.veml7700.metadata.state;
-  snapshot.sensor[1].sequence = measurement.veml7700.metadata.sequence;
-  snapshot.sensor[1].fault_count =
-      monitor.device[APP_SENSOR_DEVICE_VEML7700].fault_episode_count;
-  snapshot.sensor[1].recovery_count =
-      monitor.device[APP_SENSOR_DEVICE_VEML7700].recovery_success_count;
-  snapshot.sensor[2].state =
-      (uint32_t)measurement.adxl345_sample.metadata.state;
-  snapshot.sensor[2].sequence = measurement.adxl345_sample.metadata.sequence;
-  snapshot.sensor[2].fault_count =
-      monitor.device[APP_SENSOR_DEVICE_ADXL345].fault_episode_count;
-  snapshot.sensor[2].recovery_count =
-      monitor.device[APP_SENSOR_DEVICE_ADXL345].recovery_success_count;
-  snapshot.sensor[3].state =
-      (uint32_t)measurement.adxl345_feature.metadata.state;
-  snapshot.sensor[3].sequence = measurement.adxl345_feature.metadata.sequence;
-  snapshot.sensor[3].fault_count = snapshot.sensor[2].fault_count;
-  snapshot.sensor[3].recovery_count = snapshot.sensor[2].recovery_count;
+  app_rtos_soak_snapshot.sensor[0].state =
+      (uint32_t)app_rtos_soak_measurement.bme280.metadata.state;
+  app_rtos_soak_snapshot.sensor[0].sequence =
+      app_rtos_soak_measurement.bme280.metadata.sequence;
+  app_rtos_soak_snapshot.sensor[0].fault_count =
+      app_rtos_soak_monitor.device[APP_SENSOR_DEVICE_BME280].fault_episode_count;
+  app_rtos_soak_snapshot.sensor[0].recovery_count = app_rtos_soak_monitor
+      .device[APP_SENSOR_DEVICE_BME280]
+      .recovery_success_count;
+  app_rtos_soak_snapshot.sensor[1].state =
+      (uint32_t)app_rtos_soak_measurement.veml7700.metadata.state;
+  app_rtos_soak_snapshot.sensor[1].sequence =
+      app_rtos_soak_measurement.veml7700.metadata.sequence;
+  app_rtos_soak_snapshot.sensor[1].fault_count = app_rtos_soak_monitor
+      .device[APP_SENSOR_DEVICE_VEML7700]
+      .fault_episode_count;
+  app_rtos_soak_snapshot.sensor[1].recovery_count = app_rtos_soak_monitor
+      .device[APP_SENSOR_DEVICE_VEML7700]
+      .recovery_success_count;
+  app_rtos_soak_snapshot.sensor[2].state =
+      (uint32_t)app_rtos_soak_measurement.adxl345_sample.metadata.state;
+  app_rtos_soak_snapshot.sensor[2].sequence =
+      app_rtos_soak_measurement.adxl345_sample.metadata.sequence;
+  app_rtos_soak_snapshot.sensor[2].fault_count = app_rtos_soak_monitor
+      .device[APP_SENSOR_DEVICE_ADXL345]
+      .fault_episode_count;
+  app_rtos_soak_snapshot.sensor[2].recovery_count = app_rtos_soak_monitor
+      .device[APP_SENSOR_DEVICE_ADXL345]
+      .recovery_success_count;
+  app_rtos_soak_snapshot.sensor[3].state =
+      (uint32_t)app_rtos_soak_measurement.adxl345_feature.metadata.state;
+  app_rtos_soak_snapshot.sensor[3].sequence =
+      app_rtos_soak_measurement.adxl345_feature.metadata.sequence;
+  app_rtos_soak_snapshot.sensor[3].fault_count =
+      app_rtos_soak_snapshot.sensor[2].fault_count;
+  app_rtos_soak_snapshot.sensor[3].recovery_count =
+      app_rtos_soak_snapshot.sensor[2].recovery_count;
 
   size_t report_length = 0U;
-  if (app_soak_diagnostic_format(&snapshot,
+  if (app_soak_diagnostic_format(&app_rtos_soak_snapshot,
                                  app_rtos_soak_diagnostic_report,
                                  sizeof(app_rtos_soak_diagnostic_report),
                                  &report_length))

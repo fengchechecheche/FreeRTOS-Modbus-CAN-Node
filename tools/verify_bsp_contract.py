@@ -408,7 +408,14 @@ CHECKS: CheckTable = {
         ("adxl hil compile switch", "#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE"),
         ("soak diagnostic compile switch", "#if P5_SOAK_DIAGNOSTIC_ENABLE"),
         ("soak diagnostic interval", "APP_SOAK_DIAGNOSTIC_INTERVAL_MS UINT32_C(60000)"),
-        ("soak diagnostic formatter", "app_soak_diagnostic_format(&snapshot"),
+        (
+            "soak diagnostic formatter",
+            "app_soak_diagnostic_format(&app_rtos_soak_snapshot",
+        ),
+        (
+            "soak diagnostic static scratch",
+            "static app_soak_diagnostic_snapshot_t app_rtos_soak_snapshot;",
+        ),
         (
             "adxl hil frame schema",
             '"P5ADXL1 t=%lu st=%s sm=%s last=%s tr=%s txn=%lu int1=%u "',
@@ -442,6 +449,12 @@ CHECKS: CheckTable = {
         ),
         ("adxl hil one second interval", "APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)"),
         ("adxl hil bounded report count", "APP_ADXL345_HIL_REPORT_LIMIT UINT32_C(180)"),
+    ],
+    Path("app/src/app_soak_diagnostic.c"): [
+        ("bounded writer", "app_soak_writer_t writer ="),
+        ("bounded decimal formatter", "app_soak_append_u32("),
+        ("bounded hexadecimal formatter", "app_soak_append_hex("),
+        ("format overflow rejection", "if (!writer.valid)"),
     ],
     Path("app/src/app_task_model.c"): [
         (
@@ -802,6 +815,9 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("direct system reset", "NVIC_SystemReset("),
         ("second spi runtime owner", "bsp_spi_bus_"),
         ("second i2c runtime owner", "bsp_i2c_bus_"),
+    ],
+    Path("app/src/app_soak_diagnostic.c"): [
+        ("unbounded stdio formatter", "snprintf("),
     ],
     Path("Core/Src/main.c"): [
         ("main iwdg refresh", "HAL_IWDG_Refresh("),

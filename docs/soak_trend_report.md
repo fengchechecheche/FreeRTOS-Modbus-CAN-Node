@@ -55,12 +55,28 @@ Windows/WSL USB 转发层变量；它只是测试执行主机，不是项目三�
 | HIL collector 自测 | PASS，4 项有界检查 |
 | soak runner 自测 | PASS，23 项有界检查 |
 | Host Debug | PASS，24/24 |
-| BSP 合同 | PASS，616 项稳定事实及负向自测 |
+| BSP 合同 | PASS，622 项稳定事实及负向自测 |
 | ARM Debug/Release，`P5_SOAK_DIAGNOSTIC=ON` | PASS |
-| 诊断 Debug text/data/bss | `61212/240/14840` B |
-| 诊断 Release text/data/bss | `51416/236/14832` B |
+| 诊断 Debug text/data/bss | `58204/160/15752` B |
+| 诊断 Release text/data/bss | `48516/156/15752` B |
+| 默认 OFF ELF 中 `P5DIAG1` 缺席 | PASS |
 
 以上仅证明代码和构建准入，不能替代实板 10 分钟、60 分钟或 8 小时结果。
+
+### 首次实板启动异常与有界修订
+
+首次烧入的诊断 ELF 只能输出 `BOOT` 和时钟摘要，随后 heartbeat 与
+`P5DIAG1` 均未出现，因此该次启动不计入 10 分钟准入。ARM 反汇编确认，原实现将多个
+完整快照放在诊断任务栈中：`app_rtos_soak_diagnostic_service()` 的显式栈帧为
+1252 B，嵌套的单次 `snprintf()` 格式化器另有 540 B 显式栈帧，已超过诊断任务现有
+256 words（1024 B）静态栈。
+
+最小修订没有扩大任务栈，而是把仅诊断构建使用的快照暂存区移至静态 BSS，并用有界的
+十进制/十六进制追加器替代大参数 `snprintf()`。修订后 Debug ELF 中服务函数显式栈帧为
+128 B（112 B 局部区加 16 B 保存寄存器），格式化入口为 72 B；当前最深的直接格式化
+子调用仍使可见嵌套量保持在约 280 B，低于 1024 B。最大 `uint32_t`、缓冲区不足、空
+指针和 CRLF 边界均由 Host Debug/Release 测试覆盖。该静态分析只恢复实板准入资格，
+实际最低栈水位仍必须由新的 10 分钟准入确认。
 
 ## 构建与运行模板
 

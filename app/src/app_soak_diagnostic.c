@@ -1,6 +1,101 @@
 #include "app_soak_diagnostic.h"
 
-#include <stdio.h>
+#include <string.h>
+
+typedef struct
+{
+  char *buffer;
+  size_t capacity;
+  size_t length;
+  bool valid;
+} app_soak_writer_t;
+
+static void app_soak_append_char(app_soak_writer_t *writer, char value)
+{
+  if (!writer->valid || ((writer->length + 1U) >= writer->capacity))
+  {
+    writer->valid = false;
+    return;
+  }
+  writer->buffer[writer->length++] = value;
+}
+
+static void app_soak_append_literal(app_soak_writer_t *writer,
+                                    const char *value)
+{
+  const size_t value_length = strlen(value);
+  if (!writer->valid || (value_length >= (writer->capacity - writer->length)))
+  {
+    writer->valid = false;
+    return;
+  }
+  memcpy(&writer->buffer[writer->length], value, value_length);
+  writer->length += value_length;
+}
+
+static void app_soak_append_u32(app_soak_writer_t *writer, uint32_t value)
+{
+  char digits[10];
+  size_t count = 0U;
+  do
+  {
+    digits[count++] = (char)('0' + (value % UINT32_C(10)));
+    value /= UINT32_C(10);
+  } while (value != 0U);
+
+  while (count > 0U)
+  {
+    app_soak_append_char(writer, digits[--count]);
+  }
+}
+
+static void app_soak_append_hex(app_soak_writer_t *writer,
+                                uint32_t value,
+                                size_t width)
+{
+  static const char digits[] = "0123456789ABCDEF";
+  while (width > 0U)
+  {
+    const size_t shift = (--width) * 4U;
+    app_soak_append_char(writer, digits[(value >> shift) & UINT32_C(0x0F)]);
+  }
+}
+
+static void app_soak_append_task_field(app_soak_writer_t *writer,
+                                       const char *prefix,
+                                       const app_soak_diagnostic_snapshot_t *snapshot,
+                                       size_t field)
+{
+  app_soak_append_literal(writer, prefix);
+  for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
+  {
+    const uint32_t values[] = {
+        snapshot->task[index].release,
+        snapshot->task[index].missed,
+        snapshot->task[index].deadline_miss,
+        snapshot->task[index].budget_overrun,
+        snapshot->task[index].configured_words,
+        snapshot->task[index].minimum_free_words,
+    };
+    if (index > 0U)
+    {
+      app_soak_append_char(writer, '/');
+    }
+    app_soak_append_u32(writer, values[field]);
+  }
+}
+
+static void app_soak_append_sensor(app_soak_writer_t *writer,
+                                   const app_soak_sensor_t *sensor)
+{
+  app_soak_append_u32(writer, sensor->state);
+  app_soak_append_char(writer, ',');
+  app_soak_append_u32(writer, sensor->sequence);
+  app_soak_append_char(writer, ',');
+  app_soak_append_u32(writer, sensor->fault_count);
+  app_soak_append_char(writer, ',');
+  app_soak_append_u32(writer, sensor->recovery_count);
+}
 
 bool app_soak_diagnostic_format(
     const app_soak_diagnostic_snapshot_t *snapshot,
@@ -14,106 +109,107 @@ bool app_soak_diagnostic_format(
     return false;
   }
 
-  const int written = snprintf(
-      buffer,
-      capacity,
-      "P5DIAG1 v=1 t=%lu boot=%lu "
-      "tr=%lu/%lu/%lu/%lu/%lu "
-      "tm=%lu/%lu/%lu/%lu/%lu "
-      "td=%lu/%lu/%lu/%lu/%lu "
-      "tb=%lu/%lu/%lu/%lu/%lu "
-      "tc=%lu/%lu/%lu/%lu/%lu "
-      "ts=%lu/%lu/%lu/%lu/%lu sm=%02X "
-      "q=%lu/%lu/%lu/%lu/%lu "
-      "h=%lu/%08lX/%08lX/%lu/%lu "
-      "rst=%lu/%08lX/%u "
-      "rs=%lu/%lu "
-      "can=%lu/%lu/%lu/%lu/%lu/%lu/%lu/%lu "
-      "sns=%lu,%lu,%lu,%lu;%lu,%lu,%lu,%lu;"
-      "%lu,%lu,%lu,%lu;%lu,%lu,%lu,%lu\r\n",
-      (unsigned long)snapshot->now_ms,
-      (unsigned long)snapshot->boot_count,
-      (unsigned long)snapshot->task[0].release,
-      (unsigned long)snapshot->task[1].release,
-      (unsigned long)snapshot->task[2].release,
-      (unsigned long)snapshot->task[3].release,
-      (unsigned long)snapshot->task[4].release,
-      (unsigned long)snapshot->task[0].missed,
-      (unsigned long)snapshot->task[1].missed,
-      (unsigned long)snapshot->task[2].missed,
-      (unsigned long)snapshot->task[3].missed,
-      (unsigned long)snapshot->task[4].missed,
-      (unsigned long)snapshot->task[0].deadline_miss,
-      (unsigned long)snapshot->task[1].deadline_miss,
-      (unsigned long)snapshot->task[2].deadline_miss,
-      (unsigned long)snapshot->task[3].deadline_miss,
-      (unsigned long)snapshot->task[4].deadline_miss,
-      (unsigned long)snapshot->task[0].budget_overrun,
-      (unsigned long)snapshot->task[1].budget_overrun,
-      (unsigned long)snapshot->task[2].budget_overrun,
-      (unsigned long)snapshot->task[3].budget_overrun,
-      (unsigned long)snapshot->task[4].budget_overrun,
-      (unsigned long)snapshot->task[0].configured_words,
-      (unsigned long)snapshot->task[1].configured_words,
-      (unsigned long)snapshot->task[2].configured_words,
-      (unsigned long)snapshot->task[3].configured_words,
-      (unsigned long)snapshot->task[4].configured_words,
-      (unsigned long)snapshot->task[0].minimum_free_words,
-      (unsigned long)snapshot->task[1].minimum_free_words,
-      (unsigned long)snapshot->task[2].minimum_free_words,
-      (unsigned long)snapshot->task[3].minimum_free_words,
-      (unsigned long)snapshot->task[4].minimum_free_words,
-      (unsigned int)((snapshot->task[0].measured ? 1U : 0U) |
-                     (snapshot->task[1].measured ? 2U : 0U) |
-                     (snapshot->task[2].measured ? 4U : 0U) |
-                     (snapshot->task[3].measured ? 8U : 0U) |
-                     (snapshot->task[4].measured ? 16U : 0U)),
-      (unsigned long)snapshot->queue_current,
-      (unsigned long)snapshot->queue_maximum,
-      (unsigned long)snapshot->queue_depth,
-      (unsigned long)snapshot->queue_dropped,
-      (unsigned long)snapshot->queue_drained,
-      (unsigned long)snapshot->health_state,
-      (unsigned long)snapshot->health_warning_mask,
-      (unsigned long)snapshot->health_stalled_mask,
-      (unsigned long)snapshot->watchdog_feed,
-      (unsigned long)snapshot->fault_code,
-      (unsigned long)snapshot->reset_primary,
-      (unsigned long)snapshot->reset_raw_flags,
-      snapshot->reset_loop ? 1U : 0U,
-      (unsigned long)snapshot->rs485_accepted,
-      (unsigned long)snapshot->rs485_error_count,
-      (unsigned long)snapshot->can_state,
-      (unsigned long)snapshot->can_pending,
-      (unsigned long)snapshot->can_capacity,
-      (unsigned long)snapshot->can_maximum_pending,
-      (unsigned long)snapshot->can_event_dropped,
-      (unsigned long)snapshot->can_hal_busy,
-      (unsigned long)snapshot->can_bus_off,
-      (unsigned long)snapshot->can_recovery_attempts,
-      (unsigned long)snapshot->sensor[0].state,
-      (unsigned long)snapshot->sensor[0].sequence,
-      (unsigned long)snapshot->sensor[0].fault_count,
-      (unsigned long)snapshot->sensor[0].recovery_count,
-      (unsigned long)snapshot->sensor[1].state,
-      (unsigned long)snapshot->sensor[1].sequence,
-      (unsigned long)snapshot->sensor[1].fault_count,
-      (unsigned long)snapshot->sensor[1].recovery_count,
-      (unsigned long)snapshot->sensor[2].state,
-      (unsigned long)snapshot->sensor[2].sequence,
-      (unsigned long)snapshot->sensor[2].fault_count,
-      (unsigned long)snapshot->sensor[2].recovery_count,
-      (unsigned long)snapshot->sensor[3].state,
-      (unsigned long)snapshot->sensor[3].sequence,
-      (unsigned long)snapshot->sensor[3].fault_count,
-      (unsigned long)snapshot->sensor[3].recovery_count);
+  app_soak_writer_t writer = {
+      .buffer = buffer,
+      .capacity = capacity,
+      .length = 0U,
+      .valid = true,
+  };
+  uint32_t measured_mask = 0U;
+  for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
+  {
+    if (snapshot->task[index].measured)
+    {
+      measured_mask |= UINT32_C(1) << index;
+    }
+  }
 
-  if ((written < 0) || ((size_t)written >= capacity))
+  app_soak_append_literal(&writer, "P5DIAG1 v=1 t=");
+  app_soak_append_u32(&writer, snapshot->now_ms);
+  app_soak_append_literal(&writer, " boot=");
+  app_soak_append_u32(&writer, snapshot->boot_count);
+  app_soak_append_task_field(&writer, " tr=", snapshot, 0U);
+  app_soak_append_task_field(&writer, " tm=", snapshot, 1U);
+  app_soak_append_task_field(&writer, " td=", snapshot, 2U);
+  app_soak_append_task_field(&writer, " tb=", snapshot, 3U);
+  app_soak_append_task_field(&writer, " tc=", snapshot, 4U);
+  app_soak_append_task_field(&writer, " ts=", snapshot, 5U);
+  app_soak_append_literal(&writer, " sm=");
+  app_soak_append_hex(&writer, measured_mask, 2U);
+
+  app_soak_append_literal(&writer, " q=");
+  app_soak_append_u32(&writer, snapshot->queue_current);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_u32(&writer, snapshot->queue_maximum);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_u32(&writer, snapshot->queue_depth);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_u32(&writer, snapshot->queue_dropped);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_u32(&writer, snapshot->queue_drained);
+
+  app_soak_append_literal(&writer, " h=");
+  app_soak_append_u32(&writer, snapshot->health_state);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_hex(&writer, snapshot->health_warning_mask, 8U);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_hex(&writer, snapshot->health_stalled_mask, 8U);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_u32(&writer, snapshot->watchdog_feed);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_u32(&writer, snapshot->fault_code);
+
+  app_soak_append_literal(&writer, " rst=");
+  app_soak_append_u32(&writer, snapshot->reset_primary);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_hex(&writer, snapshot->reset_raw_flags, 8U);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_u32(&writer, snapshot->reset_loop ? 1U : 0U);
+
+  app_soak_append_literal(&writer, " rs=");
+  app_soak_append_u32(&writer, snapshot->rs485_accepted);
+  app_soak_append_char(&writer, '/');
+  app_soak_append_u32(&writer, snapshot->rs485_error_count);
+
+  app_soak_append_literal(&writer, " can=");
+  const uint32_t can_values[] = {
+      snapshot->can_state,
+      snapshot->can_pending,
+      snapshot->can_capacity,
+      snapshot->can_maximum_pending,
+      snapshot->can_event_dropped,
+      snapshot->can_hal_busy,
+      snapshot->can_bus_off,
+      snapshot->can_recovery_attempts,
+  };
+  for (size_t index = 0U; index < (sizeof(can_values) / sizeof(can_values[0]));
+       ++index)
+  {
+    if (index > 0U)
+    {
+      app_soak_append_char(&writer, '/');
+    }
+    app_soak_append_u32(&writer, can_values[index]);
+  }
+
+  app_soak_append_literal(&writer, " sns=");
+  for (size_t index = 0U; index < APP_SOAK_DIAGNOSTIC_SOURCE_COUNT; ++index)
+  {
+    if (index > 0U)
+    {
+      app_soak_append_char(&writer, ';');
+    }
+    app_soak_append_sensor(&writer, &snapshot->sensor[index]);
+  }
+  app_soak_append_literal(&writer, "\r\n");
+
+  if (!writer.valid)
   {
     buffer[0] = '\0';
     *length = 0U;
     return false;
   }
-  *length = (size_t)written;
+  buffer[writer.length] = '\0';
+  *length = writer.length;
   return true;
 }

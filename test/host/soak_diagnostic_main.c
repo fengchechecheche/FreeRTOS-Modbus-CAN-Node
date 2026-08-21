@@ -46,8 +46,19 @@ int main(void)
   }
 
   memset(&snapshot, 0xFF, sizeof(snapshot));
+  snapshot.reset_loop = true;
+  for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
+  {
+    snapshot.task[index].measured = true;
+  }
   if (!app_soak_diagnostic_format(&snapshot, line, sizeof(line), &length) ||
-      (length >= sizeof(line)))
+      (length >= sizeof(line)) ||
+      (strstr(line, "t=4294967295 boot=4294967295") == NULL) ||
+      (strstr(line, "sm=1F") == NULL) ||
+      (strstr(line, "h=4294967295/FFFFFFFF/FFFFFFFF/") == NULL) ||
+      (strstr(line, "rst=4294967295/FFFFFFFF/1") == NULL) ||
+      (strstr(line, "can=4294967295/4294967295/") == NULL) ||
+      (line[length - 2U] != '\r') || (line[length - 1U] != '\n'))
   {
     return 4;
   }
