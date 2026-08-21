@@ -14,6 +14,7 @@ option(P5_ADXL345_POLLING_FALLBACK "Enable bounded ADXL345 DATA_READY polling fa
 option(P5_CAN_ACK_RX_DIAGNOSTIC "Enable one-shot host-to-STM32 ACK diagnosis" OFF)
 option(P5_CAN_ACK_TX_DIAGNOSTIC "Enable one-shot STM32-to-host ACK diagnosis" OFF)
 option(P5_CAN_BOUNDED_ECHO_DIAGNOSTIC "Enable one response per accepted CAN ID per boot" OFF)
+option(P5_SOAK_DIAGNOSTIC "Enable one bounded P5DIAG1 record every 60 seconds" OFF)
 
 if(P5_CAN_ACK_RX_DIAGNOSTIC AND P5_CAN_ACK_TX_DIAGNOSTIC)
   message(FATAL_ERROR "CAN ACK RX and TX diagnostics are mutually exclusive")
@@ -22,6 +23,12 @@ endif()
 if(P5_CAN_BOUNDED_ECHO_DIAGNOSTIC AND
    (P5_CAN_ACK_RX_DIAGNOSTIC OR P5_CAN_ACK_TX_DIAGNOSTIC))
   message(FATAL_ERROR "CAN bounded Echo and ACK diagnostics are mutually exclusive")
+endif()
+
+if(P5_SOAK_DIAGNOSTIC AND
+   (P5_ADXL345_HIL_DIAGNOSTIC OR P5_CAN_ACK_RX_DIAGNOSTIC OR
+    P5_CAN_ACK_TX_DIAGNOSTIC OR P5_CAN_BOUNDED_ECHO_DIAGNOSTIC))
+  message(FATAL_ERROR "P5 soak and interactive diagnostics are mutually exclusive")
 endif()
 
 if(P5_ADXL345_INT2_ROUTE_DIAGNOSTIC AND NOT P5_ADXL345_HIL_DIAGNOSTIC)
@@ -155,6 +162,13 @@ else()
     target_include_directories(p5_host_task_model PRIVATE app/include)
     p5_apply_project_warnings(p5_host_task_model)
     add_test(NAME p5.host.task_model COMMAND p5_host_task_model)
+
+    add_executable(p5_host_soak_diagnostic
+        test/host/soak_diagnostic_main.c
+        app/src/app_soak_diagnostic.c)
+    target_include_directories(p5_host_soak_diagnostic PRIVATE app/include)
+    p5_apply_project_warnings(p5_host_soak_diagnostic)
+    add_test(NAME p5.host.soak_diagnostic COMMAND p5_host_soak_diagnostic)
 
     add_executable(p5_host_resource_budget
         test/host/resource_budget_main.c)

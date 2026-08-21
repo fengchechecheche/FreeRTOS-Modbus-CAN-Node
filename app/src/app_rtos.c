@@ -16,6 +16,10 @@
 #define P5_CAN_BOUNDED_ECHO_DIAGNOSTIC_ENABLE (0)
 #endif
 
+#ifndef P5_SOAK_DIAGNOSTIC_ENABLE
+#define P5_SOAK_DIAGNOSTIC_ENABLE (0)
+#endif
+
 #define APP_CAN_ACK_DIAGNOSTIC_ENABLE                                      \
   (P5_CAN_ACK_RX_DIAGNOSTIC_ENABLE || P5_CAN_ACK_TX_DIAGNOSTIC_ENABLE)
 #define APP_CAN_TX_SUPPRESSED_DIAGNOSTIC_ENABLE                            \
@@ -41,6 +45,9 @@
 #include "app_resource_budget.h"
 #include "app_rs485_smoke.h"
 #include "app_sensor_monitor.h"
+#if P5_SOAK_DIAGNOSTIC_ENABLE
+#include "app_soak_diagnostic.h"
+#endif
 #include "app_task_model.h"
 #include "app_transport_policy.h"
 #include "app_veml7700.h"
@@ -94,6 +101,12 @@
 #define APP_ADXL345_HIL_REPORT_INTERVAL_MS UINT32_C(1000)
 #define APP_ADXL345_HIL_REPORT_LIMIT UINT32_C(180)
 #define APP_ADXL345_HIL_UART_TIMEOUT_MS UINT32_C(100)
+#endif
+#if P5_SOAK_DIAGNOSTIC_ENABLE
+#define APP_SOAK_DIAGNOSTIC_INTERVAL_MS UINT32_C(60000)
+#define APP_SOAK_DIAGNOSTIC_UART_TIMEOUT_MS UINT32_C(100)
+#define APP_SOAK_CAN_CAPACITY                                              \
+  (APP_CAN_EVENT_FIFO_DEPTH + APP_CAN_TELEMETRY_GROUP_COUNT + UINT32_C(1))
 #endif
 
 _Static_assert(sizeof(StackType_t) == APP_RESOURCE_STACK_WORD_BYTES,
@@ -152,6 +165,12 @@ static app_measurement_inputs_t app_rtos_measurement_inputs;
 static app_measurement_snapshot_t app_rtos_measurement_snapshot;
 static app_sensor_monitor_t app_rtos_sensor_monitor;
 static app_sensor_monitor_snapshot_t app_rtos_sensor_monitor_snapshot;
+#if P5_SOAK_DIAGNOSTIC_ENABLE
+static uint32_t app_rtos_soak_diagnostic_last_report_ms;
+static bool app_rtos_soak_diagnostic_has_report;
+static char app_rtos_soak_diagnostic_report[
+    APP_SOAK_DIAGNOSTIC_LINE_CAPACITY];
+#endif
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
 static app_adxl345_snapshot_t app_rtos_adxl345_snapshot;
 static uint32_t app_rtos_adxl345_hil_last_report_ms;
@@ -1618,6 +1637,122 @@ static void app_rtos_adxl345_hil_diagnostic_service(void)
 }
 #endif
 
+#if P5_SOAK_DIAGNOSTIC_ENABLE
+static void app_rtos_soak_diagnostic_service(void)
+{
+  const uint32_t now_ms = (uint32_t)xTaskGetTickCount();
+  if (app_rtos_soak_diagnostic_has_report &&
+      !bsp_clock_interval_elapsed(now_ms,
+                                  app_rtos_soak_diagnostic_last_report_ms,
+                                  APP_SOAK_DIAGNOSTIC_INTERVAL_MS))
+  {
+    return;
+  }
+
+  app_rtos_health_snapshot_t health;
+  app_rtos_resource_snapshot_t resource;
+  app_rtos_transport_snapshot_t transport;
+  app_can_runtime_snapshot_t can;
+  app_measurement_snapshot_t measurement;
+  app_sensor_monitor_snapshot_t monitor;
+  app_reset_decoded_t reset;
+  app_reset_record_t record;
+  if (!app_rtos_get_health_snapshot(&health) ||
+      !app_rtos_get_resource_snapshot(&resource) ||
+      !app_rtos_get_transport_snapshot(&transport) ||
+      !app_rtos_get_can_snapshot(&can) ||
+      !app_rtos_get_measurement_snapshot(&measurement) ||
+      !app_rtos_get_sensor_monitor_snapshot(&monitor) ||
+      !app_rtos_get_reset_reason(&reset) ||
+      !app_rtos_get_reset_record(&record))
+  {
+    return;
+  }
+
+  const app_modbus_transport_diagnostics_t modbus =
+      app_modbus_transport_get_diagnostics();
+  app_soak_diagnostic_snapshot_t snapshot = {0};
+  snapshot.now_ms = now_ms;
+  snapshot.boot_count = record.boot_count;
+  for (size_t index = 0U; index < APP_TASK_COUNT; ++index)
+  {
+    snapshot.task[index].release = health.task[index].release_count;
+    snapshot.task[index].missed = health.task[index].missed_release_count;
+    snapshot.task[index].deadline_miss =
+        health.task[index].deadline_miss_count;
+    snapshot.task[index].budget_overrun =
+        health.task[index].budget_overrun_count;
+    snapshot.task[index].configured_words =
+        resource.task[index].configured_words;
+    snapshot.task[index].minimum_free_words =
+        resource.task[index].minimum_free_words;
+    snapshot.task[index].measured = resource.task[index].measured;
+  }
+  snapshot.queue_current = transport.current_pending;
+  snapshot.queue_maximum = transport.maximum_pending;
+  snapshot.queue_depth = transport.depth;
+  snapshot.queue_dropped = transport.counters.event_dropped_full_count;
+  snapshot.queue_drained = transport.counters.event_drained_count;
+  snapshot.health_state = (uint32_t)health.decision.state;
+  snapshot.health_warning_mask = health.decision.warning_mask;
+  snapshot.health_stalled_mask = health.decision.stalled_task_mask;
+  snapshot.watchdog_feed = (uint32_t)health.decision.feed_decision;
+  snapshot.fault_code = app_rtos_fault_code();
+  snapshot.reset_primary = (uint32_t)reset.primary;
+  snapshot.reset_raw_flags = reset.hardware_raw_flags;
+  snapshot.reset_loop = app_reset_record_loop_latched(&record);
+  snapshot.rs485_accepted = modbus.server.addressed_requests;
+  snapshot.rs485_error_count = health.rs485_error_count;
+  snapshot.can_state = (uint32_t)can.controller_state;
+  snapshot.can_pending = can.pending_frames;
+  snapshot.can_capacity = APP_SOAK_CAN_CAPACITY;
+  snapshot.can_maximum_pending = can.tx_counters.maximum_pending;
+  snapshot.can_event_dropped = can.tx_counters.event_dropped;
+  snapshot.can_hal_busy = can.tx_counters.hal_busy;
+  snapshot.can_bus_off = can.controller_counters.bus_off_transitions;
+  snapshot.can_recovery_attempts = can.controller_counters.recovery_attempts;
+
+  snapshot.sensor[0].state = (uint32_t)measurement.bme280.metadata.state;
+  snapshot.sensor[0].sequence = measurement.bme280.metadata.sequence;
+  snapshot.sensor[0].fault_count =
+      monitor.device[APP_SENSOR_DEVICE_BME280].fault_episode_count;
+  snapshot.sensor[0].recovery_count =
+      monitor.device[APP_SENSOR_DEVICE_BME280].recovery_success_count;
+  snapshot.sensor[1].state = (uint32_t)measurement.veml7700.metadata.state;
+  snapshot.sensor[1].sequence = measurement.veml7700.metadata.sequence;
+  snapshot.sensor[1].fault_count =
+      monitor.device[APP_SENSOR_DEVICE_VEML7700].fault_episode_count;
+  snapshot.sensor[1].recovery_count =
+      monitor.device[APP_SENSOR_DEVICE_VEML7700].recovery_success_count;
+  snapshot.sensor[2].state =
+      (uint32_t)measurement.adxl345_sample.metadata.state;
+  snapshot.sensor[2].sequence = measurement.adxl345_sample.metadata.sequence;
+  snapshot.sensor[2].fault_count =
+      monitor.device[APP_SENSOR_DEVICE_ADXL345].fault_episode_count;
+  snapshot.sensor[2].recovery_count =
+      monitor.device[APP_SENSOR_DEVICE_ADXL345].recovery_success_count;
+  snapshot.sensor[3].state =
+      (uint32_t)measurement.adxl345_feature.metadata.state;
+  snapshot.sensor[3].sequence = measurement.adxl345_feature.metadata.sequence;
+  snapshot.sensor[3].fault_count = snapshot.sensor[2].fault_count;
+  snapshot.sensor[3].recovery_count = snapshot.sensor[2].recovery_count;
+
+  size_t report_length = 0U;
+  if (app_soak_diagnostic_format(&snapshot,
+                                 app_rtos_soak_diagnostic_report,
+                                 sizeof(app_rtos_soak_diagnostic_report),
+                                 &report_length))
+  {
+    (void)HAL_UART_Transmit(&huart2,
+                            (uint8_t *)app_rtos_soak_diagnostic_report,
+                            (uint16_t)report_length,
+                            APP_SOAK_DIAGNOSTIC_UART_TIMEOUT_MS);
+    app_rtos_soak_diagnostic_last_report_ms = now_ms;
+    app_rtos_soak_diagnostic_has_report = true;
+  }
+}
+#endif
+
 static void app_rtos_diagnostic_service(void)
 {
   size_t drained_count = 0U;
@@ -1636,6 +1771,9 @@ static void app_rtos_diagnostic_service(void)
   app_boot_diagnostic_service();
 #if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE
   app_rtos_adxl345_hil_diagnostic_service();
+#endif
+#if P5_SOAK_DIAGNOSTIC_ENABLE
+  app_rtos_soak_diagnostic_service();
 #endif
 }
 

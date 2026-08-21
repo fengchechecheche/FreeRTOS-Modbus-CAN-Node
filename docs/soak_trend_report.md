@@ -1,119 +1,127 @@
-# P5-S6-T05 soak runner and resource trend report
+# P5-HW-OBS-01 长稳诊断与主机采集器
 
-> Software status: `PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE`
-> Hardware status: `WAITING_FOR_HARDWARE`
-> Formal 8-hour soak: `NOT_RUN`
-> Baseline: `[034] d5048f029f8ef48a0bb19681782a776dfad152b6`
-> Evidence policy: minute-level bounded samples and compact summaries only
+> 软件状态：`PASS_HOST + PASS_CROSS_BUILD + READY_FOR_10_MINUTE_ADMISSION`
+> 硬件 10 分钟准入：`NOT_RUN`
+> 60 分钟预跑：`NOT_RUN`
+> 正式 8 小时长稳：`NOT_RUN`
+> 实施基线：`[070] b8daebfbee46d5e3851b34963823b6b48c21779a`
 
-## Purpose and boundary
+## 目的与边界
 
-`tools/soak_runner.py` validates a versioned, source-agnostic JSONL stream and
-manages an explicitly supplied collector with bounded output, timeout and
-process-group cleanup. It does not open a serial port, CAN interface or
-debugger by default.
+`P5_SOAK_DIAGNOSTIC` 是默认关闭的固件构建选项。启用后，USART2 在启动阶段输出首条
+`P5DIAG1`，随后每 60 秒输出一条固定键值记录。记录覆盖五任务推进/栈水位、诊断队列、健康、
+复位、RS485、CAN 与四类传感源计数。它不改变 CubeMX、任务数量、引脚、时钟、Modbus/CAN
+映射或动态内存策略；关闭开关时不启用该运行时路径。
 
-The no-hardware result proves runner/schema/trend behavior and repeated Host
-process management. It does not prove STM32 uptime, real task jitter, stack
-watermarks, bus throughput, sensor timing, physical recovery or an 8-hour run.
+`tools/soak_hil_collector.py` 面向 Linux/Raspberry Pi，使用同一长驻进程完成：
 
-## Current preflight result
+- 读取 USART2 的 `P5DIAG1`，忽略普通 BOOT/CLOCK/heartbeat 文本；
+- 每分钟以 Modbus `0x04` 只读地址 4 的完整 122 个输入寄存器；
+- 被动监听 CAN `0x140/0x240/0x241/0x340/0x341/0x342` 与错误帧，不发送 CAN；
+- 把采样投影为既有 `soak_runner.py` Schema 1 JSONL；
+- 保存分钟级传感器、完整 Modbus 快照、完整六 ID CAN 流、CAN 错误、主机资源与事件记录。
 
-| Check | Result |
+保留树莓派是因为它是后续真实部署环境，可同时稳定持有两个 USB 串口和 SocketCAN，并减少
+Windows/WSL USB 转发层变量；它只是测试执行主机，不是项目三依赖，也不是项目五产品组件。
+
+## 有界实现
+
+- `P5DIAG1` 由独立纯 C formatter 生成；缓冲区不足时整条拒绝，不截断。
+- 诊断 task 仍为 200 ms period/deadline；仅在长稳开关开启时执行预算提升为 100 ms，默认仍为 2 ms。
+- 主机样本上限 600、单行上限 16 KiB、stderr 上限 64 KiB。
+- 各详细证据文件最大 64 MiB；CAN 为被动监听，不逐条回注业务请求。
+- 采集器异常、串口/CAN 退出、Modbus CRC/长度/签名错误、样本不足均有界退出并返回非零。
+- 正常退出和信号退出均生成 manifest 与 `SHA256SUMS.txt`。
+
+60 分钟和 8 小时阶段保留详细原始证据，包含传感器工程量，但不导出 ADXL345 每 20 ms 原始
+样本，避免诊断本身改变实时行为。正式证据放在 `.private/soak/<session>/`，不进入公开报告。
+
+## 判定
+
+原有趋势门继续检查任务/传感源推进、复位、fault、栈水位、队列/CAN 容量、计数回退、连续错误
+增长、样本缺失和持续时间。`p5-hil-v1` 采集器另外要求：
+
+- 每个分钟窗口的 Modbus 122-register 快照、CRC 和 `0x5035` 签名有效；
+- 六种周期 CAN ID 在会话内均至少出现一次；
+- SocketCAN BUS-OFF 错误帧为硬失败；
+- 非 BUS-OFF CAN 错误帧进入 `REVIEW_REQUIRED`，不得自动提升为通过；
+- 孤立错误只允许聚焦排查并重跑同一时长。
+
+## 离线验证结果
+
+| 项目 | 结果 |
 |---|---|
-| runner self-test | PASS_HOST, 20 bounded checks |
-| formal dry-run | collector `NOT_STARTED`, hardware/formal `NOT_RUN` |
-| dual-bus Host preflight | 20/20 PASS, short process-management check |
-| Host Debug | 21/21 PASS |
-| Host Release | 21/21 PASS |
-| Modbus contract | 878 facts PASS plus negative self-test |
-| CAN contract | 114 facts PASS plus five-mutant self-test |
-| BSP contract | 532 facts PASS plus negative self-test |
-| ARM Debug/Release | PASS_CROSS_BUILD |
-| firmware resources | unchanged from `[034]` |
+| P5DIAG1 formatter Host 测试 | PASS |
+| HIL collector 自测 | PASS，4 项有界检查 |
+| soak runner 自测 | PASS，23 项有界检查 |
+| Host Debug | PASS，24/24 |
+| BSP 合同 | PASS，616 项稳定事实及负向自测 |
+| ARM Debug/Release，`P5_SOAK_DIAGNOSTIC=ON` | PASS |
+| 诊断 Debug text/data/bss | `61212/240/14840` B |
+| 诊断 Release text/data/bss | `51416/236/14832` B |
 
-The 20-iteration preflight completes quickly and is not a 10-minute soak.
+以上仅证明代码和构建准入，不能替代实板 10 分钟、60 分钟或 8 小时结果。
 
-## Runner modes
+## 构建与运行模板
+
+先在 Ubuntu-24.04-STM32 构建诊断固件：
 
 ```bash
-python3 tools/soak_runner.py --self-test
-python3 tools/soak_runner.py --dry-run --phase formal
-python3 tools/soak_runner.py --host-preflight --iterations 20
-python3 tools/soak_runner.py --evaluate .private/soak/<session>/samples.jsonl
+cmake --preset firmware-debug \
+  -DP5_SOAK_DIAGNOSTIC=ON \
+  -DP5_DEVICE_PROBE_SMOKE=OFF \
+  -DP5_RS485_LOOPBACK_SMOKE=OFF \
+  -DP5_RTOS_SCHEDULER_SMOKE=OFF \
+  -DP5_IRQ_NOTIFICATION_SMOKE=OFF \
+  -DP5_IWDG_RESET_SMOKE=OFF \
+  -DP5_ADXL345_HIL_DIAGNOSTIC=OFF \
+  -DP5_CAN_ACK_RX_DIAGNOSTIC=OFF \
+  -DP5_CAN_ACK_TX_DIAGNOSTIC=OFF \
+  -DP5_CAN_BOUNDED_ECHO_DIAGNOSTIC=OFF
+cmake --build --preset firmware-debug
+sha256sum out/firmware-debug/freertos_modbus_can_node.elf
+arm-none-eabi-size out/firmware-debug/freertos_modbus_can_node.elf
 ```
 
-`--run` additionally requires explicit phase, duration, sample interval,
-expected commit, expected firmware SHA-256, firmware path, build text/data/bss,
-collector/board identity, output directory and collector argv. It uses
-`shell=False`; no command string is evaluated by a shell. Formal mode rejects a
-dirty worktree or malformed identity.
+树莓派使用稳定的 `/dev/serial/by-id/` 路径，并先把 CAN 固定为本项目已验证配置：
 
-## Bounded input and cleanup
-
-- schema revision is 1;
-- each JSON line is at most 16 KiB;
-- each session retains at most 600 samples;
-- collector stderr is retained only up to 64 KiB;
-- collector runs in its own process group;
-- timeout or interruption sends terminate, waits five seconds, then kills if
-  required;
-- early clean exit still fails when samples do not cover the planned duration;
-- malformed JSON, unknown schema, missing fields, nonzero child exit and
-  cleanup/timeout failures return nonzero.
-
-The runner output directory contains at most `samples.jsonl`, `summary.json`
-and `summary.md`. A formal 8-hour session at 60-second sampling is about 481
-samples, below the fixed limit.
-
-## Trend decision
-
-The runner checks every sample, adjacent deltas and up to four time windows.
-It reports one of:
-
-```text
-PASS
-REVIEW_REQUIRED
-FAIL
+```bash
+sudo ip link set can0 down
+sudo ip link set can0 type can bitrate 500000 sample-point 0.75 restart-ms 100
+sudo ip link set can0 up
+ip -details -statistics link show can0
 ```
 
-Hard failures include identity drift, reset/fault, time or counter rollback,
-measured task stack below 32 free words, declared-capacity violation, two
-consecutive task/sensor no-progress samples, three consecutive error-growth
-windows, two missing samples, incomplete planned duration and invalid schema.
+审核、提交、双端同步并记录干净提交及诊断 ELF 哈希后，以实际值替换占位符：
 
-An isolated counted error, one missing sample, one no-progress sample or a
-watermark decrease that remains above 32 words is `REVIEW_REQUIRED`. This keeps
-the gate useful without treating every recoverable event as automatic failure.
+```bash
+python3 tools/soak_runner.py --run \
+  --phase smoke \
+  --duration-seconds 600 \
+  --sample-seconds 60 \
+  --expected-commit <40-hex-commit> \
+  --expected-firmware-sha256 <64-hex-sha256> \
+  --firmware-path out/firmware-debug/freertos_modbus_can_node.elf \
+  --build-text-bytes <text> \
+  --build-data-bytes <data> \
+  --build-bss-bytes <bss> \
+  --collector-kind p5-hil-v1 \
+  --board-identity nucleo-f446re-stlink-v2-1-no-serial \
+  --output-dir .private/soak/<session> \
+  --collector-command -- python3 tools/soak_hil_collector.py \
+    --vcp /dev/serial/by-id/<stlink-vcp> \
+    --rs485 /dev/serial/by-id/<ch340-rs485> \
+    --can-interface can0
+```
 
-## Memory interpretation
+`soak_runner.py` 自动向该采集器追加 session ID、时长、60 秒周期和私有原始证据目录，调用方
+不得重复提供这些参数。
 
-FreeRTOS dynamic allocation is disabled, no `heap_x.c` is linked and linker
-heap reserve is zero. The runner therefore records `heap_policy=disabled`
-instead of inventing a changing free-heap number. ELF text/data/bss are
-recorded once as session identity facts; runtime resource trends use measured
-task watermarks, fixed-capacity queues and counters.
+## 阶段门
 
-Current unchanged build values are:
-
-| Build | text | data | bss | Flash | linked RAM |
-|---|---:|---:|---:|---:|---:|
-| Debug | 53272 | 160 | 13224 | 53432 | 13384 |
-| Release | 44404 | 156 | 13216 | 44560 | 13372 |
-
-## Hardware follow-up
-
-The firmware already holds task, stack, queue, health, reset, RS485, CAN and
-sensor snapshots internally, but it does not yet export one complete periodic
-soak sample. A real collector must be reviewed after the board and both bus
-paths pass their hardware gates. If a default-OFF USART2 diagnostic producer is
-needed, that is a separate allowlist amendment with Host/ARM/resource review.
-
-After collector admission, execute in order:
-
-1. 10-minute smoke;
-2. 60-minute pre-run;
-3. user-authorized formal target of 8 hours.
-
-The formal run must bind a clean commit and firmware SHA-256. A shorter run is
-reported with its actual duration and cannot be called an 8-hour PASS.
+1. 当前停在内容审核与用户提交/同步之前，不烧录、不形成硬件 PASS。
+2. 10 分钟准入必须先达到 `PASS`；`REVIEW_REQUIRED` 只允许排查并重跑 10 分钟。
+3. 10 分钟通过后，60 分钟与 8 小时可按已审核方案以“目标”持续推进。
+4. 8 小时必须绑定干净提交和诊断 ELF SHA-256。
+5. 8 小时通过后关闭 `P5_SOAK_DIAGNOSTIC`，重新构建并烧回默认固件，再执行额外 10 分钟回归。
+6. 证据必须明确区分“诊断固件 8 小时”和“默认固件 10 分钟”，不得互相替代。

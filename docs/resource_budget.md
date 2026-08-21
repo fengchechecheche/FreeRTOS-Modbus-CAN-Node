@@ -310,6 +310,28 @@ heap reserve remains zero. The soak schema records this static heap policy
 instead of inventing a free-heap trend. Workload queue pressure and runtime
 timing remain `NOT_MEASURED` until the relevant hardware is available.
 
+## P5-HW-OBS-01 default-OFF diagnostic budget
+
+`P5_SOAK_DIAGNOSTIC` adds no task, queue, mutex, heap or CubeMX resource. The
+existing diagnostic task keeps its 256-word static stack and 200 ms deadline;
+its execution budget is 100 ms only in the diagnostic build, versus 2 ms when
+the option is OFF. The larger budget bounds one formatter call and one blocking
+USART2 write; actual runtime watermarks and timing remain pending the 10-minute
+hardware admission.
+
+| Build | Option | text | data | bss | Flash | Linked RAM |
+|---|---|---:|---:|---:|---:|---:|
+| Debug | OFF | 55484 B | 160 B | 13480 B | 55644 B | 13640 B |
+| Debug | ON | 61212 B | 240 B | 14840 B | 61452 B | 15080 B |
+| Release | OFF | 46152 B | 156 B | 13472 B | 46308 B | 13628 B |
+| Release | ON | 51416 B | 236 B | 14832 B | 51652 B | 15068 B |
+
+The diagnostic delta is 5728/80/1360 B in Debug and 5264/80/1360 B in
+Release. Both variants remain far below 384 KiB Flash and 96 KiB linked RAM.
+The OFF build has no `P5DIAG1` runtime path; source-line changes may still alter
+a Debug ELF hash, so identity is always bound to the exact post-submit ELF
+rather than inferred from a historical hash.
+
 ## 2026-08-15 bare-board resource and IWDG supplement
 
 The final default Debug build reports `text/data/bss = 53992/160/13280` B and

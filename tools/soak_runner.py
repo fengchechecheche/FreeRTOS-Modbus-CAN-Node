@@ -23,6 +23,8 @@ from typing import Any, Iterable, Sequence
 SCHEMA_REVISION = 1
 TASK_NAMES = ("protocol", "acquisition", "can", "health", "diagnostic")
 SENSOR_NAMES = ("bme280", "veml7700", "adxl345_sample", "adxl345_feature")
+P5_HIL_COLLECTOR_KIND = "p5-hil-v1"
+P5_CAN_IDS = ("140", "240", "241", "340", "341", "342")
 MAX_SAMPLES = 600
 MAX_LINE_BYTES = 16 * 1024
 MAX_STDERR_BYTES = 64 * 1024
@@ -201,6 +203,33 @@ def validate_sample(sample: dict[str, Any], metadata: dict[str, Any]) -> None:
             if _require_int(sensor, key, f"sample.sensors.{name}") < 0:
                 raise InputError(f"sample.sensors.{name}.{key} must be nonnegative")
 
+    if metadata["collector_kind"] == P5_HIL_COLLECTOR_KIND:
+        collector = _require_mapping(sample.get("collector"), "sample.collector")
+        if not _require_bool(collector, "modbus_snapshot_ok", "sample.collector"):
+            raise InputError("sample.collector.modbus_snapshot_ok must be true")
+        if _require_int(collector, "modbus_register_count", "sample.collector") != 122:
+            raise InputError("sample.collector.modbus_register_count must be 122")
+        if _require_int(collector, "modbus_signature", "sample.collector") != 20533:
+            raise InputError("sample.collector.modbus_signature mismatch")
+        if _require_int(collector, "modbus_error_count", "sample.collector") < 0:
+            raise InputError("sample.collector.modbus_error_count must be nonnegative")
+        collector_can = _require_mapping(collector.get("can"), "sample.collector.can")
+        per_id = _require_mapping(collector_can.get("per_id"), "sample.collector.can.per_id")
+        if set(per_id) != set(P5_CAN_IDS):
+            raise InputError("sample.collector.can.per_id must contain the six periodic IDs")
+        for can_id in P5_CAN_IDS:
+            if _require_int(per_id, can_id, "sample.collector.can.per_id") < 0:
+                raise InputError(f"sample.collector.can.per_id.{can_id} must be nonnegative")
+        for key in ("error_frames", "bus_off_frames"):
+            if _require_int(collector_can, key, "sample.collector.can") < 0:
+                raise InputError(f"sample.collector.can.{key} must be nonnegative")
+        host = _require_mapping(collector.get("host"), "sample.collector.host")
+        for key in ("load1", "load5", "load15"):
+            if not isinstance(host.get(key), (int, float)):
+                raise InputError(f"sample.collector.host.{key} must be numeric")
+        if _require_int(host, "mem_available_kib", "sample.collector.host") < 0:
+            raise InputError("sample.collector.host.mem_available_kib must be nonnegative")
+
 
 def parse_json_lines(lines: Iterable[str]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     records: list[dict[str, Any]] = []
@@ -244,6 +273,12 @@ def _counter_paths(sample: dict[str, Any]) -> dict[str, int]:
         sensor = sample["sensors"][name]
         for key in ("sequence", "fault_count", "recovery_count"):
             counters[f"sensor.{name}.{key}"] = sensor[key]
+    if "collector" in sample:
+        counters["collector.modbus_error_count"] = sample["collector"]["modbus_error_count"]
+        counters["collector.can.error_frames"] = sample["collector"]["can"]["error_frames"]
+        counters["collector.can.bus_off_frames"] = sample["collector"]["can"]["bus_off_frames"]
+        for can_id in P5_CAN_IDS:
+            counters[f"collector.can.{can_id}"] = sample["collector"]["can"]["per_id"][can_id]
     return counters
 
 
@@ -266,6 +301,9 @@ def evaluate(metadata: dict[str, Any], samples: list[dict[str, Any]]) -> Evaluat
         "rs485.error_count",
         "can.event_dropped",
         "can.bus_off",
+        "collector.modbus_error_count",
+        "collector.can.error_frames",
+        "collector.can.bus_off_frames",
     }
     first = samples[0]
     first_boot = first["boot_id"]
@@ -273,7 +311,15 @@ def evaluate(metadata: dict[str, Any], samples: list[dict[str, Any]]) -> Evaluat
     expected_index = first["sample_index"]
     period_ms = metadata["sample_period_s"] * 1000
 
-    min_stack = {name: first["tasks"][name]["minimum_free_words"] for name in TASK_NAMES}
+    min_stack = {
+        name: (
+            first["tasks"][name]["minimum_free_words"]
+            if first["tasks"][name]["measured"]
+            else first["tasks"][name]["configured_words"]
+        )
+        for name in TASK_NAMES
+    }
+    measured_stack = {name: False for name in TASK_NAMES}
     max_queue = 0
     max_can_pending = 0
 
@@ -303,6 +349,7 @@ def evaluate(metadata: dict[str, Any], samples: list[dict[str, Any]]) -> Evaluat
         for name in TASK_NAMES:
             task = sample["tasks"][name]
             if task["measured"]:
+                measured_stack[name] = True
                 min_stack[name] = min(min_stack[name], task["minimum_free_words"])
                 if task["minimum_free_words"] < STACK_MINIMUM_FREE_WORDS:
                     failures.append(
@@ -367,6 +414,23 @@ def evaluate(metadata: dict[str, Any], samples: list[dict[str, Any]]) -> Evaluat
             "session ended before planned duration: "
             f"last={samples[-1]['elapsed_ms']}ms required>={required_last_ms}ms"
         )
+
+    if metadata["collector_kind"] == P5_HIL_COLLECTOR_KIND:
+        final_collector = samples[-1]["collector"]
+        for name in TASK_NAMES:
+            if not measured_stack[name]:
+                failures.append(f"task {name} stack watermark was never measured")
+        if final_collector["modbus_error_count"] != 0:
+            failures.append("physical Modbus collector recorded an error")
+        if final_collector["can"]["bus_off_frames"] != 0:
+            failures.append("SocketCAN recorded a BUS-OFF error frame")
+        if final_collector["can"]["error_frames"] != 0:
+            reviews.append(
+                f"SocketCAN recorded {final_collector['can']['error_frames']} error frame(s)"
+            )
+        for can_id in P5_CAN_IDS:
+            if final_collector["can"]["per_id"][can_id] == 0:
+                failures.append(f"no physical CAN telemetry observed for ID 0x{can_id}")
 
     window_count = min(4, len(samples))
     windows: list[dict[str, Any]] = []
@@ -578,6 +642,41 @@ def run_self_test() -> int:
         checks += 1
 
     expect_status("stable", copy.deepcopy(stable), "PASS")
+
+    hil_metadata = copy.deepcopy(metadata)
+    hil_metadata["collector_kind"] = P5_HIL_COLLECTOR_KIND
+    hil_samples = copy.deepcopy(stable)
+    for index, sample in enumerate(hil_samples):
+        sample["collector"] = {
+            "modbus_snapshot_ok": True,
+            "modbus_register_count": 122,
+            "modbus_signature": 20533,
+            "modbus_error_count": 0,
+            "can": {
+                "per_id": {can_id: index + 1 for can_id in P5_CAN_IDS},
+                "error_frames": 0,
+                "bus_off_frames": 0,
+            },
+            "host": {
+                "load1": 0.1,
+                "load5": 0.1,
+                "load15": 0.1,
+                "mem_available_kib": 1024,
+            },
+        }
+    if evaluate(hil_metadata, hil_samples).status != "PASS":
+        raise AssertionError("stable P5 HIL collector sample did not pass")
+    checks += 1
+    hil_bus_off = copy.deepcopy(hil_samples)
+    hil_bus_off[-1]["collector"]["can"]["bus_off_frames"] = 1
+    if evaluate(hil_metadata, hil_bus_off).status != "FAIL":
+        raise AssertionError("P5 HIL BUS-OFF was not a hard failure")
+    checks += 1
+    hil_error = copy.deepcopy(hil_samples)
+    hil_error[-1]["collector"]["can"]["error_frames"] = 1
+    if evaluate(hil_metadata, hil_error).status != "REVIEW_REQUIRED":
+        raise AssertionError("isolated P5 HIL CAN error was not review-required")
+    checks += 1
 
     mutants: list[tuple[str, list[dict[str, Any]]]] = []
     sample = copy.deepcopy(stable)
@@ -808,6 +907,20 @@ def run_mode(args: argparse.Namespace) -> int:
         .replace("+00:00", "Z"),
     }
     validate_metadata(metadata)
+    if args.collector_kind == P5_HIL_COLLECTOR_KIND:
+        raw_dir = output_dir / "raw"
+        command.extend(
+            [
+                "--session-id",
+                metadata["session_id"],
+                "--duration-seconds",
+                str(args.duration_seconds),
+                "--sample-seconds",
+                str(args.sample_seconds),
+                "--raw-evidence-dir",
+                str(raw_dir),
+            ]
+        )
     process = run_process(command, args.duration_seconds + PROCESS_GRACE_SECONDS)
     failures: list[str] = []
     if process.timed_out:

@@ -29,7 +29,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | HW-001 | HW | CLOSED | HARDWARE | BME280 and VEML7700 bounded physical supplements passed; ADXL345 passed final-topology sampling, axis/vibration trend, restart and Modbus visibility through the default bounded polling route | Preserve the physical INT1/INT2, exact-rate, metrology and standalone-SPI exclusions in the domain reports |
 | HW-002 | HW | CLOSED | HARDWARE | RS485-03 passed on the reference CH340 route at fixed address 4; Project Three `[039]` WSL and `[040]` physical Raspberry Pi 4B/ARM64 routes completed bounded read-only JSONL, one NUCLEO RESET recovery and local MQTT interoperability; the Pi also passed short active-RS485/passive-CAN concurrency | Keep H08/H09 address writes gated; preserve production deployment/MQTT, Host-active-CAN, repeated-fault and soak exclusions |
 | HW-003 | HW | CLOSED | HARDWARE | CAN-03 and BUS-02 passed within the admitted common-GND CAN and reference-CH340 RS485 bench route | Keep claims bounded to one short-line concurrency run and one brief peer interruption per route; repeated fault endurance and physical bus-off recovery remain outside this closure |
-| HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
+| HW-004 | HW | OPEN | HARDWARE | Default-OFF diagnostics and the Raspberry Pi collector passed Host/ARM admission, but the 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Review and submit P5-HW-OBS-01, then execute 10 minutes; only PASS may advance to 60 minutes and 8 hours |
 
 ## Current license inventory result
 

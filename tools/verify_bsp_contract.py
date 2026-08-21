@@ -179,6 +179,7 @@ CHECKS: CheckTable = {
         ("adxl adapter source", "app/src/app_adxl345.c"),
         ("adxl irq source", "bsp/src/bsp_adxl345_irq.c"),
         ("sensor monitor source", "app/src/app_sensor_monitor.c"),
+        ("soak diagnostic source", "app/src/app_soak_diagnostic.c"),
         (
             "adxl hil diagnostic compile definition",
             "P5_ADXL345_HIL_DIAGNOSTIC_ENABLE=1",
@@ -191,6 +192,7 @@ CHECKS: CheckTable = {
             "adxl polling fallback compile definition",
             "P5_ADXL345_POLLING_FALLBACK_ENABLE=1",
         ),
+        ("soak diagnostic compile definition", "P5_SOAK_DIAGNOSTIC_ENABLE=1"),
     ],
     Path("bsp/include/bsp_clock.h"): [
         ("clock expected sysclk", "BSP_CLOCK_EXPECTED_SYSCLK_HZ UINT32_C(180000000)"),
@@ -276,6 +278,14 @@ CHECKS: CheckTable = {
         (
             "adxl fallback and int2 diagnostic mutually exclusive",
             "ADXL345 polling fallback and INT2 route diagnostic are mutually exclusive",
+        ),
+        (
+            "soak diagnostic default off",
+            'option(P5_SOAK_DIAGNOSTIC "Enable one bounded P5DIAG1 record every 60 seconds" OFF)',
+        ),
+        (
+            "soak diagnostic host test",
+            "add_test(NAME p5.host.soak_diagnostic",
         ),
         ("ownership host test", "add_test(NAME p5.host.ownership"),
         ("health host test", "add_test(NAME p5.host.health"),
@@ -396,6 +406,9 @@ CHECKS: CheckTable = {
         ("legacy smoke compile switch", "#if P5_RS485_LOOPBACK_SMOKE_ENABLE"),
         ("iwdg reset smoke compile switch", "#if P5_IWDG_RESET_SMOKE_ENABLE"),
         ("adxl hil compile switch", "#if P5_ADXL345_HIL_DIAGNOSTIC_ENABLE"),
+        ("soak diagnostic compile switch", "#if P5_SOAK_DIAGNOSTIC_ENABLE"),
+        ("soak diagnostic interval", "APP_SOAK_DIAGNOSTIC_INTERVAL_MS UINT32_C(60000)"),
+        ("soak diagnostic formatter", "app_soak_diagnostic_format(&snapshot"),
         (
             "adxl hil frame schema",
             '"P5ADXL1 t=%lu st=%s sm=%s last=%s tr=%s txn=%lu int1=%u "',

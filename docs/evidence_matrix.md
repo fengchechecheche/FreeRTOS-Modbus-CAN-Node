@@ -115,8 +115,8 @@ physical ACK.
 
 | ID | Layer | Result | Primary evidence | Allowed claim |
 |---|---|---|---|---|
-| SOAK-01 | HOST | PASS | `docs/soak_trend_report.md` | runner/schema/self-test and short Host preflight passed |
-| SOAK-02 | SOAK | NOT_RUN | `docs/soak_trend_report.md` | 10-minute, 60-minute and 8-hour hardware sessions were not run |
+| SOAK-01 | HOST | PASS | `docs/soak_trend_report.md` | runner/schema, default-OFF P5DIAG1 formatter, Raspberry Pi HIL collector, Host tests and ARM diagnostic builds passed; this is software admission only |
+| SOAK-02 | SOAK | NOT_RUN | `docs/soak_trend_report.md` | collector is ready, but 10-minute, 60-minute and 8-hour hardware sessions were not run |
 
 The 20-iteration Host preflight is process-management evidence, not uptime or
 real-time resource-trend evidence.

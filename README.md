@@ -119,10 +119,10 @@
 > [`docs/release_readiness.md`](docs/release_readiness.md) and
 > [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-> P5-S6-T05 update: the bounded soak runner, schema/trend evaluator and
-> 20-iteration Host preflight are `PASS_HOST + PASS_CROSS_BUILD +
-> READY_FOR_HARDWARE`. The 10-minute, 60-minute and formal 8-hour sessions
-> remain `NOT_RUN` until hardware and a reviewed collector are available. See
+> P5-HW-OBS-01 update: the default-OFF `P5DIAG1` producer, Raspberry Pi HIL
+> collector, Schema 1 physical extension and detailed private evidence path are
+> `PASS_HOST + PASS_CROSS_BUILD + READY_FOR_10_MINUTE_ADMISSION`. The
+> 10-minute, 60-minute and formal 8-hour sessions remain `NOT_RUN`. See
 > [`docs/soak_trend_report.md`](docs/soak_trend_report.md).
 
 > P5-S6-T04 update: the deterministic dual-bus matrix is `PASS_HOST +
@@ -173,8 +173,9 @@ Raspberry Pi 4B/ARM64 只读 JSONL/RESET/local-MQTT 联调均已通过。P5-S6-T
 已接入 filter、IRQ、固定队列、task notification 与 bus-off 恢复软件候选，硬件保持
 `WAITING_FOR_HARDWARE`。P5-S6-T04 已用一个直接链接生产模块的 Host 矩阵验证双总线背压和
 软件故障隔离，并完成一次有界实物并发、短暂断线隔离和恢复补验；未修改固件任务或 RTOS 资源。P5-S6-T05 已增加有界
-JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保持不变，真实 10 分钟、60 分钟
-和 8 小时长稳均为 `NOT_RUN`。
+JSONL soak runner、趋势判定和 20 次短时 Host 预检；P5-HW-OBS-01 又增加默认关闭的
+`P5DIAG1`、树莓派采集器和详细私有证据路径，当前为 `READY_FOR_10_MINUTE_ADMISSION`，真实
+10 分钟、60 分钟和 8 小时长稳均为 `NOT_RUN`。
 
 ## 当前边界
 
@@ -190,7 +191,8 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - 候选时钟为 HSI 16 MHz、SYSCLK/HCLK 180 MHz、PCLK1 45 MHz、PCLK2 90 MHz；HAL 1 ms tick
   由 TIM6 提供；运行时 profile 和有限 scheduler smoke 已通过实板补验，但未测 HSI 精度或严格抖动。
 - USART2 保留 T01 启动标记、T02 clock 摘要和最多五次 1 秒 heartbeat；实板 VCP 已得到
-  1 次 BOOT、1 次 CLOCK 和 5 次 heartbeat。
+  1 次 BOOT、1 次 CLOCK 和 5 次 heartbeat。`P5_SOAK_DIAGNOSTIC` 默认关闭；仅诊断构建在启动时
+  输出首条 `P5DIAG1`，随后每 60 秒输出一条，不改变默认固件运行路径。
 - SPI1 使用 PA5/PA6/PA7、Mode 3、MSB first、software NSS、2.8125 Mbit/s；BME280/PB6 与
   ADXL345/PC7 片选独立，transaction timeout 候选为 20 ms。
 - I2C2 使用 PB10/PB3、100 kHz；应用层只保存 VEML7700 7-bit address `0x10`，仅在 HAL boundary
