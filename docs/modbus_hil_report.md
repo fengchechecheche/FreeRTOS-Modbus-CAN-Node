@@ -4,7 +4,7 @@
 > Host PTY：`PASS_HOST_PTY / [042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
 > 独立 USB-RS485：`PASS_HARDWARE_FIXED_ADDRESS_4`
 > 地址迁移 H08/H09：`NOT_RUN_BY_POLICY`
-> 项目三联调：`NOT_RUN`
+> 项目三联调：`PASS_BOUNDED_INTEROP`
 > 默认从站地址：4
 > 串口：19200 bit/s，8E1
 
@@ -18,7 +18,9 @@ P5-S5-T05 已完成无硬件准备和 Host PTY 补测；2026-08-19 执行了旧 
 - PTY 与新转换器物理线路中的 249 B 响应均已通过；物理 H01～H07、复位后的代表性 H01 和转换器断开/重连后的代表性 H01 均通过；
 - `RS485-03` 在“新 CH340 转换器、短线共地、地址 4、19200 8E1”边界内标记为 `PASS`；旧转换器仍保留为与 Shield 组合时的兼容性故障历史，不能据此宣称旧转换器普遍损坏；
 - H08/H09 涉及有效地址写入，因未获得本轮显式写授权而保持 `NOT_RUN_BY_POLICY`；本轮没有执行地址 4→5→4 迁移；
-- 项目三地址 4 profile 仍为 `not_created`，项目三仓库没有被本任务修改。
+- 项目三 `[039]` 已建立地址 4 只读 profile；在 Ubuntu-24.04-Gateway x86_64、新 CH340、
+  短线共地边界内，真实 JSONL、一次 NUCLEO RESET 恢复和约 60 秒本地 MQTT 投影通过，
+  `P3-01` 升级为 `PASS`。
 
 ## 2. 轻量探针
 
@@ -92,7 +94,7 @@ PTY 不承载真实奇偶校验位，也没有 UART DMA、DE/RE、收发器、�
 5 次 heartbeat。当前证据证明 STM32→Shield→USB-RS485 正向链路可用，但不能唯一地区分
 USB-RS485 发送/方向控制与 Shield MAX485/`485_RX→RX1→PA10` 回程路径。已选购另一只 USB-RS485，
 该轮结束时、交叉验证尚未执行，`RS485-03` 当时保持 `FAIL`；该历史结果不因后续通过而改写。
-项目三联调至今仍为 `NOT_RUN`。
+在该历史故障排查阶段，项目三联调仍为 `NOT_RUN`；后续通过结果见 2.4 节。
 
 新转换器完成参考路线验收后，又将旧转换器接回完全相同的 Shield 接线与默认固件。旧转换器在
 初次请求、NUCLEO RESET 后以及转换器断开/重连后三次执行 H01 均为 `response=<silence>`；转换器
@@ -133,7 +135,32 @@ H03 收到 CRC 正确的 249 B 响应。H06B 发送的是预期得到 exception 
 在复位和转换器重连后仍可读取”，不证明地址 5 会在复位后恢复为 4。
 
 H08/H09 需要 `--allow-address-write --confirm-default-address 4` 双重显式授权，本轮未执行，保持
-`NOT_RUN_BY_POLICY`。项目三地址 4 profile 与互操作仍为 `NOT_RUN`。
+`NOT_RUN_BY_POLICY`。在该固定地址补验结束时，项目三地址 4 profile 与互操作仍为
+`NOT_RUN`；后续通过结果见 2.4 节。
+
+### 2.4 项目三地址 4 真实互操作
+
+2026-08-21 使用项目三 `[039]
+17d67873f83488b08ea0eee0fa28c8722b0913d6` 的地址 4 只读 profile，与项目五 `[067]
+a173717deb0814019a51a73f59834b9c3c5fd309` 的默认固件联调。项目五默认 Debug ELF
+SHA-256 为
+`d076ddf743020fe1a043e776ba3196ea1f02153a17c5d98451cc722d6ac0018f`。主站运行在
+Ubuntu-24.04-Gateway x86_64，通过新 CH340 `1a86:7523`、短线共地、`A→A`、`B→B`、
+19200 8E1 读取地址 4；完整设备序列号未记录。
+
+首轮省略全部 MQTT 和写入参数，以 JSONL sink 连续运行约 141.145 秒：17 个地址全部覆盖，
+1946/1946 请求成功、失败 0，1946 条 telemetry 均为 `valid_sample`。运行中人工按一次
+NUCLEO RESET，串口未重开、未离线、未超时，最大相邻完成间隔为 856 ms，最终有界停止。
+
+JSONL 通过后，启用项目三现有 MQTT Debug 构建并向本地 Mosquitto `127.0.0.1:1883`
+投影约 60 秒。网关 822/822 个 Modbus 请求成功，MQTT publish success 825、failure 0；
+订阅器收到 822 条 telemetry、覆盖 17 个 topic，全部为 `fresh/valid_sample`。BME280、
+VEML7700、ADXL345 和 health 必需主题各收到 60 条；设备签名为 20533，四源 present mask
+为 15。成功路线原始日志在形成摘要后删除。
+
+因此 `P3-01` 在上述指定提交、二进制、转换器和台架边界内为 `PASS`，`HW-002` 可以关闭。
+该结论不覆盖 H08/H09 地址迁移、Raspberry Pi/ARM64 实物 RS485、多个真实从站、远程或 TLS
+MQTT、重复断线、严格恢复上界或硬件长稳。
 
 ## 3. 写地址安全门
 
@@ -188,21 +215,30 @@ H06B 是预期返回 exception `0x03` 的非法值测试，不等同于有效地
 
 1. 保持当前新转换器、短线共地、`A→A`、`B→B`、19200 8E1 作为参考接线；
 2. 只有在需要验证易失地址迁移且取得显式授权后，才执行 H08/H09，并最终确认地址为 4；
-3. 为项目三建立独立允许清单和授权后，再创建地址 4 profile 并执行互操作；
+3. 项目三 `[039]` 地址 4 profile 与有界互操作已通过；后续只在扩展 Raspberry Pi、商用从站、
+   写地址或生产 MQTT 时另行制定计划；
 4. RS485 与 CAN 各自通过后执行的有界双总线并发和故障隔离矩阵现已完成；边界见 `docs/dual_bus_fault_matrix.md` 的 2026-08-21 实物补验。
 
 非隔离 USB-RS485 只用于短线、共地台架。总线上必须只有一个活动主站。
 
 ## 7. 项目三边界
 
-项目三当前基线 `8e0e909a8b7576ab80b6f2ade186631910226b47` 只有地址 1～3，且本地分支领先远端 5 个提交。本任务没有处理该 Git 状态，也没有创建地址 4 profile。
+项目三 `[039] 17d67873f83488b08ea0eee0fa28c8722b0913d6` 已增加独立地址 4 只读
+profile，并由项目三 production loader 合同测试覆盖。profile 只使用 `0x04`，不复用
+`motor_actuator` 语义，也不提供 `write_function`。
 
-独立 USB-RS485 已在固定地址 4 边界内取得 `PASS_HARDWARE`。后续仍须建立项目三独立允许清单并取得用户授权，才能创建地址 4 profile 和执行互操作。首版只建议只读投影设备签名、map revision、image generation、主要传感器值、ADXL resultant RMS、health state 和 warning mask；不复用 `motor_actuator` 语义，也不默认执行 `0x06`。
+在 Ubuntu-24.04-Gateway x86_64 与新 CH340 参考路线内，项目三已经持续读取真实项目五节点并
+完成 JSONL、一次 NUCLEO RESET 恢复和约 60 秒本地 MQTT 投影。因此窄范围互操作为
+`PASS_BOUNDED_INTEROP`。项目三整体仍保持 `PUBLISHED=false`、`HARDWARE_VALIDATED=false`、
+`TAG=null`；本结果不能替代 Raspberry Pi、商用从站、CAN、电气安全或硬件长稳。
 
 ## 8. 证据规则
 
 Host PTY 正常通过只保存提交 SHA、10/10 摘要和 249 B 最大响应。硬件正常通过才保存固件哈希、
 端口、19200 8E1、地址、接线摘要和 H01～H11 状态。只有失败时才增加一条代表性请求/响应、失败类别、
 当前可能地址和恢复结果。
+
+项目三联调成功路线只保留两个项目提交、默认 ELF SHA-256、转换器 VID:PID、串口 profile、
+JSONL/MQTT 运行时长、请求/主题计数、代表字段首尾值和 RESET 恢复摘要；原始逐帧日志已删除。
 
 不保存持续串口日志、逐帧历史、大型抓包、设备完整序列号或与排障无关的数据。

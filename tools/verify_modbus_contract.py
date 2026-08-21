@@ -271,7 +271,17 @@ def validate_contract(contract: dict[str, Any]) -> tuple[list[str], int]:
     checked += add_check(p3.get("existing_slave_addresses") == [1, 2, 3], "Project Three addresses must remain 1/2/3", errors)
     checked += add_check(p3.get("project_five_slave_address") == 4, "Project Five address must be 4", errors)
     checked += add_check(p3.get("project_three_write_authorized") is False, "Project Three writes are not authorized", errors)
-    checked += add_check(p3.get("profile_status") == "not_created", "Project Three profile must remain not_created", errors)
+    checked += add_check(
+        p3.get("observed_repository_head") == "17d67873f83488b08ea0eee0fa28c8722b0913d6",
+        "Project Three observed head must remain the reviewed [039] profile commit",
+        errors,
+    )
+    checked += add_check(p3.get("profile_status") == "created_read_only", "Project Three profile must remain read-only", errors)
+    checked += add_check(
+        p3.get("interoperability_status") == "pass_bounded_jsonl_reset_local_mqtt",
+        "Project Three bounded interoperability status changed",
+        errors,
+    )
 
     mapped_semantics = json.dumps(
         {
@@ -298,7 +308,7 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
             "122",
             "request-local",
             "Project Three uses addresses",
-            "Project Three address-4 profile | `not_created`",
+            "Project Three address-4 profile | `[039]` read-only profile",
         ),
         Path("protocol/README.md"): (
             "register map contract",
@@ -327,7 +337,7 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
             "249 B",
             "H01",
             "H11",
-            "`not_created`",
+            "`PASS_BOUNDED_INTEROP`",
         ),
         Path("docs/acceptance_protocol.md"): (
             "S5-T05",
@@ -395,6 +405,9 @@ def run_self_test(contract: dict[str, Any]) -> tuple[list[str], int]:
     def mutate_runtime(value: dict[str, Any]) -> None:
         value["document"]["runtime_status"] = "pass"
 
+    def mutate_p3_profile(value: dict[str, Any]) -> None:
+        value["project_three_compatibility"]["profile_status"] = "not_created"
+
     mutations: list[tuple[str, Mutation]] = [
         ("default-address-2", mutate_default_address),
         ("overlap", mutate_overlap),
@@ -408,6 +421,7 @@ def run_self_test(contract: dict[str, Any]) -> tuple[list[str], int]:
         ("over-125", mutate_max_read),
         ("motor-semantics", mutate_motor),
         ("runtime-pass", mutate_runtime),
+        ("p3-profile-not-created", mutate_p3_profile),
     ]
     for label, mutate in mutations:
         candidate = copy.deepcopy(contract)
@@ -456,7 +470,8 @@ def main() -> int:
         print(
             "P5 MODBUS CONTRACT SELF-TEST: PASS "
             "(address, overlap, overflow, width, access, whitelist, float, "
-            "metadata, word-order, read-limit, foreign-semantics and runtime mutants rejected)"
+            "metadata, word-order, read-limit, foreign-semantics, runtime and "
+            "Project Three profile mutants rejected)"
         )
     else:
         print(

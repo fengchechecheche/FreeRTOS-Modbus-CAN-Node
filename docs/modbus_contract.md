@@ -193,7 +193,7 @@ Current software result:
 | static resource contract | PASS; linker heap 0; +912 B RAM from `[027]` |
 | HIL probe | 15-check self-test PASS; dry-run PASS; serial `NOT_OPENED` |
 | Physical USB-RS485 | fixed-address-4 H01～H07, post-reset H01 and post-reconnect H01 PASS; H08/H09 `NOT_RUN_BY_POLICY` |
-| Project Three address-4 profile | `not_created`; integration `NOT_RUN` |
+| Project Three address-4 profile | `[039]` read-only profile; bounded JSONL/RESET/local-MQTT integration `PASS` |
 
 The software checks remain separate from hardware evidence. The physical result
 proves only the documented reference-CH340, fixed-address-4 route; it does not

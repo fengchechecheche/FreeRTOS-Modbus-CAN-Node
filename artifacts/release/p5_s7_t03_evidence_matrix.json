@@ -11,8 +11,8 @@
   "summary": {
     "FAIL": 0,
     "NOT_CLAIMED": 1,
-    "NOT_RUN": 2,
-    "PASS": 21,
+    "NOT_RUN": 1,
+    "PASS": 22,
     "REVIEW_REQUIRED": 0
   },
   "rows": [
@@ -334,11 +334,11 @@
       "domain": "RS485",
       "capability": "Project Three address-4 profile and master/slave interoperability",
       "execution_layer": "INTEGRATION",
-      "result": "NOT_RUN",
-      "evidence_commit": "6f585dfc112079a80ae0ecb6ce2267f927351b71",
-      "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "result": "PASS",
+      "evidence_commit": "a173717deb0814019a51a73f59834b9c3c5fd309",
+      "regression_anchor": "a173717deb0814019a51a73f59834b9c3c5fd309",
+      "firmware_sha256": "d076ddf743020fe1a043e776ba3196ea1f02153a17c5d98451cc722d6ac0018f",
+      "hardware_identity": "NUCLEO-F446RE + Waveshare RS485 CAN Shield + reference CH340 USB-RS485 1a86:7523 + Ubuntu-24.04-Gateway x86_64; serial omitted",
       "config_refs": [
         "protocol/register_map.json",
         "docs/modbus_contract.md"
@@ -347,7 +347,7 @@
         "docs/modbus_hil_report.md",
         "docs/release_readiness.md"
       ],
-      "allowed_claim": "未执行项目三地址 4 profile 创建或真实主从站联调。"
+      "allowed_claim": "项目三 [039] 17d67873f83488b08ea0eee0fa28c8722b0913d6 使用只读地址 4 profile，在 Ubuntu-24.04-Gateway x86_64、新 CH340、短线共地、19200 8E1 边界内完成 1946/1946 JSONL 请求、一次 NUCLEO RESET 恢复和约 60 秒本地 MQTT 投影；822 条订阅 telemetry 覆盖 17 个 topic 且全部 fresh/valid_sample。H08/H09 地址迁移、Raspberry Pi 实物 RS485、多个真实从站、远程/TLS MQTT、重复断线和硬件长稳不在本结论内。"
     },
     {
       "id": "CAN-01",

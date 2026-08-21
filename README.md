@@ -27,8 +27,12 @@
 > back-to-back transfers in both directions and the physical H01～H07 matrix at
 > address 4, including the 249 B response. A representative H01 also passed
 > after NUCLEO reset and after adapter reconnect. `RS485-03` is `PASS` within
-> that fixed-address boundary; H08/H09 are `NOT_RUN_BY_POLICY`, and Project
-> Three remains `NOT_RUN`. See [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
+> that fixed-address boundary; H08/H09 are `NOT_RUN_BY_POLICY`. Project Three
+> `[039]` then used the read-only address 4 profile to complete 1946/1946 JSONL
+> requests, one NUCLEO RESET recovery and a 60-second local MQTT projection with
+> 822 fresh messages across 17 topics. `P3-01` is `PASS` within that bounded
+> Ubuntu-24.04-Gateway x86_64 route. See
+> [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
 
 > 2026-08-19 BME280 hardware update: `SNS-01` is `PASS_HARDWARE_LIMITED`.
 > The final topology produced five fresh, bounded samples with increasing
@@ -69,8 +73,9 @@
 > result is a `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`, with a software demo and
 > matrix-bound recruitment wording that are not published. `HW-003` is now
 > closed by bounded CAN and physical dual-bus evidence, and `HW-001` is closed
-> by the bounded sensor/watchdog routes. Project Three and soak blockers remain
-> open. No tag, binary attachment or remote Release exists. See
+> by the bounded sensor/watchdog routes. `HW-002` is closed by the reference
+> RS485 route and bounded Project Three interoperability; only the soak blocker
+> remains open. No tag, binary attachment or remote Release exists. See
 > [`docs/v0_1_0_software_candidate.md`](docs/v0_1_0_software_candidate.md),
 > [`docs/demo_guide.md`](docs/demo_guide.md), and
 > [`docs/recruitment_claim_ledger.md`](docs/recruitment_claim_ledger.md).
@@ -83,7 +88,7 @@
 > [`docs/learning/problem_ledger.md`](docs/learning/problem_ledger.md).
 
 > P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
-> 21 `PASS`, 0 `FAIL`, 2 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
+> 22 `PASS`, 0 `FAIL`, 1 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
 > software, board, RS485, or CAN evidence layer; no software result is promoted
 > to a physical-hardware claim. The hardware Release gate remains
 > `BLOCKED_WAITING_FOR_HARDWARE`. See
@@ -134,8 +139,9 @@
 > P5-S5-T05 update: the default firmware is unchanged; a bounded HIL probe now
 > provides self-test/dry-run preparation without opening a serial port. A
 > reference CH340 USB-RS485 has since passed the bounded fixed-address-4 physical
-> matrix, while valid address migration and Project Three integration remain
-> deferred. See
+> matrix. Valid address migration remains `NOT_RUN_BY_POLICY`, while Project
+> Three `[039]` read-only JSONL/RESET/local-MQTT interoperability is now
+> `PASS_BOUNDED_INTEROP`. See
 > [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
 
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
@@ -152,7 +158,8 @@ P5-S4-T04 已形成统一 sequence、单调时间、
 map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻辑候选；stream parser、
 RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响应、122-register image 和
 易失地址写入候选。T05 无硬件路径已增加默认只读、显式解锁地址写入的 HIL 探针；串口保持
-`NOT_RUN`，项目三地址 4 profile 仍为 `not_created`。P5-S6-T01 已冻结九个 11 位标准 CAN ID、
+历史软件准备边界；后续参考 CH340 固定地址 4 实物矩阵以及项目三 `[039]` 只读
+JSONL/RESET/local-MQTT 联调均已通过。P5-S6-T01 已冻结九个 11 位标准 CAN ID、
 8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；P5-S6-T02
 已接入 filter、IRQ、固定队列、task notification 与 bus-off 恢复软件候选，硬件保持
 `WAITING_FOR_HARDWARE`。P5-S6-T04 已用一个直接链接生产模块的 Host 矩阵验证双总线背压和
@@ -213,13 +220,13 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - NUCLEO-F446RE 已完成 ST-LINK、烧录/校验/复位、VCP、运行时时钟、GPIO 寄存器状态、有限
   scheduler smoke、裸板栈水位、IWDG 单次恢复和断电重连补验；CAN 已完成已准入路径的有限
   实物补验；RS485 固定地址 4 的参考转换器矩阵及一次有界物理双总线并发/故障隔离也已通过。
-  三传感器已在各自有界路线内通过，物理 ADXL345 INT 路径继续作为排除项；项目三互操作与
-  10 分钟、60 分钟、8 小时长稳仍保持开放。
+  三传感器已在各自有界路线内通过，物理 ADXL345 INT 路径继续作为排除项；项目三只读
+  JSONL/RESET/local-MQTT 互操作已通过，10 分钟、60 分钟、8 小时长稳仍保持开放。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。
   T05 HIL self-test/dry-run 不打开串口；参考 CH340 路径的真实 249 B response 已通过，地址迁移
-  与项目三联调仍为 `NOT_RUN`。
+  仍为 `NOT_RUN_BY_POLICY`；项目三 `[039]` 的地址 4 只读联调已为 `PASS_BOUNDED_INTEROP`。
 - CAN 合同使用节点 4 的七个节点遥测/事件 ID 以及专用诊断 `0x540/0x541`、500 kbit/s、
   standard data frame、DLC 8 和 little-endian。接收侧仅启用一个 16-bit ID-list filter bank，
   四条硬件表项均重复 Host-owned `0x540`；发送侧独立允许七个 STM32 遥测/事件 ID 和 `0x541`。

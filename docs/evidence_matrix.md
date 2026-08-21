@@ -7,7 +7,7 @@
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Board supplement evidence: `[044] d409a8161669aae8ea4c01246df577d36212650a`
 > Watchdog supplement evidence: `[046] 96fa46b41c38a0a0bb249876d9a0736165ac1642`
-> Row summary: `24 = 21 PASS + 0 FAIL + 2 NOT_RUN + 1 NOT_CLAIMED`
+> Row summary: `24 = 22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
 ## Purpose
@@ -88,7 +88,7 @@ their bounded physical claims and exclusions.
 | RS485-01 | HOST | PASS | `docs/modbus_hil_report.md` | UART DMA/RTU/server software contracts passed Host/cross-build gates |
 | RS485-02 | HOST | PASS | `docs/modbus_hil_report.md` | committed production-C PTY matrix passed 10/10 with a 249 B maximum response |
 | RS485-03 | HARDWARE | PASS | `docs/modbus_hil_report.md` | a reference CH340 route passed 10/10 back-to-back transfers in both directions, physical H01～H07 at fixed address 4 including 249 B, one post-reset H01 and one post-reconnect H01; H08/H09 are NOT_RUN_BY_POLICY and the old-adapter compatibility failure remains historical |
-| P3-01 | INTEGRATION | NOT_RUN | `docs/modbus_hil_report.md` | Project Three address-4 profile and interoperability were not run |
+| P3-01 | INTEGRATION | PASS | `docs/modbus_hil_report.md` | Project Three `[039]` on Ubuntu-24.04-Gateway x86_64 used a read-only address-4 profile and the reference CH340 route to complete 1946/1946 JSONL requests, one bounded NUCLEO RESET recovery and a 60-second local MQTT projection with 822 fresh telemetry messages across 17 topics; address writes, Raspberry Pi hardware, production MQTT and soak are excluded |
 
 Self-test/dry-run alone is not PTY evidence. The committed PTY result is Host
 evidence and still is not physical RS485 evidence.
@@ -130,23 +130,24 @@ P5-HW-SNS-00 在基线 `d48f2c75b048dc60320045233312ad6df050e88e` 上以 SHA-256
 10 轮 Modbus 对外可见性补验，因此 `SNS-03` 现为 `PASS`。物理 INT1/INT2、精确
 采样率、计量精度和单模块 SPI 鲁棒性仍不声明。
 RS485-03 已在参考 CH340、固定地址 4 的边界内通过；BUS-02 也已在参考转换器、已准入
-CAN 路径和一次有界短暂断线的边界内通过。有效地址迁移和项目三互操作仍未执行。当前矩阵
-总计为 `21 PASS + 0 FAIL + 2 NOT_RUN + 1 NOT_CLAIMED`；剩余 `NOT_RUN` 仅为
-`P3-01` 与 `SOAK-02`。
+CAN 路径和一次有界短暂断线的边界内通过。项目三 `[039]` 随后通过同一参考 RS485 路线完成
+真实地址 4 JSONL、一次 RESET 恢复和本地 MQTT 投影，`P3-01` 现为 `PASS`；有效地址迁移仍为
+`NOT_RUN_BY_POLICY`，不属于独立矩阵行。当前矩阵总计为
+`22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`；唯一 `NOT_RUN` 为 `SOAK-02`。
 
 ## Release blocker projection
 
 | Blocker | Matrix rows | Current state |
 |---|---|---|
 | HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | CLOSED; all rows passed within their documented bounded routes |
-| HW-002 RS485 and Project Three | RS485-03, P3-01 | OPEN; RS485-03 passed, P3-01 remains NOT_RUN |
+| HW-002 RS485 and Project Three | RS485-03, P3-01 | CLOSED; fixed-address reference RS485 and bounded Project Three read-only JSONL/MQTT interoperability passed |
 | HW-003 CAN and physical dual bus | CAN-03, BUS-02 | CLOSED; both rows passed within their admitted bounded routes |
 | HW-004 hardware soak | SOAK-02 | OPEN |
 
 The software source and both clean-reproduction blockers are closed. `BSP-02`
 passes at its narrow board-admission layer, `WDG-01` at its bounded reset-only
 layer, and `SNS-01..03` at their documented bounded sensor routes, so `HW-001`
-is closed. `HW-003` is also closed; `HW-002` and `HW-004` remain open.
+is closed. `HW-002` and `HW-003` are also closed; only `HW-004` remains open.
 
 ## Public and local evidence
 

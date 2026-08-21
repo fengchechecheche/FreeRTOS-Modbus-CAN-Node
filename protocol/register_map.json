@@ -188,12 +188,13 @@
     ]
   },
   "project_three_compatibility": {
-    "observed_repository_head": "8e0e909a8b7576ab80b6f2ade186631910226b47",
+    "observed_repository_head": "17d67873f83488b08ea0eee0fa28c8722b0913d6",
     "existing_slave_addresses": [1, 2, 3],
     "project_five_slave_address": 4,
     "matching_contracts": ["zero_based", "0x03", "0x04", "0x06", "big_endian", "high_word_first"],
     "project_three_write_authorized": false,
-    "profile_status": "not_created"
+    "profile_status": "created_read_only",
+    "interoperability_status": "pass_bounded_jsonl_reset_local_mqtt"
   },
   "scope_exclusions": [
     "modbus_master",

@@ -173,8 +173,8 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
             {
                 "FAIL": 0,
                 "NOT_CLAIMED": 1,
-                "NOT_RUN": 2,
-                "PASS": 21,
+                "NOT_RUN": 1,
+                "PASS": 22,
                 "REVIEW_REQUIRED": 0,
             },
         ),
@@ -212,6 +212,10 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
             "7cedd353f2e9657702770ed1abc88b1ac612b5fe",
             "d076ddf743020fe1a043e776ba3196ea1f02153a17c5d98451cc722d6ac0018f",
         ),
+        "P3-01": (
+            "a173717deb0814019a51a73f59834b9c3c5fd309",
+            "d076ddf743020fe1a043e776ba3196ea1f02153a17c5d98451cc722d6ac0018f",
+        ),
     }
     for row_id, (commit, firmware) in row_expectations.items():
         row = rows_by_id.get(row_id)
@@ -223,7 +227,7 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
     matrix_doc = read_text(matrix_doc_path)
     for marker in (
         "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`",
-        "Row summary: `24 = 21 PASS + 0 FAIL + 2 NOT_RUN + 1 NOT_CLAIMED`",
+        "Row summary: `24 = 22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`",
         "BLOCKED_WAITING_FOR_HARDWARE",
     ):
         if marker not in matrix_doc:
@@ -309,7 +313,7 @@ def validate_candidate_projection(root: pathlib.Path, ledger_text: str) -> list[
         (
             "claim ledger",
             claim_text,
-            "Hardware claims: `INELIGIBLE_WHILE_NOT_RUN`",
+            "Hardware claims: `BOUNDED_CLAIMS_ONLY / NOT_PUBLISHED`",
         ),
     )
     for label, text, marker in markers:
@@ -722,14 +726,14 @@ def run_self_test() -> int:
 
     valid_projection_doc = (
         "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`\n"
-        "Row summary: `24 = 21 PASS + 0 FAIL + 2 NOT_RUN + 1 NOT_CLAIMED`\n"
+        "Row summary: `24 = 22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`\n"
         "BLOCKED_WAITING_FOR_HARDWARE\n"
     )
     assert all(
         marker in valid_projection_doc
         for marker in (
             "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`",
-            "Row summary: `24 = 21 PASS + 0 FAIL + 2 NOT_RUN + 1 NOT_CLAIMED`",
+            "Row summary: `24 = 22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`",
             "BLOCKED_WAITING_FOR_HARDWARE",
         )
     )

@@ -106,6 +106,45 @@ interoperability. The offline D01～D08 matrix remains the evidence for delibera
 queue saturation and backpressure; the physical run did not inject queue
 overflow.
 
+## 2026-08-21 Gateway concurrent recheck
+
+A later bounded recheck attached the reference CH340 USB-RS485 adapter and the
+candleLight USB-CAN adapter to `Ubuntu-24.04-Gateway` at the same time. It used
+Project Three profile `[039] 17d67873f83488b08ea0eee0fa28c8722b0913d6`,
+Project Five source `[067] a173717deb0814019a51a73f59834b9c3c5fd309` and the
+default Debug ELF SHA-256
+`d076ddf743020fe1a043e776ba3196ea1f02153a17c5d98451cc722d6ac0018f`.
+RS485 remained read-only at address 4 and `19200 8E1`; CAN remained at
+500 kbit/s with Host sample point `0.75`, common GND and the USB-CAN `120R`
+setting.
+
+The 125 s main run and a 25 s focused continuation produced these bounded
+observations:
+
+- Project Three completed 2060/2060 Modbus requests successfully across all 17
+  configured input-register addresses, with zero request failure and one serial
+  open per run;
+- all six periodic CAN IDs continued to arrive while Modbus polling was active;
+- four distinct Host-owned `0x540` requests each received the unique matching
+  STM32-owned `0x541` response while the Modbus run continued;
+- `can0` RX increased from 738 to 2228 packets and Host TX was exactly four
+  packets; final state was ERROR-ACTIVE, with zero bus-error, error-passive and
+  bus-off events;
+- one error-warning transition occurred during the main run. It recovered
+  without a Modbus failure or transport-visible outage and did not increase
+  during the 25 s focused continuation.
+
+The single non-repeating warning is retained rather than rewritten as a
+zero-warning run. It does not overturn the bounded concurrency result, but this
+recheck is not evidence for a strict zero-warning rate or long-run stability.
+The VCP startup and heartbeat were confirmed before the run but were not logged
+continuously. Success JSONL was summarized and deleted instead of being retained
+as a large raw evidence package.
+
+This recheck strengthens `BUS-02` for simultaneous real RS485 and CAN operation;
+it does not add a Project Three CAN consumer, validate Raspberry Pi/ARM64
+deployment, repeat the prior disconnect injections or close `SOAK-02`.
+
 ## Historical hardware follow-up contract
 
 The original minimum physical-validation contract required the NUCLEO-F446RE path, USB-RS485 link, CAN
