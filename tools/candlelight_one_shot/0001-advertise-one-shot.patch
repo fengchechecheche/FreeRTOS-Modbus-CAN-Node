@@ -1,0 +1,12 @@
+diff --git a/src/usbd_gs_can.c b/src/usbd_gs_can.c
+index cffcc96..5983048 100644
+--- a/src/usbd_gs_can.c
++++ b/src/usbd_gs_can.c
+@@ -270,6 +270,7 @@ static const struct gs_device_config USBD_GS_CAN_dconf = {
+ // bit timing constraints
+ static const struct gs_device_bt_const USBD_GS_CAN_btconst = {
+ 	GS_CAN_FEATURE_LISTEN_ONLY  // supported features
++	| GS_CAN_FEATURE_ONE_SHOT
+ 	| GS_CAN_FEATURE_LOOP_BACK
+ 	| GS_CAN_FEATURE_HW_TIMESTAMP
+ 	| GS_CAN_FEATURE_IDENTIFY

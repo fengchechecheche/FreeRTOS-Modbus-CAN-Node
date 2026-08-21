@@ -118,32 +118,72 @@ RS485 remained read-only at address 4 and `19200 8E1`; CAN remained at
 500 kbit/s with Host sample point `0.75`, common GND and the USB-CAN `120R`
 setting.
 
-The 125 s main run and a 25 s focused continuation produced these bounded
-observations:
+The first 125 s main run and a 25 s focused continuation completed 2060/2060
+Project Three Modbus requests successfully across all 17 configured
+input-register addresses. All six periodic CAN IDs continued to arrive. Four
+ad-hoc Host `0x540` sends each obtained one matching `0x541`; one
+error-warning transition was observed and did not grow during the focused
+continuation. Those ad-hoc sends closed their raw CAN socket immediately after
+receiving the response, so they are not accepted as the final Host diagnostic
+procedure.
 
-- Project Three completed 2060/2060 Modbus requests successfully across all 17
-  configured input-register addresses, with zero request failure and one serial
-  open per run;
-- all six periodic CAN IDs continued to arrive while Modbus polling was active;
-- four distinct Host-owned `0x540` requests each received the unique matching
-  STM32-owned `0x541` response while the Modbus run continued;
-- `can0` RX increased from 738 to 2228 packets and Host TX was exactly four
-  packets; final state was ERROR-ACTIVE, with zero bus-error, error-passive and
-  bus-off events;
-- one error-warning transition occurred during the main run. It recovered
-  without a Modbus failure or transport-visible outage and did not increase
-  during the 25 s focused continuation.
+A later 10 minute replay kept Project Three Modbus polling active and completed
+8291/8291 requests with zero failure. The first five minutes were CAN
+receive-only and retained zero warning, passive and bus-off transitions. One
+ad-hoc `0x540` sender then received the correct `0x541` and immediately closed
+its socket; Host counters subsequently reached 8 error-warning, 33
+error-passive and 210 bus-off transitions. The counters stopped increasing when
+no further Host frame was sent, while periodic CAN RX and Modbus continued.
 
-The single non-repeating warning is retained rather than rewritten as a
-zero-warning run. It does not overturn the bounded concurrency result, but this
-recheck is not evidence for a strict zero-warning rate or long-run stability.
-The VCP startup and heartbeat were confirmed before the run but were not logged
+A cold, CAN-only lifecycle A/B test isolated the trigger:
+
+- five receive-only minutes were zero-error;
+- one request sent through a socket retained for a 60 s receive/error window
+  obtained one matching response, zero error frames and zero Host state
+  transitions;
+- one request sent through a separate TX socket that was closed immediately
+  also obtained one matching response, but produced 5678 error frames. They
+  included 370 ACK, 5306 protocol and 4168 bus-off classifications; controller
+  payloads reported combined RX/TX warning (`0x0C`), combined RX/TX passive
+  (`0x30`) and BIT1 protocol errors (`data[2]=0x10`). Host cumulative counters
+  reached 188 error-warning, 753 error-passive and 4168 bus-off transitions
+  before returning to ERROR-ACTIVE.
+
+The bounded conclusion is that real passive RS485/CAN concurrency remained
+healthy, while the short-lifetime Host sender was a sufficient trigger for an
+error-frame storm in this admitted candleLight/`gs_usb`/USB-IP bench. Public
+implementations support a plausible TX-echo/socket-lifecycle interaction, but
+no public source located during the review directly reproduces this exact
+immediate-close behavior; the lower-layer defect is therefore not uniquely
+assigned to one component. The adapter exposes neither `one-shot`,
+`presume-ack` nor `berr-reporting`; STM32 NART was not changed because the same
+default firmware was zero-error with the retained Host socket. The admitted
+one-shot diagnostic path is the repository probe, which keeps one socket open
+through its bounded response window.
+
+The subsequent strict replay attempt corrected two test-procedure limitations.
+First, `can_hil_probe.py --observe-seconds 60` may stop early at its 128-frame
+capture cap, so passive-phase duration must be enforced by an independent
+monotonic timer. Second, reopening the one-shot probe for each active request is
+not sufficient here: after three clean requests, the fourth still obtained one
+matching `0x541` but was followed by five error-warning and one error-passive
+observations. Modbus remained at 4763/4763 valid requests with zero failure over
+the 347088 ms observed span before the failure gate stopped the run. These data
+do not constitute a ten-minute pass.
+
+The next replay therefore uses one bounded `--diagnostic-series` invocation and
+one SocketCAN socket for the complete five-minute active phase. Its Host
+self-test is complete, but the mode and the claimed anomaly fix remain
+`CANDIDATE` until a strict five-minute passive plus five-minute active hardware
+run has zero dedicated error frames, zero CAN state/counter growth and no
+Modbus failures. A bounded shutdown guard keeps that same socket open after the
+measurement window so the NUCLEO can be powered off before socket close.
+
+The VCP startup and heartbeat were confirmed before the runs but were not logged
 continuously. Success JSONL was summarized and deleted instead of being retained
-as a large raw evidence package.
-
-This recheck strengthens `BUS-02` for simultaneous real RS485 and CAN operation;
-it does not add a Project Three CAN consumer, validate Raspberry Pi/ARM64
-deployment, repeat the prior disconnect injections or close `SOAK-02`.
+as a large raw evidence package. This recheck does not add a Project Three CAN
+consumer, validate Raspberry Pi/ARM64 deployment, repeat the prior disconnect
+injections or close `SOAK-02`.
 
 ## Historical hardware follow-up contract
 

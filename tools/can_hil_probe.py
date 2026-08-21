@@ -18,6 +18,9 @@ CAN_EFF_FLAG = 0x80000000
 CAN_RTR_FLAG = 0x40000000
 CAN_ERR_FLAG = 0x20000000
 CAN_SFF_MASK = 0x000007FF
+SOL_CAN_RAW = 101
+CAN_RAW_ERR_FILTER = 2
+CAN_ERR_MASK = 0x1FFFFFFF
 CAN_FRAME = struct.Struct("=IB3x8s")
 SCHEMA_REVISION = 1
 PERIODIC_IDS = {0x240, 0x241, 0x340, 0x341, 0x342, 0x440}
@@ -294,6 +297,93 @@ def run_self_test(message_map: dict[str, Any]) -> dict[str, Any]:
     if decoded_response["fields"]["nonce"] != 0x12345678:
         raise ProbeError("SELF_TEST", "diagnostic response decode mismatch")
 
+    class FakeClock:
+        def __init__(self) -> None:
+            self.now = 0.0
+
+        def monotonic(self) -> float:
+            return self.now
+
+        def advance(self, duration_s: float) -> None:
+            self.now += duration_s
+
+    class FakeCanSocket:
+        def __init__(self, clock: FakeClock) -> None:
+            self.clock = clock
+            self.timeout_s = 0.0
+            self.pending: list[bytes] = []
+            self.sent: list[CanFrame] = []
+            self.error_filter: bytes | None = None
+            self.closed = False
+
+        def setsockopt(self, level: int, option: int, value: bytes) -> None:
+            if level == SOL_CAN_RAW and option == CAN_RAW_ERR_FILTER:
+                self.error_filter = value
+
+        def settimeout(self, timeout_s: float) -> None:
+            self.timeout_s = timeout_s
+
+        def send(self, raw: bytes) -> int:
+            request = unpack_socketcan(raw)
+            self.sent.append(request)
+            response = CanFrame(
+                DIAGNOSTIC_RESPONSE_ID,
+                bytes(
+                    [
+                        SCHEMA_REVISION,
+                        request.data[1],
+                        DIAGNOSTIC_STATUS_OK,
+                        DIAGNOSTIC_OPCODE_PING,
+                    ]
+                )
+                + request.data[4:8],
+            )
+            self.pending.append(pack_socketcan(response))
+            return len(raw)
+
+        def recv(self, _size: int) -> bytes:
+            if self.pending:
+                return self.pending.pop(0)
+            self.clock.advance(self.timeout_s)
+            raise TimeoutError
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_clock = FakeClock()
+    fake_socket = FakeCanSocket(fake_clock)
+    socket_open_count = 0
+
+    def fake_socket_factory(_interface: str) -> FakeCanSocket:
+        nonlocal socket_open_count
+        socket_open_count += 1
+        return fake_socket
+
+    series_result, _series_frames = run_diagnostic_series(
+        "fake0",
+        0x20,
+        0x10203040,
+        0.2,
+        3,
+        1.0,
+        0.5,
+        message_map,
+        socket_factory=fake_socket_factory,
+        monotonic=fake_clock.monotonic,
+    )
+    if (
+        series_result["status"] != "PASS_HARDWARE_ROUND_TRIP_SERIES_CANDIDATE"
+        or socket_open_count != 1
+        or len(fake_socket.sent) != 3
+        or series_result["matching_responses"] != 3
+        or series_result["actual_duration_s"] < 3.5
+        or fake_socket.error_filter != struct.pack("=I", CAN_ERR_MASK)
+        or not fake_socket.closed
+    ):
+        raise ProbeError("SELF_TEST", "persistent diagnostic series mismatch")
+    if [frame.data[1] for frame in fake_socket.sent] != [0x20, 0x21, 0x22]:
+        raise ProbeError("SELF_TEST", "diagnostic series sequence mismatch")
+
     return {
         "mode": "self-test",
         "status": "PASS_HOST",
@@ -304,6 +394,7 @@ def run_self_test(message_map: dict[str, Any]) -> dict[str, Any]:
         "bme_pair_policy": "SAME_SEQUENCE_ONLY",
         "hardware": "NOT_RUN",
         "diagnostic_ping_vector": "PASS",
+        "diagnostic_series_vector": "PASS_SINGLE_SOCKET",
     }
 
 
@@ -516,6 +607,166 @@ def run_diagnostic_ping(
     }, captured
 
 
+def diagnostic_response_matches(
+    frame: CanFrame,
+    sequence: int,
+    nonce: int,
+    message_map: dict[str, Any],
+) -> bool:
+    if frame.identifier != DIAGNOSTIC_RESPONSE_ID:
+        return False
+    try:
+        decoded = decode_frame(frame, message_map)
+    except ProbeError:
+        return False
+    fields = decoded["fields"]
+    return (
+        fields["sequence"] == sequence
+        and fields["status"] == DIAGNOSTIC_STATUS_OK
+        and fields["opcode_echo"] == DIAGNOSTIC_OPCODE_PING
+        and fields["nonce"] == nonce
+    )
+
+
+def run_diagnostic_series(
+    interface: str,
+    sequence: int,
+    nonce: int,
+    response_timeout_s: float,
+    count: int,
+    interval_s: float,
+    hold_after_s: float,
+    message_map: dict[str, Any],
+    *,
+    socket_factory: Any = open_can_socket,
+    monotonic: Any = time.monotonic,
+) -> tuple[dict[str, Any], list[CanFrame]]:
+    can_socket = socket_factory(interface)
+    can_socket.setsockopt(
+        SOL_CAN_RAW,
+        CAN_RAW_ERR_FILTER,
+        struct.pack("=I", CAN_ERR_MASK),
+    )
+    captured: list[CanFrame] = []
+    captured_discarded = 0
+    error_frames = 0
+    unexpected_responses = 0
+    exchanges: list[dict[str, Any]] = []
+    session_started = monotonic()
+
+    def receive_until(
+        deadline: float,
+        expected_sequence: int | None = None,
+        expected_nonce: int | None = None,
+    ) -> tuple[int, int]:
+        nonlocal captured_discarded, error_frames, unexpected_responses
+        matching = 0
+        mismatched = 0
+        while True:
+            remaining = deadline - monotonic()
+            if remaining <= 0.0:
+                break
+            can_socket.settimeout(min(0.2, remaining))
+            try:
+                frame = unpack_socketcan(can_socket.recv(CAN_FRAME.size))
+            except TimeoutError:
+                continue
+            except OSError as exc:
+                raise ProbeError("SOCKET_IO", str(exc)) from exc
+            if len(captured) < MAX_CAPTURED_FRAMES:
+                captured.append(frame)
+            else:
+                captured_discarded += 1
+            if frame.error:
+                error_frames += 1
+                continue
+            if frame.identifier != DIAGNOSTIC_RESPONSE_ID:
+                continue
+            if expected_sequence is None or expected_nonce is None:
+                unexpected_responses += 1
+            elif diagnostic_response_matches(
+                frame,
+                expected_sequence,
+                expected_nonce,
+                message_map,
+            ):
+                matching += 1
+            else:
+                mismatched += 1
+        return matching, mismatched
+
+    try:
+        for index in range(count):
+            scheduled_at = session_started + index * interval_s
+            receive_until(scheduled_at)
+            request_sequence = (sequence + index) & 0xFF
+            request_nonce = (nonce + index) & 0xFFFFFFFF
+            request = build_diagnostic_request(request_sequence, request_nonce)
+            sent = can_socket.send(pack_socketcan(request))
+            if sent != CAN_FRAME.size:
+                raise ProbeError("SOCKET_SEND", f"sent {sent} bytes, expected 16")
+            matching, mismatched = receive_until(
+                scheduled_at + response_timeout_s,
+                request_sequence,
+                request_nonce,
+            )
+            if matching > 1:
+                exchange_status = "FAIL_DUPLICATE"
+            elif mismatched > 0:
+                exchange_status = "FAIL_MISMATCH"
+            elif matching == 0:
+                exchange_status = "FAIL_TIMEOUT"
+            else:
+                exchange_status = "PASS"
+            exchanges.append(
+                {
+                    "index": index + 1,
+                    "sequence": request_sequence,
+                    "nonce": f"0x{request_nonce:08X}",
+                    "matching_responses": matching,
+                    "mismatched_responses": mismatched,
+                    "status": exchange_status,
+                }
+            )
+        receive_until(session_started + count * interval_s + hold_after_s)
+    except OSError as exc:
+        raise ProbeError("SOCKET_IO", str(exc)) from exc
+    finally:
+        can_socket.close()
+
+    failures = [item for item in exchanges if item["status"] != "PASS"]
+    if error_frames > 0:
+        status = "FAIL_ERROR_FRAME"
+    elif unexpected_responses > 0:
+        status = "FAIL_UNEXPECTED_RESPONSE"
+    elif failures:
+        status = failures[0]["status"]
+    else:
+        status = "PASS_HARDWARE_ROUND_TRIP_SERIES_CANDIDATE"
+    return {
+        "mode": "diagnostic-series",
+        "status": status,
+        "interface": interface,
+        "request_id": "0x540",
+        "response_id": "0x541",
+        "socket_open_count": 1,
+        "request_frames_sent": count,
+        "matching_responses": sum(item["matching_responses"] for item in exchanges),
+        "mismatched_responses": sum(
+            item["mismatched_responses"] for item in exchanges
+        ),
+        "unexpected_responses": unexpected_responses,
+        "error_frames": error_frames,
+        "active_duration_s": count * interval_s,
+        "hold_after_s": hold_after_s,
+        "socket_planned_duration_s": count * interval_s + hold_after_s,
+        "actual_duration_s": monotonic() - session_started,
+        "captured_frames_bounded": len(captured),
+        "captured_frames_discarded": captured_discarded,
+        "exchanges": exchanges,
+    }, captured
+
+
 def write_optional_output(
     output_dir: Path | None,
     result: dict[str, Any],
@@ -544,11 +795,15 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--vcan-self-test", action="store_true")
     mode.add_argument("--observe", action="store_true")
     mode.add_argument("--diagnostic-ping", action="store_true")
+    mode.add_argument("--diagnostic-series", action="store_true")
     parser.add_argument("--interface")
     parser.add_argument("--observe-seconds", type=float, default=10.0)
     parser.add_argument("--response-timeout", type=float, default=2.0)
     parser.add_argument("--sequence", type=lambda value: int(value, 0), default=0x2A)
     parser.add_argument("--nonce", type=lambda value: int(value, 0), default=0x12345678)
+    parser.add_argument("--diagnostic-count", type=int, default=5)
+    parser.add_argument("--diagnostic-interval", type=float, default=60.0)
+    parser.add_argument("--diagnostic-hold-after", type=float, default=0.0)
     parser.add_argument("--allow-send", action="store_true")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument(
@@ -570,6 +825,17 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
         raise ProbeError("ARGUMENT", "--sequence must be in [0, 255]")
     if not 0 <= args.nonce <= 0xFFFFFFFF:
         raise ProbeError("ARGUMENT", "--nonce must be in [0, 0xffffffff]")
+    if not 1 <= args.diagnostic_count <= 16:
+        raise ProbeError("ARGUMENT", "--diagnostic-count must be in [1, 16]")
+    if not 1.0 <= args.diagnostic_interval <= 300.0:
+        raise ProbeError("ARGUMENT", "--diagnostic-interval must be in [1, 300]")
+    if not 0.0 <= args.diagnostic_hold_after <= 300.0:
+        raise ProbeError("ARGUMENT", "--diagnostic-hold-after must be in [0, 300]")
+    if args.diagnostic_series and args.response_timeout >= args.diagnostic_interval:
+        raise ProbeError(
+            "ARGUMENT",
+            "--response-timeout must be shorter than --diagnostic-interval",
+        )
     if args.allow_send and not args.vcan_self_test:
         raise ProbeError(
             "SEND_OWNERSHIP",
@@ -590,6 +856,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
                 "observe physical CAN without transmitting node-owned telemetry IDs",
                 "decode revision 1 standard DLC-8 frames",
                 "use the fixed 0x540/0x541 diagnostic pair for one bounded round trip",
+                "use one persistent SocketCAN socket for repeated timed round trips",
                 "keep only bounded troubleshooting output",
             ],
         }, []
@@ -603,6 +870,17 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], list[CanFrame]]:
             args.sequence,
             args.nonce,
             args.response_timeout,
+            message_map,
+        )
+    if args.diagnostic_series:
+        return run_diagnostic_series(
+            args.interface,
+            args.sequence,
+            args.nonce,
+            args.response_timeout,
+            args.diagnostic_count,
+            args.diagnostic_interval,
+            args.diagnostic_hold_after,
             message_map,
         )
     return run_observe(args.interface, args.observe_seconds, message_map)

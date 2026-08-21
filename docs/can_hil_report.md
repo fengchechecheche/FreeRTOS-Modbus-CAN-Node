@@ -389,6 +389,85 @@ counters at zero. The bounded result and exclusions are recorded in
 repeated disconnect endurance, arbitrary outage duration, physical bus-off
 recovery or long-run stability.
 
+## 2026-08-21 Host socket lifecycle follow-up
+
+A longer Gateway recheck first ran Project Three Modbus polling and passive CAN
+observation together. The ten-minute Modbus run completed 8291/8291 requests
+with zero failure, and the first five CAN receive-only minutes retained zero
+warning, passive and bus-off transitions. An ad-hoc Host sender then transmitted
+one valid `0x540`, received one correct `0x541` and closed its raw CAN socket
+immediately. Host counters subsequently reached 8 warning, 33 passive and 210
+bus-off transitions even though Modbus and periodic CAN RX continued.
+
+A cold CAN-only A/B test separated the Host socket lifecycle from firmware and
+wiring. With the same default STM32 firmware, wiring, 500 kbit/s and Host sample
+point `0.75`:
+
+| Host sender lifecycle | Application result | Error result |
+|---|---|---|
+| one socket retained for a 60 s response/error window | one matching `0x541` | 0 error frames; zero warning/passive/bus-off transitions |
+| separate TX socket closed immediately after one send | one matching `0x541` | 5678 error frames; 370 ACK, 5306 protocol and 4168 bus-off classifications |
+
+The failing error payloads included combined RX/TX warning (`data[1]=0x0C`),
+combined RX/TX passive (`data[1]=0x30`) and BIT1 protocol error
+(`data[2]=0x10`). Host cumulative state counters reached 188 warning, 753
+passive and 4168 bus-off transitions before the interface returned to
+ERROR-ACTIVE. The request still reached the STM32 and the duplicate-response
+guard retained one application reply; a correct `0x541` alone therefore does
+not prove a clean Host transmit lifecycle.
+
+This bench A/B test identifies the short-lived ad-hoc Host TX socket as a
+sufficient trigger in the admitted candleLight/`gs_usb`/USB-IP environment and
+excludes the default STM32 application response as an unconditional storm
+source. Public implementations support a plausible lifecycle boundary:
+candleLight documents that its TX echo is returned when a frame is written to
+the CAN peripheral rather than after successful bus transmission, `gs_usb`
+tracks asynchronous TX contexts by echo ID, and closing a CAN_RAW socket is not
+a physical-transmission completion barrier. No public source located during
+this review directly reproduces this bench's immediate-close storm, so the
+final defect is not uniquely assigned to candleLight firmware, `gs_usb`,
+USB/IP or their close/completion interaction.
+
+The adapter reported `one-shot`, `presume-ack` and `berr-reporting` as
+unsupported, so the conditional STM32 NART branch was not used: changing MCU
+retransmission would not explain why the same firmware was zero-error with a
+retained Host socket.
+
+`tools/can_hil_probe.py --diagnostic-ping` remains the admitted one-shot
+procedure. Do not replace it with a create/send/immediate-close snippet; after
+it returns, inspect interface counters, power off the node, and only then bring
+`can0` down.
+
+### Strict replay correction and persistent-series candidate
+
+The receive probe's `--observe-seconds` value is an upper bound, not a guaranteed
+elapsed duration: capture also stops at 128 frames. Therefore five nominal
+60-second observe calls cannot be cited as five passive minutes. A formal phase
+must be governed by an independent monotonic timer, with probe calls used only
+as bounded samples within that phase.
+
+The first attempted strict replay was stopped at the first failure. Project
+Three Modbus had completed 4763/4763 valid requests with zero failure across an
+observed 347088 ms span. Passive CAN samples were clean. In the active phase,
+the first three separate `--diagnostic-ping` calls were clean, while the fourth
+still received one correct `0x541` but was followed by five error-warning and
+one error-passive observations. No bus-off was observed before the bounded
+stop. This run is **not** a ten-minute pass and proves that retaining a socket
+only for one response window, then reopening it for the next request, is not a
+sufficient repeated-diagnostic procedure for this bench.
+
+The minimal follow-up adds `--diagnostic-series`: one raw SocketCAN socket stays
+open while a bounded number of `0x540/0x541` exchanges are scheduled and while
+periodic traffic is drained for the complete `count * interval` duration. The
+legacy one-shot mode is unchanged. Host self-test verifies one open/close,
+sequence progression, one response per request and full planned elapsed time;
+this is still an implementation candidate, not hardware PASS, until the strict
+five-minute passive plus five-minute active replay succeeds with a separate
+error-frame monitor and unchanged CAN counters. The replay additionally uses a
+bounded post-measurement hold so the NUCLEO can be powered off before the
+diagnostic socket is closed; the hold is outside the ten-minute acceptance
+window.
+
 ## Lightweight evidence rule
 
 A normal physical pass will add only the adapter/driver and interface summary,
