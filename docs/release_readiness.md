@@ -27,7 +27,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
 | REPRO-002 | REPRO | CLOSED | BINARY,HARDWARE | `[047]` completed the independent no-network/no-cache Host, contract, ARM and resource replay | `docs/reproduction_report_repro_002.md`; `artifacts/release/p5_repro_002_replay.json`; REPRO-002 SHA-256 manifest |
 | HW-001 | HW | CLOSED | HARDWARE | BME280 and VEML7700 bounded physical supplements passed; ADXL345 passed final-topology sampling, axis/vibration trend, restart and Modbus visibility through the default bounded polling route | Preserve the physical INT1/INT2, exact-rate, metrology and standalone-SPI exclusions in the domain reports |
-| HW-002 | HW | CLOSED | HARDWARE | RS485-03 passed on the reference CH340 route at fixed address 4; Project Three `[039]` then completed bounded read-only JSONL, one NUCLEO RESET recovery and local MQTT interoperability | Keep H08/H09 address writes gated; preserve the Raspberry Pi, production MQTT, repeated-fault and soak exclusions |
+| HW-002 | HW | CLOSED | HARDWARE | RS485-03 passed on the reference CH340 route at fixed address 4; Project Three `[039]` WSL and `[040]` physical Raspberry Pi 4B/ARM64 routes completed bounded read-only JSONL, one NUCLEO RESET recovery and local MQTT interoperability; the Pi also passed short active-RS485/passive-CAN concurrency | Keep H08/H09 address writes gated; preserve production deployment/MQTT, Host-active-CAN, repeated-fault and soak exclusions |
 | HW-003 | HW | CLOSED | HARDWARE | CAN-03 and BUS-02 passed within the admitted common-GND CAN and reference-CH340 RS485 bench route | Keep claims bounded to one short-line concurrency run and one brief peer interruption per route; repeated fault endurance and physical bus-off recovery remain outside this closure |
 | HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
 
@@ -97,9 +97,10 @@ passed narrow BME280/VEML7700 presence and final-topology ADXL345 identity probe
 and `[066]` subsequently closed the listed ADXL345 functional boundary through
 the production bounded-polling route. Physical CAN,
 fixed-address-4 RS485 and one bounded simultaneous-bus fault-isolation run now
-have separate PASS rows. Project Three `[039]` also completed bounded real STM32 JSONL, RESET recovery and
-local MQTT projection on Ubuntu-24.04-Gateway x86_64; the 10-minute/60-minute/8-hour soak is not inferred
-from those results.
+have separate PASS rows. Project Three `[039]` completed bounded real STM32 JSONL, RESET recovery and
+local MQTT projection on Ubuntu-24.04-Gateway x86_64; `[040]` repeated those paths on a physical
+Raspberry Pi 4B/ARM64 and added a short active-RS485/passive-CAN concurrency supplement. The
+10-minute/60-minute/8-hour soak is not inferred from those results.
 
 ## Evidence matrix result
 
@@ -113,8 +114,9 @@ hardware-claim restrictions pass `tools/check_evidence_matrix.py`. `BSP-02`
 passes only at the bounded board-admission layer. Physical RS485 and CAN each
 pass only on their documented admitted routes; ADXL345 passes only through the
 documented default bounded-polling route. Project Three interoperability passes only on the documented
-Ubuntu-24.04-Gateway x86_64/read-only/local-MQTT route; only the
-10-minute/60-minute/8-hour sessions remain open exactly as listed above.
+Ubuntu-24.04-Gateway x86_64 and physical Raspberry Pi 4B/ARM64 read-only/local-MQTT routes; Host-active
+CAN and production deployment remain excluded. Only the 10-minute/60-minute/8-hour sessions remain open
+exactly as listed above.
 
 ## Learning documentation result
 

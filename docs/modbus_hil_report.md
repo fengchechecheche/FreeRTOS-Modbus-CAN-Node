@@ -18,9 +18,9 @@ P5-S5-T05 已完成无硬件准备和 Host PTY 补测；2026-08-19 执行了旧 
 - PTY 与新转换器物理线路中的 249 B 响应均已通过；物理 H01～H07、复位后的代表性 H01 和转换器断开/重连后的代表性 H01 均通过；
 - `RS485-03` 在“新 CH340 转换器、短线共地、地址 4、19200 8E1”边界内标记为 `PASS`；旧转换器仍保留为与 Shield 组合时的兼容性故障历史，不能据此宣称旧转换器普遍损坏；
 - H08/H09 涉及有效地址写入，因未获得本轮显式写授权而保持 `NOT_RUN_BY_POLICY`；本轮没有执行地址 4→5→4 迁移；
-- 项目三 `[039]` 已建立地址 4 只读 profile；在 Ubuntu-24.04-Gateway x86_64、新 CH340、
-  短线共地边界内，真实 JSONL、一次 NUCLEO RESET 恢复和约 60 秒本地 MQTT 投影通过，
-  `P3-01` 升级为 `PASS`。
+- 项目三 `[039]` 已建立地址 4 只读 profile；Ubuntu-24.04-Gateway x86_64 路线与项目三
+  `[040]` 的物理 Raspberry Pi 4B/ARM64 路线均完成真实 JSONL、一次 NUCLEO RESET 恢复和
+  本地 MQTT 投影，后者还通过“RS485 主动 + CAN 被动”短时并发，`P3-01` 保持 `PASS`。
 
 ## 2. 轻量探针
 
@@ -159,8 +159,33 @@ VEML7700、ADXL345 和 health 必需主题各收到 60 条；设备签名为 205
 为 15。成功路线原始日志在形成摘要后删除。
 
 因此 `P3-01` 在上述指定提交、二进制、转换器和台架边界内为 `PASS`，`HW-002` 可以关闭。
-该结论不覆盖 H08/H09 地址迁移、Raspberry Pi/ARM64 实物 RS485、多个真实从站、远程或 TLS
-MQTT、重复断线、严格恢复上界或硬件长稳。
+该结论不覆盖 H08/H09 地址迁移、多个真实从站、远程或 TLS MQTT、重复断线、严格恢复上界
+或硬件长稳。后续 Raspberry Pi/ARM64 实物补验见 2.5 节。
+
+### 2.5 Raspberry Pi 4B/ARM64 实物互操作补验
+
+2026-08-22 使用物理 Raspberry Pi 4B（Ubuntu 24.04.4、AArch64）运行项目三 `[040]
+b28191e0e4a179bb9bcdb245a73d272a70a6c73b` 的既有 ARM64 发布包，并继续使用地址 4 只读
+profile。发布包 SHA-256 为
+`14d70f0aaa62bbc5aacf75a687e5493b6f91454c9af707abe8403e716aee7ab6`，其源提交为
+`2a0c961bb9677fb3cc54b1e57be88a96cd9db82b`；profile SHA-256 为
+`2d40c5b87f55cfbb77ecfa54de201ecd3fab8cf381e06e7605e92bfcef8a4153`。项目五使用 `[069]
+2789d740e37da6cce4c641a7838fc28ad2b80b84` 与同一默认 Debug ELF。
+
+在新 CH340 稳定路径 `/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0`、地址 4、19200 8E1
+下，JSONL 路线运行约 182.723 秒：2510/2510 次请求成功、失败 0，2510 条 telemetry 有效，
+17 个质量状态完成推进。运行中人工按一次 NUCLEO RESET，网关继续读取，串口只打开一次并
+最终有界停止。
+
+随后连接树莓派本地 Mosquitto `127.0.0.1:1883`。修正一个不符合项目三长度/字符约束的
+MQTT client ID 后，合约内 client ID `p5p3rpi0822` 路线运行约 82.233 秒：1140/1140 次
+Modbus 请求成功；MQTT publish success 1143、failure 0；本机订阅器收到 1140 条 telemetry，
+覆盖 17 个 topic。首次失败发生在配置准入阶段，不属于 RS485、STM32 或 MQTT 传输故障。
+
+最后的双总线补验运行约 208.691 秒：2860/2860 次 Modbus 请求成功；六种 CAN 周期 ID 各
+收到 213 帧，最大帧间隔约 0.983 秒；专用 CAN error frame、warning/passive/bus-off 增量、
+RX drop 增量和 Host CAN TX 均为 0。该轮只声明“RS485 主动轮询 + CAN 被动遥测”，不声明
+Host→STM32 CAN 主动应用通信通过。
 
 ## 3. 写地址安全门
 
@@ -215,8 +240,8 @@ H06B 是预期返回 exception `0x03` 的非法值测试，不等同于有效地
 
 1. 保持当前新转换器、短线共地、`A→A`、`B→B`、19200 8E1 作为参考接线；
 2. 只有在需要验证易失地址迁移且取得显式授权后，才执行 H08/H09，并最终确认地址为 4；
-3. 项目三 `[039]` 地址 4 profile 与有界互操作已通过；后续只在扩展 Raspberry Pi、商用从站、
-   写地址或生产 MQTT 时另行制定计划；
+3. 项目三 `[039]` WSL 路线和 `[040]` Raspberry Pi/ARM64 路线的地址 4 有界互操作均已通过；
+   后续只在扩展商用从站、写地址或生产 MQTT 时另行制定计划；
 4. RS485 与 CAN 各自通过后执行的有界双总线并发和故障隔离矩阵现已完成；边界见 `docs/dual_bus_fault_matrix.md` 的 2026-08-21 实物补验。
 
 非隔离 USB-RS485 只用于短线、共地台架。总线上必须只有一个活动主站。
@@ -227,10 +252,11 @@ H06B 是预期返回 exception `0x03` 的非法值测试，不等同于有效地
 profile，并由项目三 production loader 合同测试覆盖。profile 只使用 `0x04`，不复用
 `motor_actuator` 语义，也不提供 `write_function`。
 
-在 Ubuntu-24.04-Gateway x86_64 与新 CH340 参考路线内，项目三已经持续读取真实项目五节点并
-完成 JSONL、一次 NUCLEO RESET 恢复和约 60 秒本地 MQTT 投影。因此窄范围互操作为
+在 Ubuntu-24.04-Gateway x86_64 和物理 Raspberry Pi 4B/ARM64 两条新 CH340 参考路线内，
+项目三已经持续读取真实项目五节点，并完成 JSONL、一次 NUCLEO RESET 恢复和本地 MQTT 投影；
+Raspberry Pi 还完成约 3 分钟“RS485 主动 + CAN 被动”并发。因此窄范围互操作为
 `PASS_BOUNDED_INTEROP`。项目三整体仍保持 `PUBLISHED=false`、`HARDWARE_VALIDATED=false`、
-`TAG=null`；本结果不能替代 Raspberry Pi、商用从站、CAN、电气安全或硬件长稳。
+`TAG=null`；本结果不能替代商用从站、项目三 CAN 消费、生产部署、电气安全或硬件长稳。
 
 ## 8. 证据规则
 

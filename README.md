@@ -34,6 +34,15 @@
 > Ubuntu-24.04-Gateway x86_64 route. See
 > [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
 
+> 2026-08-22 Raspberry Pi interoperability update: Project Three `[040]` ran
+> its existing ARM64 package on a physical Raspberry Pi 4B and completed
+> 2510/2510 read-only Modbus requests with one NUCLEO RESET, then 1140/1140
+> requests with 1140 local MQTT messages across 17 topics. A final 208.691 s
+> simultaneous run completed 2860/2860 Modbus requests while receiving 213
+> frames for each required CAN ID, with zero dedicated CAN error frames or
+> warning/passive/bus-off growth. This route uses active RS485 polling and
+> passive CAN telemetry; Host-active CAN remains excluded by the T1-T4 matrix.
+
 > 2026-08-19 BME280 hardware update: `SNS-01` is `PASS_HARDWARE_LIMITED`.
 > The final topology produced five fresh, bounded samples with increasing
 > sequence and valid compensated temperature/pressure/humidity output; reset
@@ -158,8 +167,8 @@ P5-S4-T04 已形成统一 sequence、单调时间、
 map。P5-S5-T02 已增加 CRC16、完整 ADU envelope 和 8E1 静默间隔纯逻辑候选；stream parser、
 RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响应、122-register image 和
 易失地址写入候选。T05 无硬件路径已增加默认只读、显式解锁地址写入的 HIL 探针；串口保持
-历史软件准备边界；后续参考 CH340 固定地址 4 实物矩阵以及项目三 `[039]` 只读
-JSONL/RESET/local-MQTT 联调均已通过。P5-S6-T01 已冻结九个 11 位标准 CAN ID、
+历史软件准备边界；后续参考 CH340 固定地址 4 实物矩阵、项目三 `[039]` WSL 以及 `[040]`
+Raspberry Pi 4B/ARM64 只读 JSONL/RESET/local-MQTT 联调均已通过。P5-S6-T01 已冻结九个 11 位标准 CAN ID、
 8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；P5-S6-T02
 已接入 filter、IRQ、固定队列、task notification 与 bus-off 恢复软件候选，硬件保持
 `WAITING_FOR_HARDWARE`。P5-S6-T04 已用一个直接链接生产模块的 Host 矩阵验证双总线背压和
@@ -221,17 +230,20 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
   scheduler smoke、裸板栈水位、IWDG 单次恢复和断电重连补验；CAN 已完成已准入路径的有限
   实物补验；RS485 固定地址 4 的参考转换器矩阵及一次有界物理双总线并发/故障隔离也已通过。
   三传感器已在各自有界路线内通过，物理 ADXL345 INT 路径继续作为排除项；项目三只读
-  JSONL/RESET/local-MQTT 互操作已通过，10 分钟、60 分钟、8 小时长稳仍保持开放。
+  JSONL/RESET/local-MQTT 已在 WSL 与物理 Raspberry Pi 4B/ARM64 路线通过，后者还完成短时
+  RS485 主动/CAN 被动并发；10 分钟、60 分钟、8 小时长稳仍保持开放。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。
   T05 HIL self-test/dry-run 不打开串口；参考 CH340 路径的真实 249 B response 已通过，地址迁移
-  仍为 `NOT_RUN_BY_POLICY`；项目三 `[039]` 的地址 4 只读联调已为 `PASS_BOUNDED_INTEROP`。
+  仍为 `NOT_RUN_BY_POLICY`；项目三 `[039]` WSL 与 `[040]` Raspberry Pi 地址 4 只读联调均在
+  各自边界内为 `PASS_BOUNDED_INTEROP`。
 - CAN 合同使用节点 4 的七个节点遥测/事件 ID 以及专用诊断 `0x540/0x541`、500 kbit/s、
   standard data frame、DLC 8 和 little-endian。接收侧仅启用一个 16-bit ID-list filter bank，
   四条硬件表项均重复 Host-owned `0x540`；发送侧独立允许七个 STM32 遥测/事件 ID 和 `0x541`。
   固定 IRQ/RX mailbox、latest-wins 周期发送、事件合并、单槽诊断应答及 1 s/3 次 bus-off 恢复均达到
-  软件候选；公共 GND 条件下的周期遥测、双向物理 ACK 和 `0x540/0x541` 应用层往返均已通过。
+  软件候选；公共 GND 条件下的周期遥测、双向物理 ACK 和一次有界 `0x540/0x541` 应用层往返
+  已通过，但 T1～T4 表明 Host 主动 CAN 的重复运行仍不可靠，因此正式并发范围只保留 CAN 被动遥测。
   P5-S6-T03 已用 raw SocketCAN/`vcan` 完成有界软件矩阵；T04 的 D01～D08 Host 矩阵进一步验证
   RS485 CRC/timeout 与 CAN busy、FIFO full、
   bus-off 同时发生时，健康链路、采集和 health task model 仍有进度；虚拟 tick 不构成物理恢复时间。

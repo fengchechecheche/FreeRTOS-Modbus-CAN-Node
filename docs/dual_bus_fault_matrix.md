@@ -135,55 +135,49 @@ its socket; Host counters subsequently reached 8 error-warning, 33
 error-passive and 210 bus-off transitions. The counters stopped increasing when
 no further Host frame was sent, while periodic CAN RX and Modbus continued.
 
-A cold, CAN-only lifecycle A/B test isolated the trigger:
+An early cold CAN-only A/B observation made short-lived Host sender closure a
+plausible candidate trigger: one retained socket produced a clean response,
+whereas one immediately closed TX socket was followed by 5678 error frames.
+That observation was useful for forming a hypothesis, but it did not establish
+causality.
 
-- five receive-only minutes were zero-error;
-- one request sent through a socket retained for a 60 s receive/error window
-  obtained one matching response, zero error frames and zero Host state
-  transitions;
-- one request sent through a separate TX socket that was closed immediately
-  also obtained one matching response, but produced 5678 error frames. They
-  included 370 ACK, 5306 protocol and 4168 bus-off classifications; controller
-  payloads reported combined RX/TX warning (`0x0C`), combined RX/TX passive
-  (`0x30`) and BIT1 protocol errors (`data[2]=0x10`). Host cumulative counters
-  reached 188 error-warning, 753 error-passive and 4168 bus-off transitions
-  before returning to ERROR-ACTIVE.
+The later authoritative T1-T4 lifecycle matrix tested four ten-minute modes:
+one persistent socket, a persistent monitor plus a second persistent sender,
+per-request immediate sender close, and per-request sender close delayed by
+five seconds. All four modes could produce error frames or CAN state-counter
+growth. Socket close is therefore not a necessary trigger, and the precise
+lower-layer cause cannot be uniquely assigned to socket lifecycle,
+candleLight, `gs_usb`, USB-IP, the STM32 firmware or any single component. The
+full bounded evidence is recorded in `docs/can_socket_lifecycle_matrix.md`.
 
-The bounded conclusion is that real passive RS485/CAN concurrency remained
-healthy, while the short-lifetime Host sender was a sufficient trigger for an
-error-frame storm in this admitted candleLight/`gs_usb`/USB-IP bench. Public
-implementations support a plausible TX-echo/socket-lifecycle interaction, but
-no public source located during the review directly reproduces this exact
-immediate-close behavior; the lower-layer defect is therefore not uniquely
-assigned to one component. The adapter exposes neither `one-shot`,
-`presume-ack` nor `berr-reporting`; STM32 NART was not changed because the same
-default firmware was zero-error with the retained Host socket. The admitted
-one-shot diagnostic path is the repository probe, which keeps one socket open
-through its bounded response window.
+T5 then exercised the product-scope route for 600.011 s with active Modbus/RS485
+polling and passive CAN telemetry only. It completed 8768 successful Modbus
+requests with zero failure, received 610 frames for each of the six periodic CAN
+IDs, observed zero dedicated CAN error frames and no warning/passive/bus-off
+counter growth, and sent zero Host CAN frames. This closes the product-scope
+concurrency check without claiming reliable Host-to-STM32 CAN application
+traffic.
 
-The subsequent strict replay attempt corrected two test-procedure limitations.
-First, `can_hil_probe.py --observe-seconds 60` may stop early at its 128-frame
-capture cap, so passive-phase duration must be enforced by an independent
-monotonic timer. Second, reopening the one-shot probe for each active request is
-not sufficient here: after three clean requests, the fourth still obtained one
-matching `0x541` but was followed by five error-warning and one error-passive
-observations. Modbus remained at 4763/4763 valid requests with zero failure over
-the 347088 ms observed span before the failure gate stopped the run. These data
-do not constitute a ten-minute pass.
+## 2026-08-22 Raspberry Pi 4B/ARM64 supplement
 
-The next replay therefore uses one bounded `--diagnostic-series` invocation and
-one SocketCAN socket for the complete five-minute active phase. Its Host
-self-test is complete, but the mode and the claimed anomaly fix remain
-`CANDIDATE` until a strict five-minute passive plus five-minute active hardware
-run has zero dedicated error frames, zero CAN state/counter growth and no
-Modbus failures. A bounded shutdown guard keeps that same socket open after the
-measurement window so the NUCLEO can be powered off before socket close.
+A later physical Raspberry Pi 4B run used Ubuntu 24.04.4 AArch64, Project Three
+`[040] b28191e0e4a179bb9bcdb245a73d272a70a6c73b`, Project Five `[069]
+2789d740e37da6cce4c641a7838fc28ad2b80b84`, the same default Debug ELF, the
+reference CH340 adapter and candleLight at 500 kbit/s with Host sample point
+`0.75`.
+
+During the 208.691 s simultaneous run, the Raspberry Pi gateway completed
+2860/2860 Modbus requests with zero failure while each of the six required CAN
+IDs contributed 213 frames. The maximum observed periodic-frame gap was
+0.982764 s. Dedicated error-frame count, CAN warning/passive/bus-off counter
+deltas and RX-drop delta were all zero; Host CAN TX remained zero. The gateway
+and both capture processes then stopped cleanly and `can0` was brought down.
 
 The VCP startup and heartbeat were confirmed before the runs but were not logged
 continuously. Success JSONL was summarized and deleted instead of being retained
 as a large raw evidence package. This recheck does not add a Project Three CAN
-consumer, validate Raspberry Pi/ARM64 deployment, repeat the prior disconnect
-injections or close `SOAK-02`.
+consumer, validate production systemd/TLS deployment, repeat the prior
+disconnect injections or close `SOAK-02`.
 
 ## Historical hardware follow-up contract
 
