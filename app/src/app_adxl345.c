@@ -110,7 +110,7 @@ void app_adxl345_initialize(void)
 void app_adxl345_service(uint32_t now_ms,
                          uint32_t data_ready_event_count)
 {
-#if P5_ADXL345_POLLING_DIAGNOSTIC_ENABLE
+#if P5_ADXL345_POLLING_FALLBACK_ENABLE
   if ((data_ready_event_count == 0U) &&
       (app_adxl345_driver.state == ADXL345_STATE_WAIT_DATA_READY))
   {

@@ -188,8 +188,8 @@ CHECKS: CheckTable = {
             "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC_ENABLE=1",
         ),
         (
-            "adxl polling diagnostic compile definition",
-            "P5_ADXL345_POLLING_DIAGNOSTIC_ENABLE=1",
+            "adxl polling fallback compile definition",
+            "P5_ADXL345_POLLING_FALLBACK_ENABLE=1",
         ),
     ],
     Path("bsp/include/bsp_clock.h"): [
@@ -270,16 +270,12 @@ CHECKS: CheckTable = {
             "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC requires P5_ADXL345_HIL_DIAGNOSTIC=ON",
         ),
         (
-            "adxl polling diagnostic default off",
-            'option(P5_ADXL345_POLLING_DIAGNOSTIC "Poll ADXL345 DATA_READY for bounded HIL diagnosis" OFF)',
+            "adxl polling fallback default on",
+            'option(P5_ADXL345_POLLING_FALLBACK "Enable bounded ADXL345 DATA_READY polling fallback" ON)',
         ),
         (
-            "adxl polling diagnostic dependency",
-            "P5_ADXL345_POLLING_DIAGNOSTIC requires P5_ADXL345_HIL_DIAGNOSTIC=ON",
-        ),
-        (
-            "adxl diagnostic modes mutually exclusive",
-            "ADXL345 polling and INT2 route diagnostics are mutually exclusive",
+            "adxl fallback and int2 diagnostic mutually exclusive",
+            "ADXL345 polling fallback and INT2 route diagnostic are mutually exclusive",
         ),
         ("ownership host test", "add_test(NAME p5.host.ownership"),
         ("health host test", "add_test(NAME p5.host.health"),
@@ -721,8 +717,8 @@ CHECKS: CheckTable = {
             "app_adxl345_register_diagnostic = next;",
         ),
         (
-            "adxl polling diagnostic switch",
-            "#if P5_ADXL345_POLLING_DIAGNOSTIC_ENABLE",
+            "adxl polling fallback switch",
+            "#if P5_ADXL345_POLLING_FALLBACK_ENABLE",
         ),
         (
             "adxl polling reads interrupt source",
@@ -771,7 +767,7 @@ FORBIDDEN_CHECKS: CheckTable = {
         ("iwdg reset smoke default on", "P5_IWDG_RESET_SMOKE \"Enable one controlled IWDG reset smoke\" ON"),
         ("adxl hil diagnostic default on", "P5_ADXL345_HIL_DIAGNOSTIC \"Enable bounded ADXL345 HIL diagnostic output\" ON"),
         ("adxl int2 route diagnostic default on", "P5_ADXL345_INT2_ROUTE_DIAGNOSTIC \"Route ADXL345 DATA_READY to INT2 for bounded HIL diagnosis\" ON"),
-        ("adxl polling diagnostic default on", "P5_ADXL345_POLLING_DIAGNOSTIC \"Poll ADXL345 DATA_READY for bounded HIL diagnosis\" ON"),
+        ("adxl polling fallback default off", "P5_ADXL345_POLLING_FALLBACK \"Enable bounded ADXL345 DATA_READY polling fallback\" OFF"),
         ("production fault injection option", "P5_FAULT_INJECTION"),
     ],
     Path("config/FreeRTOSConfig.h"): [
@@ -1566,30 +1562,30 @@ def run_self_test(root: Path) -> int:
         return 2
 
     expected_adxl_polling = (
-        'option(P5_ADXL345_POLLING_DIAGNOSTIC '
-        '"Poll ADXL345 DATA_READY for bounded HIL diagnosis" OFF)'
+        'option(P5_ADXL345_POLLING_FALLBACK '
+        '"Enable bounded ADXL345 DATA_READY polling fallback" ON)'
     )
     adxl_polling_mutant = original.replace(
         expected_adxl_polling,
-        expected_adxl_polling[:-4] + "ON)",
+        expected_adxl_polling[:-3] + "OFF)",
         1,
     )
     if adxl_polling_mutant == original:
         print(
             "P5 BSP CONTRACT SELF-TEST: FAIL "
-            "(could not create default-on ADXL345 polling mutant)"
+            "(could not create default-off ADXL345 polling fallback mutant)"
         )
         return 2
     adxl_polling_errors, _ = verify(
         root, {cmake_path: adxl_polling_mutant}
     )
     if not any(
-        "adxl polling diagnostic default on" in item
+        "adxl polling fallback default off" in item
         for item in adxl_polling_errors
     ):
         print(
             "P5 BSP CONTRACT SELF-TEST: FAIL "
-            "(default-on ADXL345 polling diagnostic was not detected)"
+            "(default-off ADXL345 polling fallback was not detected)"
         )
         return 2
 
@@ -1942,7 +1938,7 @@ def run_self_test(root: Path) -> int:
         "callback-work, queue-depth, blocking-wait, dynamic-queue and "
         "callback-queue, one-epoch-stall, recovery-budget, degraded-feed, "
         "task-delete, default-on-reset-smoke, default-on-adxl-hil, "
-        "default-on-adxl-polling, second-feed, "
+        "default-off-adxl-polling-fallback, second-feed, "
         "BME-HAL-delay, BME-loop, "
         "second-SPI-owner, BME-mutex, VEML-HAL-delay, VEML-loop, "
         "second-I2C-owner, VEML-mutex, ADXL-priority, ADXL-recovery, "
