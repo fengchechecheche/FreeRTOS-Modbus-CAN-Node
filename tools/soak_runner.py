@@ -24,7 +24,7 @@ SCHEMA_REVISION = 1
 TASK_NAMES = ("protocol", "acquisition", "can", "health", "diagnostic")
 SENSOR_NAMES = ("bme280", "veml7700", "adxl345_sample", "adxl345_feature")
 P5_HIL_COLLECTOR_KIND = "p5-hil-v1"
-P5_CAN_IDS = ("140", "240", "241", "340", "341", "342")
+P5_CAN_IDS = ("240", "241", "340", "341", "342", "440")
 MAX_SAMPLES = 600
 MAX_LINE_BYTES = 16 * 1024
 MAX_STDERR_BYTES = 64 * 1024
@@ -36,6 +36,10 @@ IDENTITY_64 = re.compile(r"^[0-9a-f]{64}$")
 
 class InputError(ValueError):
     """Raised for invalid or unbounded runner input."""
+
+
+def collector_timeout_seconds(duration_seconds: int, sample_seconds: int) -> float:
+    return duration_seconds + sample_seconds + PROCESS_GRACE_SECONDS
 
 
 @dataclasses.dataclass
@@ -633,6 +637,12 @@ def run_self_test() -> int:
     metadata = stable_metadata()
     stable = [stable_sample(index) for index in range(9)]
     checks = 0
+    if P5_CAN_IDS != ("240", "241", "340", "341", "342", "440"):
+        raise AssertionError("periodic CAN acceptance set drifted")
+    checks += 1
+    if collector_timeout_seconds(600, 60) != 665.0:
+        raise AssertionError("collector timeout does not include phase alignment")
+    checks += 1
 
     def expect_status(name: str, samples: list[dict[str, Any]], status: str) -> None:
         nonlocal checks
@@ -921,7 +931,10 @@ def run_mode(args: argparse.Namespace) -> int:
                 str(raw_dir),
             ]
         )
-    process = run_process(command, args.duration_seconds + PROCESS_GRACE_SECONDS)
+    process = run_process(
+        command,
+        collector_timeout_seconds(args.duration_seconds, args.sample_seconds),
+    )
     failures: list[str] = []
     if process.timed_out:
         failures.append("collector exceeded total timeout")

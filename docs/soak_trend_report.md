@@ -103,10 +103,14 @@ arm-none-eabi-size out/firmware-debug/freertos_modbus_can_node.elf
 
 ```bash
 sudo ip link set can0 down
-sudo ip link set can0 type can bitrate 500000 sample-point 0.75 restart-ms 100
+sudo ip link set can0 type can bitrate 500000 sample-point 0.75
 sudo ip link set can0 up
 ip -details -statistics link show can0
 ```
+
+当前 candleLight/`gs_usb` 适配器明确返回 `Device doesn't support restart from Bus Off`，因此
+不得反复加入无效的 `restart-ms 100`。本台架固定为 `restart-ms 0`，采集器把 BUS-OFF 错误帧
+作为硬失败并停止晋级；恢复时重新冷启动适配器和同一阶段，而不声明自动恢复能力。
 
 审核、提交、双端同步并记录干净提交及诊断 ELF 哈希后，以实际值替换占位符：
 
@@ -124,7 +128,7 @@ python3 tools/soak_runner.py --run \
   --collector-kind p5-hil-v1 \
   --board-identity nucleo-f446re-stlink-v2-1-no-serial \
   --output-dir .private/soak/<session> \
-  --collector-command -- python3 tools/soak_hil_collector.py \
+  --collector-command python3 tools/soak_hil_collector.py \
     --vcp /dev/serial/by-id/<stlink-vcp> \
     --rs485 /dev/serial/by-id/<ch340-rs485> \
     --can-interface can0
@@ -132,6 +136,23 @@ python3 tools/soak_runner.py --run \
 
 `soak_runner.py` 自动向该采集器追加 session ID、时长、60 秒周期和私有原始证据目录，调用方
 不得重复提供这些参数。
+
+runner 对 HIL 子进程的总时限为“计划时长 + 一个采样周期 + 退出宽限”。额外采样周期只用于
+对齐任意相位开始的 `P5DIAG1`，不减少 10 分钟所需的 10 个样本，也不把 9 个样本提升为通过。
+CAN 通过门只覆盖冻结合同中的六个周期 ID：`0x240/0x241/0x340/0x341/0x342/0x440`；
+变化触发的事件 ID `0x140` 可以记录，但不得要求它在稳定长稳窗口中必然出现。
+
+### 2026-08-22 首轮 10 分钟工具失败
+
+会话 `eef183b2-1449-4fb9-bc22-d222236f7a96` 保留为 `FAIL`，不得改写。该轮形成 9 个完整
+RS485/传感器样本和持续 CAN 原始帧，未出现 CAN 错误帧、BUS-OFF、任务 missed/deadline/
+budget overrun、队列丢弃、RS485 错误、传感器故障或 MCU 复位。失败由两个工具契约错误触发：
+
+- runner 在 `600 + 5 s` 终止了仍按自身 `600 + 60 s` 对齐边界等待第 10 个样本的采集器；
+- CAN 必测集合误含非周期事件 `0x140`，同时遗漏周期振动摘要 `0x440`。
+
+因此该轮既不能作为 10 分钟 PASS，也不能据此声称硬件失败。修订后必须绑定新的干净提交，
+从空证据目录完整重跑 600 秒；旧证据仅用于解释工具修订，不与新会话拼接。
 
 ## 阶段门
 

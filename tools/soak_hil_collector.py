@@ -25,7 +25,7 @@ REGISTER_COUNT = 122
 DEVICE_SIGNATURE = 20533
 TASK_NAMES = ("protocol", "acquisition", "can", "health", "diagnostic")
 SENSOR_NAMES = ("bme280", "veml7700", "adxl345_sample", "adxl345_feature")
-CAN_IDS = (0x140, 0x240, 0x241, 0x340, 0x341, 0x342)
+CAN_IDS = (0x240, 0x241, 0x340, 0x341, 0x342, 0x440)
 MAX_VCP_LINE_BYTES = 4096
 MAX_EVIDENCE_BYTES = 64 * 1024 * 1024
 CAN_ERR_FLAG = 0x20000000
@@ -407,6 +407,8 @@ def run(args: argparse.Namespace) -> int:
 
 
 def self_test(register_map: pathlib.Path) -> int:
+    if CAN_IDS != (0x240, 0x241, 0x340, 0x341, 0x342, 0x440):
+        raise AssertionError("periodic CAN capture set drifted")
     line = (
         "P5DIAG1 v=1 t=60000 boot=2 tr=1/2/3/4/5 tm=0/0/0/0/0 "
         "td=0/0/0/0/0 tb=0/0/0/0/0 tc=256/256/256/256/256 "
