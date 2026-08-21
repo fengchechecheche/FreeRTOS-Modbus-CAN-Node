@@ -200,8 +200,8 @@ def anchor_errors(root: pathlib.Path, route_text: str) -> list[str]:
     if matrix.get("summary") != {
         "FAIL": 0,
         "NOT_CLAIMED": 1,
-        "NOT_RUN": 4,
-        "PASS": 19,
+        "NOT_RUN": 3,
+        "PASS": 20,
         "REVIEW_REQUIRED": 0,
     }:
         errors.append("evidence-matrix summary drift")

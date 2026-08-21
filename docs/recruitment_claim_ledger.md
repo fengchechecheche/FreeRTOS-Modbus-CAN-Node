@@ -33,7 +33,6 @@ qualification and exclusion boundaries must remain intact.
 |---|---|---|---|
 | LIM-HW-01 | BSP-02,SNS-01,SNS-02,SNS-03,WDG-01 | Board startup and bounded watchdog reset passed; physical sensor sampling and full hardware release remain incomplete. | NOT_ELIGIBLE |
 | LIM-RS485-01 | RS485-03,P3-01 | Fixed-address-4 physical USB-RS485 passed on the reference CH340 route; valid address migration and Project Three interoperability were not run. | NOT_ELIGIBLE |
-| LIM-CAN-01 | CAN-03,BUS-02 | Bounded physical CAN passed on the admitted common-GND route; simultaneous physical RS485/CAN was not run. | NOT_ELIGIBLE |
 | LIM-SOAK-01 | SOAK-02 | Hardware smoke, pre-run and formal soak were not run. | NOT_ELIGIBLE |
 | LIM-REPRO-01 | REP-02 | Bit-for-bit BIN/HEX equality across differently named clean paths is not claimed. | NOT_ELIGIBLE |
 
@@ -42,7 +41,7 @@ qualification and exclusion boundaries must remain intact.
 - Keep “Host”, “cross-build”, “software candidate” and “vcan” qualifiers.
 - Keep the PTY claim qualified as Host software interaction, not physical RS485.
 - Keep any physical RS485 claim bound to the reference CH340 route, fixed address 4 and the H01～H07/H10/H11 scope; do not imply address migration or Project Three interoperability.
-- Do not replace “software fault matrix” with an unqualified physical dual-bus claim.
+- Do not replace “software fault matrix” with an unqualified physical dual-bus claim; any physical claim must cite the single bounded `BUS-02` route and its exclusions.
 - Do not state Project Three gateway interoperability until `P3-01` passes.
 - Do not publish sampling periods, recovery times or soak durations as measured results while their hardware rows are `NOT_RUN`.
 - Do not use “industrial grade”, “production ready”, “functional safety” or equivalent language.

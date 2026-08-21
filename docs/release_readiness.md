@@ -28,7 +28,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | REPRO-002 | REPRO | CLOSED | BINARY,HARDWARE | `[047]` completed the independent no-network/no-cache Host, contract, ARM and resource replay | `docs/reproduction_report_repro_002.md`; `artifacts/release/p5_repro_002_replay.json`; REPRO-002 SHA-256 manifest |
 | HW-001 | HW | OPEN | HARDWARE | BME280 sampling/reset and VEML7700 light-response/range checks passed; ADXL345 interrupt/axis checks and standalone SPI robustness are not complete | Run the remaining bounded ADXL345 functional supplement after its hardware uncertainty is resolved |
 | HW-002 | HW | OPEN | HARDWARE | RS485-03 passed on the reference CH340 route at fixed address 4; H08/H09 valid address migration and Project Three interoperability are not run | Keep address writes gated; next create and review the Project Three address-4 profile before bounded interoperability |
-| HW-003 | HW | OPEN | HARDWARE | CAN-03 and RS485-03 passed within their admitted routes; BUS-02 dual-bus concurrency is not run | Run the bounded physical RS485+CAN concurrency/fault-isolation matrix |
+| HW-003 | HW | CLOSED | HARDWARE | CAN-03 and BUS-02 passed within the admitted common-GND CAN and reference-CH340 RS485 bench route | Keep claims bounded to one short-line concurrency run and one brief peer interruption per route; repeated fault endurance and physical bus-off recovery remain outside this closure |
 | HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
 
 ## Current license inventory result
@@ -90,18 +90,19 @@ repeatable as a procedure, but bit-for-bit output across differently named
 directories is `NOT_CLAIMED`; no CMake or firmware flags were changed in T02.
 REPRO-002 repeated the same bounded comparison and retained that limitation.
 
-The four hardware blockers remain open. NUCLEO-F446RE supplements passed the
+Three hardware blockers remain open; `HW-003` is closed. NUCLEO-F446RE supplements passed the
 narrow `BSP-02` board-admission row and `WDG-01`, including normal health feed,
 one controlled IWDG reset and reset-only `.noinit` retention. P5-HW-SNS-00 also
 passed narrow BME280/VEML7700 presence and final-topology ADXL345 identity probes,
-but `HW-001` remains open for the listed ADXL345 boundary. Physical CAN and
-fixed-address-4 RS485 now have separate bounded PASS rows; Project Three,
-simultaneous buses and the 8-hour soak are not inferred from those results.
+but `HW-001` remains open for the listed ADXL345 boundary. Physical CAN,
+fixed-address-4 RS485 and one bounded simultaneous-bus fault-isolation run now
+have separate PASS rows; Project Three, repeated fault endurance and the 8-hour
+soak are not inferred from those results.
 
 ## Evidence matrix result
 
 The updated matrix projects `[047]` and its REPRO-002 bundle into 24 bounded
-evidence rows: 19 `PASS`, 0 `FAIL`, 4 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
+evidence rows: 20 `PASS`, 0 `FAIL`, 3 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
 `artifacts/release/p5_s7_t03_evidence_matrix.json`; the curated public view and
 claim boundaries are in `docs/evidence_matrix.md`.
 

@@ -1,9 +1,11 @@
 # P5-S6-T04 dual-bus fault matrix
 
-> Software status: `PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE`
-> Hardware status: `WAITING_FOR_HARDWARE`
-> Content review: `FROZEN` (approved 2026-08-15)
+> Software status: `PASS_HOST + PASS_CROSS_BUILD`
+> Hardware status: `PASS`
+> Software content review: `FROZEN` (approved 2026-08-15)
+> Hardware supplement content review: `PENDING`
 > Baseline: `[033] d6b929b85a1e3918edc90c5b276fe9b81d2cf4e3`
+> Hardware supplement source: `[063] f774d4c6d8d1a406a1a8807159383ff91447fdc6`
 > Evidence policy: bounded final rows only; no per-tick trace
 
 ## Purpose and boundary
@@ -77,9 +79,36 @@ ctest --preset host-release --output-on-failure
 The full Host suites contain 21 tests after this task. CAN, Modbus and BSP
 contract validators and both ARM presets remain separate regression gates.
 
-## Hardware follow-up
+## 2026-08-21 physical supplement
 
-Physical validation requires the NUCLEO-F446RE path, USB-RS485 link, CAN
+The physical supplement used the default firmware on NUCLEO-F446RE with the
+Waveshare RS485 CAN Shield, the reference CH340 USB-RS485 adapter and a
+candleLight/`gs_usb` CAN adapter. The default Debug ELF SHA-256 was
+`bd72b55c84350d433aebb7c0eaee14705b3ae3422604f19c732d54fd2808f73f`.
+RS485 remained at address 4 and `19200 8E1`; CAN used 500 kbit/s, Host sample
+point `0.75`, common GND and the admitted termination. Device serials were not
+recorded.
+
+| Physical step | Bounded observation | Result |
+|---|---|---|
+| Single-route entry gates | RS485 H01～H07 passed 10/10; CAN observed all six periodic IDs while ERROR-ACTIVE | PASS |
+| Normal dual-bus concurrency | RS485 H01～H07 passed 30/30 while six CAN windows captured 733 accepted frames across all six periodic IDs, with 0 rejected, 0 duplicate and no BME pair mismatch | PASS |
+| RS485 peer disconnect/reconnect | During one approximately 10 s USB-RS485 disconnect, CAN accepted 128 frames across all six periodic IDs; heartbeat continued and the MCU did not reset. After reconnect, RS485 H01～H07 passed 10/10 | PASS |
+| CAN peer down/recovery | During one 2 s `can0` software-down interval, RS485 H01～H07 passed 8/8; heartbeat continued and the MCU did not reset. After restoring 500 kbit/s/sample point `0.75`, CAN accepted 120 frames with no rejection/duplicate and the `0x540/0x541` diagnostic round trip passed | PASS |
+| Final state | `can0` was ERROR-ACTIVE with Host warning/passive/bus-off/error counters at zero | PASS |
+
+This closes `BUS-02` only for one bounded short-line bench run. It proves that
+the healthy bus and heartbeat continued through one brief peer interruption and
+that both routes recovered under the existing policy. It does not prove repeated
+disconnect endurance, arbitrary outage duration, physical bus-off recovery,
+measured recovery latency, MTBF, long-run stability or Project Three
+interoperability. The offline D01～D08 matrix remains the evidence for deliberate
+queue saturation and backpressure; the physical run did not inject queue
+overflow.
+
+## Historical hardware follow-up contract
+
+The original minimum physical-validation contract required the NUCLEO-F446RE path, USB-RS485 link, CAN
 transceiver and candleLight path to pass their individual entry gates first.
 The minimum follow-up is intentionally small:
 
@@ -88,6 +117,7 @@ The minimum follow-up is intentionally small:
 3. stop/disconnect the CAN peer briefly and confirm Modbus/acquisition continue;
 4. restore both links and record whether the existing recovery or latched policy applies.
 
-Only that run may report real recovery time, throughput, deadline misses, task
-stack watermarks or physical fault isolation. Long-duration trends belong to
-P5-S6-T05.
+The 2026-08-21 supplement above executed this minimum contract. It intentionally
+does not convert the brief injected outage durations into measured recovery-time,
+throughput, deadline, stack-watermark or long-duration claims. Those trends
+remain in P5-S6-T05.

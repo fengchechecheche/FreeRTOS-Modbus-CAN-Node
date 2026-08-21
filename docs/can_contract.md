@@ -149,5 +149,6 @@ software path. Runtime architecture and troubleshooting are recorded in
 Hardware sessions require the S2 admission gate, known transceiver/jumpers,
 CANH/CANL/common GND, reviewed termination, matching bitrate,
 candleLight/SocketCAN and representative decoded frames. The bounded admitted
-route is recorded in [`can_hil_report.md`](can_hil_report.md); physical dual-bus
-concurrency remains outside T01/T02 and is still `NOT_RUN`.
+route is recorded in [`can_hil_report.md`](can_hil_report.md). Physical dual-bus
+concurrency remains outside T01/T02 and passed separately under the bounded
+`BUS-02` scope in [`dual_bus_fault_matrix.md`](dual_bus_fault_matrix.md).

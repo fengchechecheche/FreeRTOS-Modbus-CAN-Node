@@ -6,7 +6,7 @@
 > Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > Current software-test baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
-> Evidence matrix: `24 = 19 PASS + 0 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
+> Evidence matrix: `24 = 20 PASS + 0 FAIL + 3 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `ABSENT / NOT_RUN`
 
@@ -14,7 +14,7 @@
 
 This document describes the current software candidate plus its separately
 bounded bare-board evidence. It is not final v0.1.0 release notes and does not
-promote the remaining sensor, physical-bus or soak gaps.
+promote the remaining sensor, Project Three interoperability or soak gaps.
 
 The candidate keeps its identities separate. `[036]`/`[037]` remain the
 historical T02 source/evidence pair, `[039]` is the original T05 documentation

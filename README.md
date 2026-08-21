@@ -17,8 +17,9 @@
 > directions with both sides ERROR-ACTIVE and zero errors. Source `[060]` then
 > passed the read-only `0x540` Host request / `0x541` STM32 response application
 > round trip at 500 kbit/s and Host sample point `0.75`: one request, one matching
-> response, zero CAN errors and the matching VCP acceptance marker. Physical
-> RS485+CAN concurrency remains `NOT_RUN`. See
+> response, zero CAN errors and the matching VCP acceptance marker. A later
+> bounded `BUS-02` run also passed simultaneous RS485/CAN traffic, one brief
+> peer interruption per route and post-restore checks. See
 > [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
 > 2026-08-21 RS485 hardware update: the historical old-adapter return-path
@@ -55,8 +56,9 @@
 
 > P5-S7-T05 update: intended version `v0.1.0` remains `UNRELEASED`. The current
 > result is a `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`, with a software demo and
-> matrix-bound recruitment wording that are not published. All four hardware
-> blockers remain open; no tag, binary attachment or remote Release exists. See
+> matrix-bound recruitment wording that are not published. `HW-003` is now
+> closed by bounded CAN and physical dual-bus evidence; the sensor/Project
+> Three/soak blockers remain open. No tag, binary attachment or remote Release exists. See
 > [`docs/v0_1_0_software_candidate.md`](docs/v0_1_0_software_candidate.md),
 > [`docs/demo_guide.md`](docs/demo_guide.md), and
 > [`docs/recruitment_claim_ledger.md`](docs/recruitment_claim_ledger.md).
@@ -69,7 +71,7 @@
 > [`docs/learning/problem_ledger.md`](docs/learning/problem_ledger.md).
 
 > P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
-> 17 `PASS`, 2 `FAIL`, 4 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
+> 20 `PASS`, 0 `FAIL`, 3 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
 > software, board, RS485, or CAN evidence layer; no software result is promoted
 > to a physical-hardware claim. The hardware Release gate remains
 > `BLOCKED_WAITING_FOR_HARDWARE`. See
@@ -98,10 +100,10 @@
 > [`docs/soak_trend_report.md`](docs/soak_trend_report.md).
 
 > P5-S6-T04 update: the deterministic dual-bus matrix is `PASS_HOST +
-> PASS_CROSS_BUILD + READY_FOR_HARDWARE`. D01-D08 cover Modbus/RS485 slow,
+> PASS_CROSS_BUILD`; its bounded physical supplement is `PASS`. D01-D08 cover Modbus/RS485 slow,
 > CRC, busy and timeout paths together with CAN latest-wins, queue pressure and
-> bus-off isolation. Physical dual-bus validation remains
-> `WAITING_FOR_HARDWARE`. See
+> bus-off isolation. The physical supplement covers normal simultaneous traffic,
+> one brief peer interruption per route and post-restore checks. See
 > [`docs/dual_bus_fault_matrix.md`](docs/dual_bus_fault_matrix.md).
 
 > P5-S6-T03 update: the standard-library SocketCAN probe, dry-run and bounded
@@ -140,7 +142,7 @@ RS485 transport 已在 T03 接入；T04 已实现 `0x03/0x04/0x06`、异常响�
 8-byte payload、little-endian、sequence、状态和 1% 静态负载合同，并增加纯 C codec；P5-S6-T02
 已接入 filter、IRQ、固定队列、task notification 与 bus-off 恢复软件候选，硬件保持
 `WAITING_FOR_HARDWARE`。P5-S6-T04 已用一个直接链接生产模块的 Host 矩阵验证双总线背压和
-软件故障隔离；未修改固件任务或 RTOS 资源，实物并发仍待硬件。P5-S6-T05 已增加有界
+软件故障隔离，并完成一次有界实物并发、短暂断线隔离和恢复补验；未修改固件任务或 RTOS 资源。P5-S6-T05 已增加有界
 JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保持不变，真实 10 分钟、60 分钟
 和 8 小时长稳均为 `NOT_RUN`。
 
@@ -193,8 +195,8 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 已完成 ST-LINK、烧录/校验/复位、VCP、运行时时钟、GPIO 寄存器状态、有限
   scheduler smoke、裸板栈水位、IWDG 单次恢复和断电重连补验；CAN 已完成已准入路径的有限
-  实物补验；RS485 固定地址 4 的参考转换器矩阵也已通过。传感器完整中断验收、项目三互操作、
-  物理双总线并发与长稳仍保持开放。
+  实物补验；RS485 固定地址 4 的参考转换器矩阵及一次有界物理双总线并发/故障隔离也已通过。
+  传感器完整中断验收、项目三互操作与长稳仍保持开放。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。
@@ -245,7 +247,8 @@ python3 tools/verify_can_contract.py --self-test
 CAN map/codec 为 `CANDIDATE_VALIDATED`，CAN runtime 为 `CANDIDATE_IMPLEMENTED`；
 SocketCAN/`vcan` 为 `PASS_HOST`。实物 CAN 在公共 GND 条件下通过周期遥测和两方向物理
 ACK 的有界补验；revision 1 的只读 `0x540/0x541` 实物应用层往返也已通过，`CAN-03`
-保持 `PASS`。`BUS-02` 双总线并发仍为 `NOT_RUN`。
+保持 `PASS`。`BUS-02` 已在参考 CH340、已准入 CAN 路径、一次短暂断线/恢复的有界条件下为
+`PASS`；不声明重复断线耐久、任意断线时长、物理 bus-off 恢复或长稳。
 
 CAN HIL 软件预检：
 

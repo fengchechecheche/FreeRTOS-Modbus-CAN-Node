@@ -2,10 +2,11 @@
 
 > Software status: `PASS_HOST`
 > Hardware status: `PASS`
-> Integration status: `NOT_RUN`
+> Integration status: `PASS`
 > Baseline: `4a581aea31dc97c6deec51726ed0ccf7325579bd` (`[032]`)
 > Historical hardware supplement source: `285a894d52ff817bf9683a5a7034c01c27675e89`
 > Current hardware supplement source: `[060] 39c6114eba1b547d29741d142582f3828a902dc7`
+> Current integration supplement source: `[063] f774d4c6d8d1a406a1a8807159383ff91447fdc6`
 
 ## Scope and boundary
 
@@ -324,12 +325,12 @@ defined no host command/echo ID, and injecting any of the seven node-owned IDs
 can create a same-ID data-phase conflict. The physical probe now enforces this
 ownership boundary by rejecting `--observe --allow-send`.
 
-Consequently `CAN-03` is `PASS_HARDWARE_LIMITED` for the admitted adapter,
+Consequently, at that earlier stage, `CAN-03` was `PASS_HARDWARE_LIMITED` for the admitted adapter,
 Shield, wiring, 500 kbit/s Classical CAN, periodic telemetry, physical ACK in
 both directions and default-firmware restore. This does not claim a host command
 protocol, application-level response, naturally observed `0x140` event,
 arbitrary CAN adapter interoperability, physical bus-off recovery, or physical
-RS485+CAN concurrency. `BUS-02` therefore remains `NOT_RUN` and `HW-003` remains open.
+RS485+CAN concurrency. `BUS-02` therefore remained `NOT_RUN` and `HW-003` remained open at that stage.
 
 ## 2026-08-21 dedicated diagnostic physical pass
 
@@ -370,6 +371,23 @@ This closes the dedicated application round trip as `PASS` on
 the admitted adapter/Shield/common-GND route. It does not claim arbitrary
 adapter interoperability, natural `0x140` observation, waveform quality,
 physical bus-off recovery or simultaneous physical RS485+CAN operation.
+
+## 2026-08-21 bounded physical dual-bus supplement
+
+`BUS-02` subsequently passed on the same admitted CAN route while the reference
+CH340 USB-RS485 route was active. During normal concurrency, the RS485 H01～H07
+matrix passed 30/30 while six CAN windows captured 733 accepted frames across
+all six periodic IDs with no rejection, duplicate or BME pair mismatch.
+
+One approximately 10 s USB-RS485 peer disconnect did not stop CAN or the
+heartbeat; after reconnect, RS485 H01～H07 passed 10/10. One 2 s `can0`
+software-down interval did not stop RS485 or the heartbeat; after reapplying
+500 kbit/s and Host sample point `0.75`, passive CAN observation and the
+`0x540/0x541` round trip passed, with the interface ERROR-ACTIVE and Host error
+counters at zero. The bounded result and exclusions are recorded in
+[`dual_bus_fault_matrix.md`](dual_bus_fault_matrix.md). It does not claim
+repeated disconnect endurance, arbitrary outage duration, physical bus-off
+recovery or long-run stability.
 
 ## Lightweight evidence rule
 
