@@ -5,7 +5,7 @@
 > Stream parser/handlers/runtime: `CANDIDATE_IMPLEMENTED`
 > Runtime: `CANDIDATE_IMPLEMENTED`
 > HIL readiness: `PASS_SELF_TEST + PASS_DRY_RUN + SERIAL_NOT_OPENED`
-> Hardware: `WAITING_FOR_HARDWARE`
+> Hardware: `PASS_FIXED_ADDRESS_4`
 > Register-map revision: 1
 > Machine-readable authority: [`../protocol/register_map.json`](../protocol/register_map.json)
 
@@ -157,8 +157,9 @@ Project Five uses address 4 and does not reuse those field semantics.
 
 Both projects agree on zero-based PDU addresses, `0x03/0x04/0x06`, big-endian
 register bytes and high-word-first 32-bit values. No Project Three address-4
-profile exists yet. T05 preparation does not authorize modifying that repository;
-real independent USB-RS485 must pass before a separately reviewed profile change.
+profile exists yet. Independent USB-RS485 has passed the bounded fixed-address-4
+physical matrix, but T05 preparation still does not authorize modifying the
+Project Three repository; that profile change requires separate review.
 
 ## Verification and evidence boundary
 
@@ -191,6 +192,10 @@ Current software result:
 | Firmware Release | `37684/156/12560 B` text/data/bss |
 | static resource contract | PASS; linker heap 0; +912 B RAM from `[027]` |
 | HIL probe | 15-check self-test PASS; dry-run PASS; serial `NOT_OPENED` |
+| Physical USB-RS485 | fixed-address-4 H01～H07, post-reset H01 and post-reconnect H01 PASS; H08/H09 `NOT_RUN_BY_POLICY` |
 | Project Three address-4 profile | `not_created`; integration `NOT_RUN` |
 
-These checks prove the software candidate only; physical UART/RS485 remains waiting for hardware.
+The software checks remain separate from hardware evidence. The physical result
+proves only the documented reference-CH340, fixed-address-4 route; it does not
+prove valid address migration, arbitrary-adapter compatibility or Project Three
+interoperability.

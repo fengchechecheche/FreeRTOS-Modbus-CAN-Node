@@ -2,20 +2,22 @@
 
 > 软件准备：`PASS_HOST + PASS_CROSS_BUILD + READY_FOR_HARDWARE`
 > Host PTY：`PASS_HOST_PTY / [042] d7428e62a2df72325020ed63ab7979f4fb8c12f9`
-> 独立 USB-RS485：`FAIL_HARDWARE_RETURN_PATH / WAITING_FOR_CROSS_CHECK`
+> 独立 USB-RS485：`PASS_HARDWARE_FIXED_ADDRESS_4`
+> 地址迁移 H08/H09：`NOT_RUN_BY_POLICY`
 > 项目三联调：`NOT_RUN`
 > 默认从站地址：4
 > 串口：19200 bit/s，8E1
 
 ## 1. 当前结论
 
-P5-S5-T05 已完成无硬件准备和 Host PTY 补测；2026-08-19 又执行了真实 USB-RS485 有界排查。因此当前可以说明：
+P5-S5-T05 已完成无硬件准备和 Host PTY 补测；2026-08-19 执行了旧 USB-RS485 的有界故障排查，2026-08-21 又以新 USB-RS485 完成交叉验证。因此当前可以说明：
 
 - HIL 请求、响应判定和安全开关已具备纯软件自测入口；
 - 项目真实 C 语言 RTU stream、server 和 register image 已通过 Host PTY 端到端测试；
 - 项目五 T01～T04 的 Host、合同和 ARM 构建继续通过；
-- PTY 中的 249 B 响应已通过；物理 H01 已执行但因回程帧错误失败，H02～H11、物理 249 B 响应、地址迁移和项目三联调仍未执行；
-- RS485 当前标记为“硬件回程故障待交叉验证”，不把失败归因于 Modbus 软件、USB-RS485 或 Shield 中的任一单点；
+- PTY 与新转换器物理线路中的 249 B 响应均已通过；物理 H01～H07、复位后的代表性 H01 和转换器断开/重连后的代表性 H01 均通过；
+- `RS485-03` 在“新 CH340 转换器、短线共地、地址 4、19200 8E1”边界内标记为 `PASS`；旧转换器仍保留为与 Shield 组合时的兼容性故障历史，不能据此宣称旧转换器普遍损坏；
+- H08/H09 涉及有效地址写入，因未获得本轮显式写授权而保持 `NOT_RUN_BY_POLICY`；本轮没有执行地址 4→5→4 迁移；
 - 项目三地址 4 profile 仍为 `not_created`，项目三仓库没有被本任务修改。
 
 ## 2. 轻量探针
@@ -30,7 +32,7 @@ python3 tools/modbus_hil_probe.py --dry-run
 结果：
 
 ```text
-P5 MODBUS HIL SELF-TEST: PASS (14 checks, serial NOT_OPENED)
+P5 MODBUS HIL SELF-TEST: PASS (15 checks, serial NOT_OPENED)
 P5 MODBUS HIL DRY-RUN: serial NOT_OPENED
 ```
 
@@ -89,7 +91,49 @@ PTY 不承载真实奇偶校验位，也没有 UART DMA、DE/RE、收发器、�
 `d6940bed9ee6d5d8fd7ceab3299a82ee9f85b6914c710627fd34eef6e582f3ca`；VCP 再次出现启动、时钟摘要和
 5 次 heartbeat。当前证据证明 STM32→Shield→USB-RS485 正向链路可用，但不能唯一地区分
 USB-RS485 发送/方向控制与 Shield MAX485/`485_RX→RX1→PA10` 回程路径。已选购另一只 USB-RS485，
-在交叉验证前 `RS485-03` 保持 `FAIL`，项目三联调保持 `NOT_RUN`。
+该轮结束时、交叉验证尚未执行，`RS485-03` 当时保持 `FAIL`；该历史结果不因后续通过而改写。
+项目三联调至今仍为 `NOT_RUN`。
+
+新转换器完成参考路线验收后，又将旧转换器接回完全相同的 Shield 接线与默认固件。旧转换器在
+初次请求、NUCLEO RESET 后以及转换器断开/重连后三次执行 H01 均为 `response=<silence>`；转换器
+TXD 指示有活动而 RXD 无活动。每次均在 H01 失败后有界停止，没有继续执行 H02～H11。LED 只能证明
+转换器侧出现发送活动且未显示接收活动，不能代替 A/B 差分波形、Shield RO 或 PA10 的分层观测。
+
+### 2.3 新 USB-RS485 交叉验证与固定地址 4 补验
+
+2026-08-21 先将新旧两只 CH340 USB-RS485 以 `A→A`、`B→B`、`GND→GND` 背对背连接，固定为
+19200 8E1。旧→新与新→旧各发送 10 次，均取得 10/10 字节完全一致的结果，无超时、乱码或重复。
+该结果说明旧转换器并非完全失效，但不消除其与 Shield 组合时的方向控制、电气或时序兼容性差异。
+结合新转换器在相同接线、固件和串口参数下通过，而旧转换器在复位与重连后仍稳定复现静默，当前
+最强结论是“旧转换器与 Shield 的特定组合存在兼容性/稳定性限制”；现有证据仍不足以在自动方向
+控制、差分驱动电平、接收门限或收发切换时序之间确定唯一根因。
+
+随后使用新转换器、NUCLEO-F446RE 与 Waveshare RS485 CAN Shield，在短线、共地、`A→A`、
+`B→B`、默认地址 4、19200 8E1 条件下运行只读/异常矩阵。被测源码等价基线为
+`[060] 39c6114eba1b547d29741d142582f3828a902dc7`，默认 Debug ELF SHA-256 为
+`bd72b55c84350d433aebb7c0eaee14705b3ae3422604f19c732d54fd2808f73f`；设备完整序列号未记录。
+
+```text
+H01 PASS
+H02 PASS
+H03 PASS
+H04 PASS
+H05 PASS
+H06A PASS
+H06B PASS
+H07A PASS
+H07B PASS
+H07C PASS
+P5 MODBUS HIL: PASS_READ_ONLY (10/10, address writes NOT_RUN, H10/H11 MANUAL_NOT_RUN)
+```
+
+H03 收到 CRC 正确的 249 B 响应。H06B 发送的是预期得到 exception `0x03` 的非法零地址写请求，
+不构成有效配置写入。之后人工复位 NUCLEO，地址 4 的代表性 H01 再次 `PASS`；断开并重连新转换器
+后，COM 端口重新枚举正常，地址 4 的代表性 H01 再次 `PASS`。因此 H10/H11 仅证明“当前固定地址 4
+在复位和转换器重连后仍可读取”，不证明地址 5 会在复位后恢复为 4。
+
+H08/H09 需要 `--allow-address-write --confirm-default-address 4` 双重显式授权，本轮未执行，保持
+`NOT_RUN_BY_POLICY`。项目三地址 4 profile 与互操作仍为 `NOT_RUN`。
 
 ## 3. 写地址安全门
 
@@ -119,35 +163,33 @@ python3 tools/modbus_hil_probe.py \
 | H07B | 地址 0 read | 静默 |
 | H07C | 非本机地址 5 read | 静默 |
 
-这些请求用于排障和可重复执行。H01～H07 已在 PTY 字节流中发送；物理线路当前只执行到失败的
-H01，不能表述为 H01～H07 或 USB-RS485 矩阵通过。
+这些请求用于排障和可重复执行。H01～H07 已在 PTY 和新 USB-RS485 物理线路中发送并通过；其中
+H06B 是预期返回 exception `0x03` 的非法值测试，不等同于有效地址写入。
 
 ## 5. 硬件最小矩阵
 
 | ID | 状态 | 到货后通过条件 |
 |---|---|---|
-| H01 | `FAIL` | 请求已发送但响应静默；回程诊断触发 USART1 framing error，等待参考转换器交叉验证 |
-| H02 | `NOT_RUN` | identity/generation/mask 可解析 |
-| H03 | `NOT_RUN` | 收到 CRC 正确的 249 B 响应 |
-| H04 | `NOT_RUN` | exception `0x01` |
-| H05 | `NOT_RUN` | exception `0x02` |
-| H06 | `NOT_RUN` | exception `0x03` |
-| H07 | `NOT_RUN` | 坏 CRC、广播和非本机地址静默 |
-| H08 | `NOT_RUN` | 4→5 后地址 5 响应 |
-| H09 | `NOT_RUN` | 5→4 后地址 4 恢复 |
-| H10 | `NOT_RUN` | 复位后易失地址回到 4 |
-| H11 | `NOT_RUN` | 断开/重连一次后可再次读取 |
+| H01 | `PASS` | holding 0..3 响应正确 |
+| H02 | `PASS` | identity/generation/mask 可解析 |
+| H03 | `PASS` | 收到 CRC 正确的 249 B 响应 |
+| H04 | `PASS` | exception `0x01` |
+| H05 | `PASS` | exception `0x02` |
+| H06 | `PASS` | H06A/H06B 均返回 exception `0x03` |
+| H07 | `PASS` | 坏 CRC、广播和非本机地址静默 |
+| H08 | `NOT_RUN_BY_POLICY` | 有效地址写入未获本轮显式授权 |
+| H09 | `NOT_RUN_BY_POLICY` | 因 H08 未执行，不执行 5→4 恢复 |
+| H10 | `PASS_BOUNDED` | 未执行地址迁移；复位后当前地址 4 代表性 H01 通过 |
+| H11 | `PASS` | 新转换器断开/重连后代表性 H01 通过 |
 
 每项一次明确成功即可，H11 再提供一次恢复后的代表性读。不要求长稳、示波器、零误码率或大量重复。
 
-## 6. 到货后执行顺序
+## 6. 后续执行顺序
 
-1. 回到 S2，确认 NUCLEO、Shield、USB-RS485、电压、A/B/GND、终端和供电边界；
-2. 先完成 ST-LINK、最小固件和默认地址 4 的只读请求；
-3. 依次执行 H01～H07；
-4. 明确允许配置写后执行 H08/H09，并确认最终地址为 4；
-5. 人工复位执行 H10，物理断开/重连执行 H11；
-6. 独立链路达到 `PASS_HARDWARE` 后，再申请修改项目三仓库。
+1. 保持当前新转换器、短线共地、`A→A`、`B→B`、19200 8E1 作为参考接线；
+2. 只有在需要验证易失地址迁移且取得显式授权后，才执行 H08/H09，并最终确认地址为 4；
+3. 为项目三建立独立允许清单和授权后，再创建地址 4 profile 并执行互操作；
+4. RS485 与 CAN 各自通过后，再执行有界双总线并发和故障隔离矩阵。
 
 非隔离 USB-RS485 只用于短线、共地台架。总线上必须只有一个活动主站。
 
@@ -155,7 +197,7 @@ H01，不能表述为 H01～H07 或 USB-RS485 矩阵通过。
 
 项目三当前基线 `8e0e909a8b7576ab80b6f2ade186631910226b47` 只有地址 1～3，且本地分支领先远端 5 个提交。本任务没有处理该 Git 状态，也没有创建地址 4 profile。
 
-后续必须先取得独立 USB-RS485 `PASS_HARDWARE`，再建立项目三独立允许清单和用户授权。首版只建议只读投影设备签名、map revision、image generation、主要传感器值、ADXL resultant RMS、health state 和 warning mask；不复用 `motor_actuator` 语义，也不默认执行 `0x06`。
+独立 USB-RS485 已在固定地址 4 边界内取得 `PASS_HARDWARE`。后续仍须建立项目三独立允许清单并取得用户授权，才能创建地址 4 profile 和执行互操作。首版只建议只读投影设备签名、map revision、image generation、主要传感器值、ADXL resultant RMS、health state 和 warning mask；不复用 `motor_actuator` 语义，也不默认执行 `0x06`。
 
 ## 8. 证据规则
 

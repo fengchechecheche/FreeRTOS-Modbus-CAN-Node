@@ -7,7 +7,7 @@
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Board supplement evidence: `[044] d409a8161669aae8ea4c01246df577d36212650a`
 > Watchdog supplement evidence: `[046] 96fa46b41c38a0a0bb249876d9a0736165ac1642`
-> Row summary: `24 = 18 PASS + 1 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
+> Row summary: `24 = 19 PASS + 0 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 
 ## Purpose
@@ -87,7 +87,7 @@ missing physical claims.
 |---|---|---|---|---|
 | RS485-01 | HOST | PASS | `docs/modbus_hil_report.md` | UART DMA/RTU/server software contracts passed Host/cross-build gates |
 | RS485-02 | HOST | PASS | `docs/modbus_hil_report.md` | committed production-C PTY matrix passed 10/10 with a 249 B maximum response |
-| RS485-03 | HARDWARE | FAIL | `docs/modbus_hil_report.md` | H01 timed out; bounded loopback proved the forward path but the return path raised USART1 framing errors, so a second USB-RS485 is required to isolate the adapter from the Shield/PA10 path |
+| RS485-03 | HARDWARE | PASS | `docs/modbus_hil_report.md` | a reference CH340 route passed 10/10 back-to-back transfers in both directions, physical H01～H07 at fixed address 4 including 249 B, one post-reset H01 and one post-reconnect H01; H08/H09 are NOT_RUN_BY_POLICY and the old-adapter compatibility failure remains historical |
 | P3-01 | INTEGRATION | NOT_RUN | `docs/modbus_hil_report.md` | Project Three address-4 profile and interoperability were not run |
 
 Self-test/dry-run alone is not PTY evidence. The committed PTY result is Host
@@ -125,16 +125,16 @@ P5-HW-SNS-00 在基线 `d48f2c75b048dc60320045233312ad6df050e88e` 上以 SHA-256
 `d011125dfbf8b96702da03d8c808476687639610d3b59acb7f23b1f42b6f8c4d`
 的 one-shot probe ELF 完成最终三模块拓扑 3/3 身份/存在性准入。该补验不包含
 连续采样、补偿复算、光照响应、ADXL345 DATA_READY/轴向/振动响应或计量精度，
-且 ADXL345 单模块 SPI 鲁棒性保持 `NOT_CLAIMED`，因此 SNS-01..03 仍为
-`SNS-03` 保持 `NOT_RUN`；RS485-03 的后续实测保持 `FAIL`。SNS-01/SNS-02 补验通过后，
-当前矩阵总计为 `18 PASS + 1 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`。
+且 ADXL345 单模块 SPI 鲁棒性保持 `NOT_CLAIMED`，因此 `SNS-03` 保持 `NOT_RUN`。
+RS485-03 已在参考 CH340、固定地址 4 的边界内通过；有效地址迁移、项目三互操作和物理双总线
+并发仍未执行。当前矩阵总计为 `19 PASS + 0 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`。
 
 ## Release blocker projection
 
 | Blocker | Matrix rows | Current state |
 |---|---|---|
 | HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | OPEN; BSP-02 and WDG-01 passed, three sensor functional supplements remain |
-| HW-002 RS485 and Project Three | RS485-03, P3-01 | OPEN |
+| HW-002 RS485 and Project Three | RS485-03, P3-01 | OPEN; RS485-03 passed, P3-01 remains NOT_RUN |
 | HW-003 CAN and physical dual bus | CAN-03, BUS-02 | OPEN; CAN-03 passed, BUS-02 remains NOT_RUN |
 | HW-004 hardware soak | SOAK-02 | OPEN |
 

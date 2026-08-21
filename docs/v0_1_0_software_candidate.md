@@ -6,7 +6,7 @@
 > Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > Current software-test baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
-> Evidence matrix: `24 = 18 PASS + 1 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
+> Evidence matrix: `24 = 19 PASS + 0 FAIL + 4 NOT_RUN + 1 NOT_CLAIMED`
 > Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
 > Tag / remote Release: `ABSENT / NOT_RUN`
 
@@ -71,7 +71,7 @@ physical-bus operation.
 The following remain incomplete and are not candidate accomplishments:
 
 - BME280 bounded sampling/reset and VEML7700 light-response/range checks passed without metrology claims; ADXL345 interrupt/axis checks remain `NOT_RUN`;
-- USB-RS485 H01 failed on the physical return path and awaits a second-adapter cross-check; H02-H11, physical timing and Project Three interoperability remain `NOT_RUN`;
+- a reference CH340 USB-RS485 passed the fixed-address-4 physical H01～H07 matrix, one post-reset H01 and one post-reconnect H01; valid address migration H08/H09 and Project Three interoperability remain `NOT_RUN`;
 - the admitted common-GND candleLight route passed periodic telemetry, physical ACK in both directions and one bounded read-only `0x540/0x541` application round trip at 500 kbit/s with Host sample point `0.75`; arbitrary-adapter interoperability, physical bus-off recovery and simultaneous RS485+CAN remain unclaimed;
 - simultaneous physical RS485/CAN behavior;
 - the 10-minute, 60-minute and formal 8-hour hardware sessions.

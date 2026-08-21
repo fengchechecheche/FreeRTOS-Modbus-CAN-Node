@@ -21,13 +21,13 @@
 > RS485+CAN concurrency remains `NOT_RUN`. See
 > [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
-> 2026-08-19 RS485 hardware update: physical H01 was attempted but timed out.
-> A bounded diagnostic proved STM32-to-Shield-to-USB-RS485 transmission, while
-> the return path consistently raised a USART1 framing error. `RS485-03` is
-> `FAIL_HARDWARE_RETURN_PATH / WAITING_FOR_CROSS_CHECK`; a second USB-RS485 has
-> been selected to distinguish the adapter from the Shield/PA10 path. The board
-> has been restored to the verified default firmware, and Project Three remains
-> `NOT_RUN`. See [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
+> 2026-08-21 RS485 hardware update: the historical old-adapter return-path
+> failure remains recorded, while a new CH340 USB-RS485 passed 10/10
+> back-to-back transfers in both directions and the physical H01～H07 matrix at
+> address 4, including the 249 B response. A representative H01 also passed
+> after NUCLEO reset and after adapter reconnect. `RS485-03` is `PASS` within
+> that fixed-address boundary; H08/H09 are `NOT_RUN_BY_POLICY`, and Project
+> Three remains `NOT_RUN`. See [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
 
 > 2026-08-19 BME280 hardware update: `SNS-01` is `PASS_HARDWARE_LIMITED`.
 > The final topology produced five fresh, bounded samples with increasing
@@ -118,9 +118,10 @@
 > in [`docs/can_hil_report.md`](docs/can_hil_report.md).
 
 > P5-S5-T05 update: the default firmware is unchanged; a bounded HIL probe now
-> provides self-test/dry-run preparation without opening a serial port. Physical
-> USB-RS485 has since reached a bounded return-path failure, while Project Three
-> integration remains deferred. See
+> provides self-test/dry-run preparation without opening a serial port. A
+> reference CH340 USB-RS485 has since passed the bounded fixed-address-4 physical
+> matrix, while valid address migration and Project Three integration remain
+> deferred. See
 > [`docs/modbus_hil_report.md`](docs/modbus_hil_report.md).
 
 基于 STM32F446RE 与 FreeRTOS 的双总线工业状态监测节点。P5-S2-T05 已把 T01～T04 的无硬件结果
@@ -192,7 +193,8 @@ JSONL soak runner、趋势判定和 20 次短时 Host 预检；默认固件保�
 - PA5 保留 SPI1 SCK，不作为 LD2 heartbeat；两个 SPI CS 初值高。
 - NUCLEO-F446RE 已完成 ST-LINK、烧录/校验/复位、VCP、运行时时钟、GPIO 寄存器状态、有限
   scheduler smoke、裸板栈水位、IWDG 单次恢复和断电重连补验；CAN 已完成已准入路径的有限
-  实物补验，传感器完整中断验收、RS485 回程交叉验证与长稳仍保持开放。
+  实物补验；RS485 固定地址 4 的参考转换器矩阵也已通过。传感器完整中断验收、项目三互操作、
+  物理双总线并发与长稳仍保持开放。
 - 默认 Modbus slave address contract 为 `4`；T01 已冻结 122-register input map、4-register
   holding map 和 0x03/0x04/0x06 应用合同。T02 CRC/ADU/timing、T03 stream/256 B transport 和
   T04 function server/register image 均已达到 Host/ARM 软件候选；runtime 为 `CANDIDATE_IMPLEMENTED`。

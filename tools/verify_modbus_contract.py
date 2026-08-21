@@ -167,7 +167,7 @@ def validate_contract(contract: dict[str, Any]) -> tuple[list[str], int]:
     checked += add_check(document.get("task_id") == "P5-S5-T01", "wrong task_id", errors)
     checked += add_check(document.get("status") == "candidate_validated", "status must be candidate_validated", errors)
     checked += add_check(document.get("runtime_status") == "candidate_implemented", "runtime must be candidate_implemented", errors)
-    checked += add_check(document.get("hardware_status") == "waiting_for_hardware", "hardware must remain waiting", errors)
+    checked += add_check(document.get("hardware_status") == "pass", "hardware status must record the accepted fixed-address route", errors)
 
     protocol = contract.get("protocol", {})
     protocol_expectations = {
@@ -293,7 +293,7 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
             "CANDIDATE_VALIDATED",
             "Runtime: `CANDIDATE_IMPLEMENTED`",
             "HIL readiness: `PASS_SELF_TEST + PASS_DRY_RUN + SERIAL_NOT_OPENED`",
-            "Hardware: `WAITING_FOR_HARDWARE`",
+            "Hardware: `PASS_FIXED_ADDRESS_4`",
             "`0x0000..0x0079`",
             "122",
             "request-local",
@@ -321,7 +321,8 @@ def validate_documents(root: Path) -> tuple[list[str], int]:
             "never auto-scanned",
         ),
         Path("docs/modbus_hil_report.md"): (
-            "`FAIL_HARDWARE_RETURN_PATH / WAITING_FOR_CROSS_CHECK`",
+            "`PASS_HARDWARE_FIXED_ADDRESS_4`",
+            "`NOT_RUN_BY_POLICY`",
             "serial NOT_OPENED",
             "249 B",
             "H01",
@@ -460,7 +461,7 @@ def main() -> int:
     else:
         print(
             f"P5 MODBUS CONTRACT: PASS ({checked} facts, 122 input + 4 holding, "
-            "candidate implemented, hardware waiting)"
+            "candidate implemented, fixed-address hardware passed)"
         )
     return 0
 

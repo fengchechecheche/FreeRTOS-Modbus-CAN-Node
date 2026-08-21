@@ -6,7 +6,7 @@
     "status": "candidate_validated",
     "map_revision": 1,
     "runtime_status": "candidate_implemented",
-    "hardware_status": "waiting_for_hardware"
+    "hardware_status": "pass"
   },
   "protocol": {
     "mode": "modbus_rtu",

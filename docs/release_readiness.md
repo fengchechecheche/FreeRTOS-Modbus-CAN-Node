@@ -27,8 +27,8 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | REPRO-001 | REPRO | CLOSED | BINARY,HARDWARE | Clean local-archive Host/contract/ARM/resource replay passed and candidate hashes are recorded | `docs/reproduction_report.md`; `artifacts/release/p5_s7_t02_replay.json`; SHA-256 manifest |
 | REPRO-002 | REPRO | CLOSED | BINARY,HARDWARE | `[047]` completed the independent no-network/no-cache Host, contract, ARM and resource replay | `docs/reproduction_report_repro_002.md`; `artifacts/release/p5_repro_002_replay.json`; REPRO-002 SHA-256 manifest |
 | HW-001 | HW | OPEN | HARDWARE | BME280 sampling/reset and VEML7700 light-response/range checks passed; ADXL345 interrupt/axis checks and standalone SPI robustness are not complete | Run the remaining bounded ADXL345 functional supplement after its hardware uncertainty is resolved |
-| HW-002 | HW | OPEN | HARDWARE | Physical H01 failed with a bounded RS485 return-path framing error; adapter versus Shield/PA10 is not yet isolated, and Project Three interoperability is not run | Cross-check with the newly selected USB-RS485, then resume H01-H11 before Project Three integration |
-| HW-003 | HW | OPEN | HARDWARE | CAN-03 passed for the admitted common-GND route: identity, periodic telemetry and physical ACK in both directions; BUS-02 dual-bus concurrency is not run | Complete RS485-03, then run the bounded physical RS485+CAN concurrency/fault-isolation matrix |
+| HW-002 | HW | OPEN | HARDWARE | RS485-03 passed on the reference CH340 route at fixed address 4; H08/H09 valid address migration and Project Three interoperability are not run | Keep address writes gated; next create and review the Project Three address-4 profile before bounded interoperability |
+| HW-003 | HW | OPEN | HARDWARE | CAN-03 and RS485-03 passed within their admitted routes; BUS-02 dual-bus concurrency is not run | Run the bounded physical RS485+CAN concurrency/fault-isolation matrix |
 | HW-004 | HW | OPEN | HARDWARE | 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Admit a reviewed collector, then execute the frozen T05 sequence with separate authorization |
 
 ## Current license inventory result
@@ -94,23 +94,23 @@ The four hardware blockers remain open. NUCLEO-F446RE supplements passed the
 narrow `BSP-02` board-admission row and `WDG-01`, including normal health feed,
 one controlled IWDG reset and reset-only `.noinit` retention. P5-HW-SNS-00 also
 passed narrow BME280/VEML7700 presence and final-topology ADXL345 identity probes,
-but `HW-001` remains open for continuous samples, response checks and ADXL345
-DATA_READY/axis/vibration evidence. Physical buses and the 8-hour soak are not
-inferred from those bounded board results.
+but `HW-001` remains open for the listed ADXL345 boundary. Physical CAN and
+fixed-address-4 RS485 now have separate bounded PASS rows; Project Three,
+simultaneous buses and the 8-hour soak are not inferred from those results.
 
 ## Evidence matrix result
 
 The updated matrix projects `[047]` and its REPRO-002 bundle into 24 bounded
-evidence rows: 17 `PASS`, 2 `FAIL`, 4 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
+evidence rows: 19 `PASS`, 0 `FAIL`, 4 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
 `artifacts/release/p5_s7_t03_evidence_matrix.json`; the curated public view and
 claim boundaries are in `docs/evidence_matrix.md`.
 
 The matrix schema, result counts, public references, full Git identities, and
 hardware-claim restrictions pass `tools/check_evidence_matrix.py`. `BSP-02`
-passes only at the bounded board-admission layer. The physical RS485 and CAN
-rows are failed/open on their return directions rather than promoted from
-partial observations; ADXL345, Project Three, simultaneous buses, and the
-10-minute/60-minute/8-hour sessions remain open exactly as listed above.
+passes only at the bounded board-admission layer. Physical RS485 and CAN each
+pass only on their documented admitted routes; ADXL345, Project Three,
+simultaneous buses, and the 10-minute/60-minute/8-hour sessions remain open
+exactly as listed above.
 
 ## Learning documentation result
 

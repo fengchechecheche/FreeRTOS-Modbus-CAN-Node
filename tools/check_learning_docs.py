@@ -198,10 +198,10 @@ def anchor_errors(root: pathlib.Path, route_text: str) -> list[str]:
     if actual_ids != expected_ids:
         errors.append(f"CAN ID set mismatch: {sorted(actual_ids)}")
     if matrix.get("summary") != {
-        "FAIL": 1,
+        "FAIL": 0,
         "NOT_CLAIMED": 1,
         "NOT_RUN": 4,
-        "PASS": 18,
+        "PASS": 19,
         "REVIEW_REQUIRED": 0,
     }:
         errors.append("evidence-matrix summary drift")
