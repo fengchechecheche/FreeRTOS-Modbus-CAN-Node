@@ -1,5 +1,7 @@
 # P5-S7-T01 release readiness and blocker ledger
 
+> Project lifecycle: `PROJECT_FROZEN / MAINTENANCE_ONLY`（2026-08-22；authority: [`project_freeze.md`](project_freeze.md)）
+> Freeze baseline: `[078] 705a988af8cc9043756ec9aebcbd8b7885eb69e2`
 > Ledger schema: `P5_RELEASE_LEDGER_V1`
 > Baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > Current clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`

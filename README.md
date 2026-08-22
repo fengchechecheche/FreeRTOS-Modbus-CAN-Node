@@ -1,5 +1,12 @@
 # FreeRTOS Modbus CAN Node
 
+> Project lifecycle: `PROJECT_FROZEN / MAINTENANCE_ONLY`（2026-08-22）
+> Freeze baseline: `[078] 705a988af8cc9043756ec9aebcbd8b7885eb69e2`
+> Evidence ceiling: `24 = 23 PASS + 0 FAIL + 0 NOT_RUN + 1 NOT_CLAIMED`
+> Intended `v0.1.0` remains `UNRELEASED / NOT_PUBLISHED`; the freeze does not
+> authorize a tag, remote Release, production deployment or broader claim. See
+> [`docs/project_freeze.md`](docs/project_freeze.md).
+
 > REPRO-002 update: committed `[047]
 > 26411d2b627fd67654479f5a97a2066e47deafb5` completed a tracked-file-only
 > clean replay with 15 bounded commands, no network and no prior build cache.

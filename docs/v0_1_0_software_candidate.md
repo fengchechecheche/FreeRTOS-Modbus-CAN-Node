@@ -1,6 +1,8 @@
 # v0.1.0 software candidate
 
 > Intended version: `v0.1.0`
+> Project lifecycle: `PROJECT_FROZEN / MAINTENANCE_ONLY`
+> Freeze baseline: `[078] 705a988af8cc9043756ec9aebcbd8b7885eb69e2`
 > Release state: `UNRELEASED`
 > Candidate state: `BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW`
 > Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
