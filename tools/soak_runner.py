@@ -325,9 +325,12 @@ def evaluate(metadata: dict[str, Any], samples: list[dict[str, Any]]) -> Evaluat
     }
     measured_stack = {name: False for name in TASK_NAMES}
     max_queue = 0
+    stack_decreases: dict[str, list[tuple[int, int, int]]] = {
+        name: [] for name in TASK_NAMES
+    }
     max_can_pending = 0
 
-    for sample in samples:
+    for sample_position, sample in enumerate(samples):
         if sample["sample_index"] != expected_index:
             failures.append(
                 f"sample_index expected {expected_index}, got {sample['sample_index']}"
@@ -407,7 +410,9 @@ def evaluate(metadata: dict[str, Any], samples: list[dict[str, Any]]) -> Evaluat
                 old_free = previous["tasks"][name]["minimum_free_words"]
                 new_free = sample["tasks"][name]["minimum_free_words"]
                 if sample["tasks"][name]["measured"] and new_free < old_free:
-                    reviews.append(f"task {name} stack watermark decreased {old_free}->{new_free}")
+                    stack_decreases[name].append(
+                        (sample_position, old_free, new_free)
+                    )
         previous = sample
 
     required_last_ms = max(
@@ -461,6 +466,46 @@ def evaluate(metadata: dict[str, Any], samples: list[dict[str, Any]]) -> Evaluat
             }
         )
 
+    first_window_end = len(samples) // window_count
+    stack_startup_settling: dict[str, dict[str, int]] = {}
+    for name in TASK_NAMES:
+        decreases = stack_decreases[name]
+        startup_decreases = [
+            decrease for decrease in decreases if decrease[0] < first_window_end
+        ]
+        later_decreases = [
+            decrease for decrease in decreases if decrease[0] >= first_window_end
+        ]
+        if startup_decreases:
+            settled_free_words = min(
+                sample["tasks"][name]["minimum_free_words"]
+                for sample in samples[:first_window_end]
+            )
+            later_window_minimum = min(
+                (
+                    window["minimum_free_words"][name]
+                    for window in windows[1:]
+                ),
+                default=settled_free_words,
+            )
+            if later_window_minimum >= settled_free_words and not later_decreases:
+                stack_startup_settling[name] = {
+                    "from_free_words": startup_decreases[0][1],
+                    "to_free_words": settled_free_words,
+                    "decrease_count": len(startup_decreases),
+                    "first_window_sample_count": first_window_end,
+                    "later_window_minimum_free_words": later_window_minimum,
+                }
+            else:
+                for _, old_free, new_free in startup_decreases:
+                    reviews.append(
+                        f"task {name} stack watermark decreased {old_free}->{new_free}"
+                    )
+        for _, old_free, new_free in later_decreases:
+            reviews.append(
+                f"task {name} stack watermark decreased {old_free}->{new_free}"
+            )
+
     failures = _deduplicate(failures)
     reviews = _deduplicate(reviews)
     status = "FAIL" if failures else ("REVIEW_REQUIRED" if reviews else "PASS")
@@ -472,6 +517,7 @@ def evaluate(metadata: dict[str, Any], samples: list[dict[str, Any]]) -> Evaluat
         "queue_maximum_observed": max_queue,
         "can_pending_maximum_observed": max_can_pending,
         "windows": windows,
+        "stack_startup_settling": stack_startup_settling,
     }
     return Evaluation(status, failures, reviews, metrics)
 
@@ -652,6 +698,28 @@ def run_self_test() -> int:
         checks += 1
 
     expect_status("stable", copy.deepcopy(stable), "PASS")
+
+    startup_settling = copy.deepcopy(stable)
+    startup_settling[0]["tasks"]["protocol"]["minimum_free_words"] = 214
+    for sample in startup_settling[1:]:
+        sample["tasks"]["protocol"]["minimum_free_words"] = 190
+    startup_result = evaluate(metadata, startup_settling)
+    if startup_result.status != "PASS":
+        raise AssertionError(
+            "stable startup stack settling was not accepted: "
+            f"{startup_result.failures} {startup_result.reviews}"
+        )
+    recorded_settling = startup_result.metrics["stack_startup_settling"].get(
+        "protocol"
+    )
+    if recorded_settling is None or recorded_settling["to_free_words"] != 190:
+        raise AssertionError("accepted startup stack settling was not recorded")
+    checks += 1
+
+    late_settling = copy.deepcopy(startup_settling)
+    for sample in late_settling[4:]:
+        sample["tasks"]["protocol"]["minimum_free_words"] = 180
+    expect_status("late-stack-decrease", late_settling, "REVIEW_REQUIRED")
 
     hil_metadata = copy.deepcopy(metadata)
     hil_metadata["collector_kind"] = P5_HIL_COLLECTOR_KIND
@@ -855,6 +923,17 @@ def write_summary(output_dir: pathlib.Path, metadata: dict[str, Any], result: Ev
     lines.extend(["", "## Review items", ""])
     lines.extend(f"- {item}" for item in result.reviews)
     if not result.reviews:
+        lines.append("- none")
+    lines.extend(["", "## Accepted startup stack settling", ""])
+    settling = result.metrics["stack_startup_settling"]
+    if settling:
+        for name, item in settling.items():
+            lines.append(
+                f"- {name}: {item['from_free_words']} -> "
+                f"{item['to_free_words']} free words within the first window; "
+                f"later-window minimum {item['later_window_minimum_free_words']}"
+            )
+    else:
         lines.append("- none")
     (output_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
