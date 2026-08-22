@@ -8,14 +8,14 @@
 > Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`
 > Learning documentation gate: `PASS_35_FROZEN`
 > Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`
-> Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`
+> Hardware Release evidence gate: `PASS_BOUNDED_HARDWARE_EVIDENCE`
 > Tag / remote Release: `NOT_AUTHORIZED / NOT_RUN`
 
 ## Gate interpretation
 
-`PASS` here means the source candidate has no open licensing, public-path, or
-known software-regression blocker. It does not mean clean-room reproduction,
-firmware flashing, hardware operation, integration, or an 8-hour soak passed.
+`PASS` here means the corresponding bounded evidence gate has no open blocker.
+It does not authorize a Git tag, remote Release, publication, production deployment,
+metrology, MTBF or functional-safety claim.
 
 | ID | Category | Status | Blocks | Summary | Evidence or next action |
 |---|---|---|---|---|---|
@@ -29,7 +29,7 @@ firmware flashing, hardware operation, integration, or an 8-hour soak passed.
 | HW-001 | HW | CLOSED | HARDWARE | BME280 and VEML7700 bounded physical supplements passed; ADXL345 passed final-topology sampling, axis/vibration trend, restart and Modbus visibility through the default bounded polling route | Preserve the physical INT1/INT2, exact-rate, metrology and standalone-SPI exclusions in the domain reports |
 | HW-002 | HW | CLOSED | HARDWARE | RS485-03 passed on the reference CH340 route at fixed address 4; Project Three `[039]` WSL and `[040]` physical Raspberry Pi 4B/ARM64 routes completed bounded read-only JSONL, one NUCLEO RESET recovery and local MQTT interoperability; the Pi also passed short active-RS485/passive-CAN concurrency | Keep H08/H09 address writes gated; preserve production deployment/MQTT, Host-active-CAN, repeated-fault and soak exclusions |
 | HW-003 | HW | CLOSED | HARDWARE | CAN-03 and BUS-02 passed within the admitted common-GND CAN and reference-CH340 RS485 bench route | Keep claims bounded to one short-line concurrency run and one brief peer interruption per route; repeated fault endurance and physical bus-off recovery remain outside this closure |
-| HW-004 | HW | OPEN | HARDWARE | Default-OFF diagnostics and the Raspberry Pi collector passed Host/ARM admission, but the 10-minute smoke, 60-minute pre-run, and formal 8-hour soak are not run | Review and submit P5-HW-OBS-01, then execute 10 minutes; only PASS may advance to 60 minutes and 8 hours |
+| HW-004 | HW | CLOSED | HARDWARE | A clean `[074]` diagnostic build passed the Raspberry Pi-hosted formal 8-hour run with 480 samples and no CAN errors/events; the restored default firmware passed a separate approximately 10-minute Modbus/VCP/CAN regression | `docs/soak_trend_report.md`; preserve the historical 60-minute REVIEW_REQUIRED result and the diagnostic-8-hour/default-10-minute distinction |
 
 ## Current license inventory result
 
@@ -104,8 +104,8 @@ Raspberry Pi 4B/ARM64 and added a short active-RS485/passive-CAN concurrency sup
 
 ## Evidence matrix result
 
-The updated matrix projects `[047]` and its REPRO-002 bundle into 24 bounded
-evidence rows: 22 `PASS`, 0 `FAIL`, 1 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
+The updated matrix projects the reviewed software, hardware and soak evidence into 24 bounded
+evidence rows: 23 `PASS`, 0 `FAIL`, 0 `NOT_RUN`, and 1 `NOT_CLAIMED`. The machine-readable source is
 `artifacts/release/p5_s7_t03_evidence_matrix.json`; the curated public view and
 claim boundaries are in `docs/evidence_matrix.md`.
 

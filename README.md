@@ -97,10 +97,10 @@
 > [`docs/learning/problem_ledger.md`](docs/learning/problem_ledger.md).
 
 > P5-S7-T03 update: the public evidence matrix contains 24 bounded rows:
-> 22 `PASS`, 0 `FAIL`, 1 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
+> 23 `PASS`, 0 `FAIL`, 0 `NOT_RUN`, and 1 `NOT_CLAIMED`. Every result is qualified by
 > software, board, RS485, or CAN evidence layer; no software result is promoted
-> to a physical-hardware claim. The hardware Release gate remains
-> `BLOCKED_WAITING_FOR_HARDWARE`. See
+> to a physical-hardware claim. All four bounded hardware evidence blockers are
+> closed; Tag, remote Release and publication remain unauthorized. See
 > [`docs/evidence_matrix.md`](docs/evidence_matrix.md).
 
 > P5-S7-T02 update (historical): clean local-archive reproduction from
@@ -119,10 +119,11 @@
 > [`docs/release_readiness.md`](docs/release_readiness.md) and
 > [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-> P5-HW-OBS-01 update: the default-OFF `P5DIAG1` producer, Raspberry Pi HIL
-> collector, Schema 1 physical extension and detailed private evidence path are
-> `PASS_HOST + PASS_CROSS_BUILD + READY_FOR_10_MINUTE_ADMISSION`. The
-> 10-minute, 60-minute and formal 8-hour sessions remain `NOT_RUN`. See
+> P5-HW-OBS-01 update: the default-OFF `P5DIAG1` producer and Raspberry Pi HIL
+> collector passed software admission; a clean `[074]` diagnostic build then passed
+> the formal 8-hour run, and the restored default firmware passed an independent
+> approximately 10-minute Modbus/VCP/CAN regression. The historical 60-minute
+> pre-run remains `REVIEW_REQUIRED` and is not promoted to PASS. See
 > [`docs/soak_trend_report.md`](docs/soak_trend_report.md).
 
 > P5-S6-T04 update: the deterministic dual-bus matrix is `PASS_HOST +
@@ -174,8 +175,8 @@ Raspberry Pi 4B/ARM64 只读 JSONL/RESET/local-MQTT 联调均已通过。P5-S6-T
 `WAITING_FOR_HARDWARE`。P5-S6-T04 已用一个直接链接生产模块的 Host 矩阵验证双总线背压和
 软件故障隔离，并完成一次有界实物并发、短暂断线隔离和恢复补验；未修改固件任务或 RTOS 资源。P5-S6-T05 已增加有界
 JSONL soak runner、趋势判定和 20 次短时 Host 预检；P5-HW-OBS-01 又增加默认关闭的
-`P5DIAG1`、树莓派采集器和详细私有证据路径，当前为 `READY_FOR_10_MINUTE_ADMISSION`，真实
-10 分钟、60 分钟和 8 小时长稳均为 `NOT_RUN`。
+`P5DIAG1`、树莓派采集器和详细私有证据路径。诊断固件正式 8 小时长稳与恢复默认固件后的
+约 10 分钟 Modbus/VCP/CAN 回归均已通过；历史 60 分钟预跑保留为 `REVIEW_REQUIRED`。
 
 ## 当前边界
 

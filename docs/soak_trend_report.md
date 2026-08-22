@@ -1,10 +1,12 @@
 # P5-HW-OBS-01 长稳诊断与主机采集器
 
-> 软件状态：`PASS_HOST + PASS_CROSS_BUILD + READY_FOR_10_MINUTE_ADMISSION`
-> 硬件 10 分钟准入：`NOT_RUN`
-> 60 分钟预跑：`NOT_RUN`
-> 正式 8 小时长稳：`NOT_RUN`
+> 软件状态：`PASS_HOST + PASS_CROSS_BUILD`
+> 硬件 10 分钟准入：`PASS`
+> 60 分钟预跑：`REVIEW_REQUIRED`（历史会话保留；异常已完成聚焦排查）
+> 正式 8 小时长稳：`PASS`
+> 默认固件 10 分钟回归：`PASS`
 > 实施基线：`[070] b8daebfbee46d5e3851b34963823b6b48c21779a`
+> 正式证据基线：`[074] e4770957ee579cf63f1c67e29937ef54af55d6e4`
 
 ## 目的与边界
 
@@ -99,6 +101,25 @@ sha256sum out/firmware-debug/freertos_modbus_can_node.elf
 arm-none-eabi-size out/firmware-debug/freertos_modbus_can_node.elf
 ```
 
+### 树莓派部署与烧录默认边界
+
+树莓派是采集与 `systemd` 托管主机，不承担 GitHub 同步或 ST-LINK 烧录。后续每次长稳或
+树莓派实物联调都遵守以下默认操作：
+
+1. **源码同步**：在已审核的 Ubuntu-24.04-STM32 工作区从干净提交生成 Git bundle，校验 bundle
+   后通过 SCP 复制至树莓派；树莓派只对该本地 bundle 执行 `git fetch` 和 `git merge --ff-only`。
+   禁止树莓派通过 SSH 或 HTTPS 连接 GitHub、配置 GitHub 凭据，或直接 `git pull`。
+2. **固件烧录**：在 Windows 使用 STM32CubeProgrammer `v2.17.0` 和板载 ST-LINK 完成 ELF 下载、
+   写入校验与复位。默认 CLI 固定为
+   `D:\24.STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe`；后续烧录先直接检查该路径，只有
+   文件不存在或版本不符时才重新定位安装目录。树莓派不安装、不调用 ST-LINK 烧录工具，也不把
+   USB 设备透传作为烧录替代方案。
+3. **运行接线**：烧录验证后，把 ST-LINK USB 接至树莓派，树莓派通过其稳定的 VCP
+   `/dev/serial/by-id/` 路径采集诊断；USB-RS485 与 USB-CAN 同样连接树莓派。
+
+该分工使 Windows 保持唯一的烧录环境，Ubuntu 保持唯一的构建与 bundle 来源，树莓派保持可在
+SSH 控制通道短暂中断时独立持续运行的现场采集主机。
+
 树莓派使用稳定的 `/dev/serial/by-id/` 路径，并先把 CAN 固定为本项目已验证配置：
 
 ```bash
@@ -154,11 +175,71 @@ budget overrun、队列丢弃、RS485 错误、传感器故障或 MCU 复位。�
 因此该轮既不能作为 10 分钟 PASS，也不能据此声称硬件失败。修订后必须绑定新的干净提交，
 从空证据目录完整重跑 600 秒；旧证据仅用于解释工具修订，不与新会话拼接。
 
+## 实板阶段结果
+
+### 10 分钟诊断准入
+
+会话 `p5_hw_obs01_smoke_073_rerun_20260821T201011Z` 在干净提交
+`b9a5a97cd8fda7490e720ee38579bba88dd5f9f4` 和诊断 ELF SHA-256
+`695679201e058e108c73166122e507e45837518d069bc4fd33e47889d66650a0` 上取得 10 个
+60 秒样本，判定为 `PASS`。五任务栈最低水位分别为 protocol/acquisition/CAN/health/diagnostic
+`190/167/118/52/153` words，队列最大占用为 0，CAN pending 最大值为 6；各窗口
+RS485、CAN event drop 与 queue drop 均为 0。
+
+### 60 分钟预跑与异常边界
+
+会话 `p5_hw_obs01_prerun_073_20260821T2025Z` 形成 60 个完整样本，任务栈、队列、RS485
+和传感器推进没有硬失败，但原始判定保留为 `REVIEW_REQUIRED`：SocketCAN 共记录 28 个非
+BUS-OFF 错误帧。后续对 candleLight/`gs_usb`、主机 socket 生命周期、终端与公共 GND 的分相
+排查表明该轮不能升级为 60 分钟 `PASS`，也不能据此判定 MCU 固件失稳。本报告不改写该历史
+结果；最终长稳结论仅使用后续从空目录启动且无错误帧的正式 8 小时会话。
+
+### 正式 8 小时诊断固件长稳
+
+正式会话 `p5_formal_8h_074_20260822T0830Z` 绑定干净提交
+`e4770957ee579cf63f1c67e29937ef54af55d6e4`、诊断 ELF SHA-256
+`b66f909338ca9d23a266a06861809fb03a32cacd767e40ba26bcce0864231d32` 和
+`nucleo-f446re-stlink-v2-1-no-serial`。判定器与独立复评均为 `PASS`：
+
+- 480 个 60 秒样本，首末样本跨度 `28740000 ms`，四个窗口各 120 个样本；
+- 五任务最低栈水位为 `190/167/118/52/153` words；protocol `214→190` 与 diagnostic
+  `163→153` 只发生在启动收敛区，后续窗口不再下降；
+- CAN pending 最大值 6、队列最大占用 0，四窗口 RS485/CAN event drop/queue drop 均为 0；
+- 保存 172824 条 CAN 帧、480 条 host metrics、480 条 Modbus snapshot 与 480 条传感器
+  timeseries；`can_errors.jsonl` 和 events 均为空；
+- 会话结束时 `can0` 为 `ERROR-ACTIVE`，500 kbit/s、sample point 0.75、SJW 4，restart、
+  bus error、error-warning、error-passive 与 bus-off 计数均为 0；
+- 九个原始证据文件的 `SHA256SUMS.txt` 全部校验通过。
+
+详细原始证据仅保存在 `.private/soak/p5_formal_8h_074_20260822T0830Z/`，公开结论不包含
+设备序列号，也不把诊断固件 8 小时扩大为默认固件 8 小时。
+
+### 默认固件恢复与 10 分钟回归
+
+关闭全部 smoke/diagnostic 选项后构建并通过 Windows STM32CubeProgrammer v2.17.0 烧回默认
+ELF，SHA-256 为 `45b4a2ed3ee64ade9be820c1bf917632e45e70ac32ff2d7759335bff83d02e1d`；
+ELF 中不存在 `P5DIAG1`。会话 `p5_default_10m_074_20260822T1635` 的有效采集窗口通过：
+
+- 10 轮 Modbus 均为 `PASS_READ_ONLY (10/10)`；
+- VCP 恰有一次 BOOT、一次时钟摘要和五次 heartbeat，且无 `P5DIAG1`；
+- 六类周期 CAN ID 各 609 帧，共 3654 帧，首末帧跨度约 `598.977 s`；
+- CAN error 日志为空，结束时 `can0` 为 `ERROR-ACTIVE` 且错误计数为 0；
+- 四个原始文件的 SHA-256 全部通过。
+
+manifest 的宿主进程总历时为 1958 秒，不代表固件测试运行了 32 分钟。600 秒采集完成后，后台
+`cat` 读取 VCP 时未响应脚本发出的 `SIGINT`，导致 systemd 收尾等待；只终止该遗留采集子进程后，
+主脚本正常写入 manifest/SHA 并以 `ExecMainStatus=0` 退出。该清理异常发生在上述约 599 秒 CAN
+窗口和 10 轮 Modbus 已完成之后，不改变本轮回归结论，但后续复用脚本时应把 VCP 子进程退出改为
+有界 `SIGTERM`/超时回收。
+
+因此 `SOAK-02` 可在“诊断固件正式 8 小时 PASS + 默认固件约 10 分钟回归 PASS”的限定下关闭；
+历史 60 分钟预跑仍保持 `REVIEW_REQUIRED`，不单独宣称其通过，也不据此声明 MTBF、计量精度、
+任意故障恢复或生产级可靠性。
+
 ## 阶段门
 
-1. 当前停在内容审核与用户提交/同步之前，不烧录、不形成硬件 PASS。
-2. 10 分钟准入必须先达到 `PASS`；`REVIEW_REQUIRED` 只允许排查并重跑 10 分钟。
-3. 10 分钟通过后，60 分钟与 8 小时可按已审核方案以“目标”持续推进。
-4. 8 小时必须绑定干净提交和诊断 ELF SHA-256。
-5. 8 小时通过后关闭 `P5_SOAK_DIAGNOSTIC`，重新构建并烧回默认固件，再执行额外 10 分钟回归。
-6. 证据必须明确区分“诊断固件 8 小时”和“默认固件 10 分钟”，不得互相替代。
+1. 10 分钟准入、正式 8 小时和默认固件回归已经完成；后续不得用历史失败/复评数据替换原始证据。
+2. 正式 8 小时必须继续绑定干净提交与诊断 ELF SHA-256；默认固件回归使用独立 ELF SHA-256。
+3. 证据必须明确区分“诊断固件 8 小时”和“默认固件 10 分钟”，不得互相替代。
+4. 历史 60 分钟 `REVIEW_REQUIRED` 只支持异常复盘，不得改写成独立 `PASS`。
+5. Git 提交、Tag、远程 Release 和求职材料发布仍需分别审核与授权。

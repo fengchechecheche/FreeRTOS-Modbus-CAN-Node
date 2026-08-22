@@ -11,8 +11,8 @@
   "summary": {
     "FAIL": 0,
     "NOT_CLAIMED": 1,
-    "NOT_RUN": 1,
-    "PASS": 22,
+    "NOT_RUN": 0,
+    "PASS": 23,
     "REVIEW_REQUIRED": 0
   },
   "rows": [
@@ -477,20 +477,21 @@
       "domain": "SOAK",
       "capability": "10-minute, 60-minute and formal 8-hour hardware trend sessions",
       "execution_layer": "SOAK",
-      "result": "NOT_RUN",
-      "evidence_commit": "591f60516afa50511c70bd53f985ce0ccbb4a018",
-      "regression_anchor": null,
-      "firmware_sha256": null,
-      "hardware_identity": "NOT_ADMITTED",
+      "result": "PASS",
+      "evidence_commit": "e4770957ee579cf63f1c67e29937ef54af55d6e4",
+      "regression_anchor": "e4770957ee579cf63f1c67e29937ef54af55d6e4",
+      "firmware_sha256": "b66f909338ca9d23a266a06861809fb03a32cacd767e40ba26bcce0864231d32",
+      "hardware_identity": "NUCLEO-F446RE + BME280 + ADXL345 + VEML7700 + Waveshare RS485 CAN Shield + reference CH340 USB-RS485 + candleLight/gs_usb adapter + Raspberry Pi collector; serials omitted",
       "config_refs": [
         "tools/soak_runner.py",
+        "tools/soak_hil_collector.py",
         "docs/soak_trend_report.md"
       ],
       "evidence_refs": [
         "docs/soak_trend_report.md",
         "docs/release_readiness.md"
       ],
-      "allowed_claim": "未执行 10 分钟、60 分钟或正式 8 小时实物长稳。"
+      "allowed_claim": "[074] 诊断 ELF b66f9093... 在树莓派托管的三传感器、固定地址 4 Modbus/RS485 与六类周期经典 CAN 台架上完成正式 8 小时运行：480 个分钟样本、四窗口任务栈稳定、RS485/CAN event/queue drop 为 0、CAN error/event 文件为空且原始证据哈希通过。关闭诊断后，默认 ELF 45b4a2ed... 另行完成约 599 秒 CAN 连续采集、10 轮 Modbus 只读与一次 BOOT/时钟/5 次 heartbeat 回归。历史 60 分钟预跑仍为 REVIEW_REQUIRED；不声明默认固件运行 8 小时、MTBF、计量精度、任意故障恢复或生产级可靠性。"
     },
     {
       "id": "REP-02",

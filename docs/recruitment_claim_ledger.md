@@ -22,6 +22,7 @@ matrix results currently marked `PASS`.
 | CLM-IOT-01 | IOT | 实现 Modbus RTU 从站与经典 CAN 软件候选，Modbus 生产 C 模块通过 Host PTY 交互，CAN 通过 Host 与交叉构建合同验证。 | RS485-01,RS485-02,CAN-01 | HOST+CROSS_BUILD | NOT_PUBLISHED |
 | CLM-IOT-02 | IOT | 使用 SocketCAN/vcan 与 Host 双总线故障矩阵验证软件报文路径、有界背压和故障隔离，不声明实物总线联调。 | CAN-02,BUS-01 | HOST+VIRTUAL_BUS | NOT_PUBLISHED |
 | CLM-IOT-03 | IOT | 在 Ubuntu-24.04-Gateway x86_64 上通过参考 CH340 读取真实 STM32 地址 4 数据，完成只读 JSONL、一次复位恢复及约 60 秒本地 MQTT 投影。 | RS485-03,P3-01 | BOUNDED_HARDWARE_INTEGRATION | NOT_PUBLISHED |
+| CLM-IOT-04 | IOT | 在树莓派托管的三传感器、Modbus/RS485 与经典 CAN 台架上完成诊断固件正式 8 小时长稳，并在恢复默认固件后完成独立约 10 分钟回归。 | SOAK-02 | BOUNDED_HARDWARE_SOAK | NOT_PUBLISHED |
 | CLM-ROB-01 | ROBOTICS_LOW_LEVEL | 完成 STM32 固件 Host 回归、ARM Debug/Release 交叉构建和静态资源门，并保留硬件时序验证边界。 | SW-01,FW-01,FW-02 | HOST+CROSS_BUILD | NOT_PUBLISHED |
 | CLM-ROB-02 | ROBOTICS_LOW_LEVEL | 通过 CAN 固定队列与恢复软件合同及 Host 双总线故障矩阵验证有界背压和软件故障隔离。 | CAN-01,BUS-01 | SOFTWARE_CANDIDATE | NOT_PUBLISHED |
 
@@ -34,7 +35,7 @@ qualification and exclusion boundaries must remain intact.
 |---|---|---|---|
 | LIM-HW-01 | BSP-02,SNS-01,SNS-02,SNS-03,WDG-01 | Board startup, bounded watchdog and three sensor routes passed; metrology, physical ADXL345 INT and full hardware release remain outside the claims. | NOT_ELIGIBLE |
 | LIM-RS485-01 | RS485-03,P3-01 | Fixed-address-4 physical USB-RS485 and bounded Project Three read-only interoperability passed; valid address migration, Raspberry Pi hardware, production MQTT and repeated-fault endurance were not run. | NOT_ELIGIBLE |
-| LIM-SOAK-01 | SOAK-02 | Hardware smoke, pre-run and formal soak were not run. | NOT_ELIGIBLE |
+| LIM-SOAK-01 | SOAK-02 | 8 小时结论只适用于绑定哈希的诊断固件；默认固件只完成约 10 分钟回归。历史 60 分钟预跑仍为 REVIEW_REQUIRED，不据此声明 MTBF、生产级可靠性或任意故障恢复。 | NOT_ELIGIBLE |
 | LIM-REPRO-01 | REP-02 | Bit-for-bit BIN/HEX equality across differently named clean paths is not claimed. | NOT_ELIGIBLE |
 
 ## Wording rules
@@ -44,6 +45,6 @@ qualification and exclusion boundaries must remain intact.
 - Keep any physical RS485 claim bound to the reference CH340 route and fixed address 4. Project Three interoperability may be stated only with the Ubuntu-24.04-Gateway x86_64, read-only JSONL/RESET/local-MQTT and no-address-write qualifiers.
 - Do not replace “software fault matrix” with an unqualified physical dual-bus claim; any physical claim must cite the single bounded `BUS-02` route and its exclusions.
 - Do not extend `P3-01` to Raspberry Pi hardware, multiple real slaves, production MQTT, address writes or long-run reliability.
-- Do not publish sampling periods, recovery times or soak durations as measured results while their hardware rows are `NOT_RUN`.
+- Soak wording must distinguish the diagnostic-firmware 8-hour run from the restored-default approximately 10-minute regression and retain the historical 60-minute REVIEW_REQUIRED boundary.
 - Do not use “industrial grade”, “production ready”, “functional safety” or equivalent language.
 - Any actual CV, portfolio or recruitment-platform update requires a separate review and authorization.

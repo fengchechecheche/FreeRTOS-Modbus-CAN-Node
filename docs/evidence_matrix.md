@@ -7,8 +7,8 @@
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Board supplement evidence: `[044] d409a8161669aae8ea4c01246df577d36212650a`
 > Watchdog supplement evidence: `[046] 96fa46b41c38a0a0bb249876d9a0736165ac1642`
-> Row summary: `24 = 22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`
-> Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
+> Row summary: `24 = 23 PASS + 0 FAIL + 0 NOT_RUN + 1 NOT_CLAIMED`
+> Hardware Release evidence: `PASS_BOUNDED_HARDWARE_EVIDENCE / RELEASE_NOT_AUTHORIZED`
 
 ## Purpose
 
@@ -116,7 +116,7 @@ physical ACK.
 | ID | Layer | Result | Primary evidence | Allowed claim |
 |---|---|---|---|---|
 | SOAK-01 | HOST | PASS | `docs/soak_trend_report.md` | runner/schema, default-OFF P5DIAG1 formatter, Raspberry Pi HIL collector, Host tests and ARM diagnostic builds passed; this is software admission only |
-| SOAK-02 | SOAK | NOT_RUN | `docs/soak_trend_report.md` | collector is ready, but 10-minute, 60-minute and 8-hour hardware sessions were not run |
+| SOAK-02 | SOAK | PASS | `docs/soak_trend_report.md` | a clean `[074]` diagnostic build passed the formal 8-hour Raspberry Pi-hosted run with 480 samples and no CAN error/event records; the restored default firmware then passed an independent approximately 10-minute Modbus/VCP/CAN regression; the earlier 60-minute pre-run remains REVIEW_REQUIRED and is not claimed as PASS |
 
 The 20-iteration Host preflight is process-management evidence, not uptime or
 real-time resource-trend evidence.
@@ -132,8 +132,9 @@ P5-HW-SNS-00 在基线 `d48f2c75b048dc60320045233312ad6df050e88e` 上以 SHA-256
 RS485-03 已在参考 CH340、固定地址 4 的边界内通过；BUS-02 也已在参考转换器、已准入
 CAN 路径和一次有界短暂断线的边界内通过。项目三 `[039]` 随后通过同一参考 RS485 路线完成
 真实地址 4 JSONL、一次 RESET 恢复和本地 MQTT 投影，`P3-01` 现为 `PASS`；有效地址迁移仍为
-`NOT_RUN_BY_POLICY`，不属于独立矩阵行。当前矩阵总计为
-`22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`；唯一 `NOT_RUN` 为 `SOAK-02`。
+`NOT_RUN_BY_POLICY`，不属于独立矩阵行。正式诊断固件 8 小时与默认固件约 10 分钟回归随后通过，
+`SOAK-02` 在对应固件哈希和台架边界内关闭；历史 60 分钟预跑仍保留 `REVIEW_REQUIRED`，不改写为
+独立通过。当前矩阵总计为 `23 PASS + 0 FAIL + 0 NOT_RUN + 1 NOT_CLAIMED`。
 
 ## Release blocker projection
 
@@ -142,12 +143,13 @@ CAN 路径和一次有界短暂断线的边界内通过。项目三 `[039]` 随�
 | HW-001 sensors and watchdog | BSP-02, SNS-01..03, WDG-01 | CLOSED; all rows passed within their documented bounded routes |
 | HW-002 RS485 and Project Three | RS485-03, P3-01 | CLOSED; fixed-address reference RS485 and bounded Project Three read-only JSONL/MQTT interoperability passed |
 | HW-003 CAN and physical dual bus | CAN-03, BUS-02 | CLOSED; both rows passed within their admitted bounded routes |
-| HW-004 hardware soak | SOAK-02 | OPEN |
+| HW-004 hardware soak | SOAK-02 | CLOSED; formal diagnostic 8-hour run and restored-default approximately 10-minute regression passed within the documented bench boundary |
 
 The software source and both clean-reproduction blockers are closed. `BSP-02`
 passes at its narrow board-admission layer, `WDG-01` at its bounded reset-only
 layer, and `SNS-01..03` at their documented bounded sensor routes, so `HW-001`
-is closed. `HW-002` and `HW-003` are also closed; only `HW-004` remains open.
+is closed. `HW-002`, `HW-003` and `HW-004` are also closed. All four bounded
+hardware evidence blockers are closed; Tag, remote Release and publication still require separate authorization.
 
 ## Public and local evidence
 
