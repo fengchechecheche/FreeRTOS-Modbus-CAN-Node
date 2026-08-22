@@ -363,3 +363,36 @@ task had one historical miss/deadline/budget event, but those counters did not
 increase in the second read; this is recorded for troubleshooting and is not a
 WCET or deadline guarantee. No stack was resized and no periodic trace was
 introduced.
+
+## P5-HW-OBS-01 sustained hardware watermark supplement
+
+The Raspberry Pi-hosted formal eight-hour diagnostic run measured the five task
+minimum-free watermarks as `190/167/118/52/153` words for
+protocol/acquisition/CAN/health/diagnostic. The protocol watermark changed once
+from 214 to 190 words during startup and then stayed at 190 in every later
+window. With a configured 256-word protocol stack, the measured steady-state
+historical maximum usage is therefore 66 words (264 B), leaving 190 words
+(760 B, 74.2%) free and 158 words above the 32-word acceptance gate.
+
+This metric is the FreeRTOS minimum-ever-free watermark, not instantaneous stack
+occupancy. The one-time decrease records a deeper path first exercised after
+the initial observation; it is not evidence that 96 B remained allocated. The
+best-supported trigger is the first complete RS485/Modbus receive and response
+path, which includes a 64 B task-local receive chunk and nested stream/server
+calls. The watermark alone cannot uniquely identify one function as the source
+of all 96 B.
+
+No stack resize or buffer-ownership refactor is required by this result. Keep
+190 words as the measured steady-state planning value and retain 214 words only
+as the cold-start observation. A decrease confined to the first evaluation
+window is accepted only when every later window remains at or above the settled
+value; a later decrease remains `REVIEW_REQUIRED`. Source remediation is
+triggered only by continued steady-state decline, approach to the 32-word gate,
+or a stack-overflow hook, HardFault, reset or task stall. Exact call-site work,
+if later required, uses default-OFF watermark checkpoints or compiler
+`-fstack-usage` analysis rather than increasing the stack pre-emptively. An
+optional no-source-change GDB route is documented in `docs/soak_trend_report.md`:
+first compare no-request startup against one complete 122-register Modbus read,
+then, only if exact attribution is still useful, place a DWT write watchpoint at
+the measured `0xA5` fill boundary. This debug-only experiment is not a release
+or soak acceptance gate and must not be used for timing claims.
