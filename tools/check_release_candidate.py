@@ -29,6 +29,12 @@ ALLOWED_QUALIFICATIONS = {
     "HOST+CROSS_BUILD",
     "SOFTWARE_CANDIDATE",
     "HOST+VIRTUAL_BUS",
+    "BOUNDED_HARDWARE_INTEGRATION",
+    "BOUNDED_HARDWARE_SOAK",
+}
+METRIC_QUALIFICATIONS = {
+    "BOUNDED_HARDWARE_INTEGRATION",
+    "BOUNDED_HARDWARE_SOAK",
 }
 PRIVATE_PATTERNS = (
     ("Windows user path", re.compile(r"[A-Za-z]:\\Users\\", re.IGNORECASE)),
@@ -77,8 +83,8 @@ def matrix_rows(matrix: object) -> tuple[dict[str, dict[str, object]], list[str]
     if matrix.get("summary") != {
         "FAIL": 0,
         "NOT_CLAIMED": 1,
-        "NOT_RUN": 3,
-        "PASS": 20,
+        "NOT_RUN": 0,
+        "PASS": 23,
         "REVIEW_REQUIRED": 0,
     }:
         errors.append("evidence matrix summary mismatch")
@@ -106,8 +112,8 @@ def validate_claim_rows(
 ) -> list[str]:
     errors: list[str] = []
     ids = [row[0] for row in rows]
-    if len(rows) != 6:
-        errors.append(f"candidate claim count must be 6, got {len(rows)}")
+    if len(rows) != 8:
+        errors.append(f"candidate claim count must be 8, got {len(rows)}")
     duplicates = sorted({item for item in ids if ids.count(item) > 1})
     if duplicates:
         errors.append(f"duplicate claim IDs: {duplicates}")
@@ -137,10 +143,11 @@ def validate_claim_rows(
         for marker in FORBIDDEN_CLAIM_MARKERS:
             if marker in wording:
                 errors.append(f"{claim_id}: forbidden wording {marker!r}")
-        if UNQUALIFIED_METRIC.search(wording):
+        if UNQUALIFIED_METRIC.search(wording) and qualification not in METRIC_QUALIFICATIONS:
             errors.append(f"{claim_id}: unqualified time/rate metric in candidate wording")
 
-    if role_counts != Counter({role: 2 for role in EXPECTED_ROLES}):
+    expected_role_counts = Counter({"EMBEDDED": 2, "IOT": 4, "ROBOTICS_LOW_LEVEL": 2})
+    if role_counts != expected_role_counts:
         errors.append(f"role claim counts mismatch: {dict(role_counts)}")
     return errors
 
@@ -246,36 +253,36 @@ def check_repository(root: pathlib.Path) -> tuple[list[str], int, int]:
     errors.extend(marker_errors("software candidate", candidate_text, (
         "Intended version: `v0.1.0`",
         "Release state: `UNRELEASED`",
-        "Candidate state: `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`",
+        "Candidate state: `BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW`",
         "Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`",
         "Current software-test baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`",
         "Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`",
-        "Evidence matrix: `24 = 20 PASS + 0 FAIL + 3 NOT_RUN + 1 NOT_CLAIMED`",
-        "Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`",
-        "Tag / remote Release: `ABSENT / NOT_RUN`",
+        "Evidence matrix: `24 = 23 PASS + 0 FAIL + 0 NOT_RUN + 1 NOT_CLAIMED`",
+        "Hardware Release evidence: `PASS_BOUNDED_HARDWARE_EVIDENCE`",
+        "Tag / remote Release: `ABSENT / NOT_AUTHORIZED`",
     )))
     errors.extend(marker_errors("demo guide", demo_text, (
-        "Guide state: `SOFTWARE_DEMO_READY`",
-        "Hardware demo: `NOT_RUN / BLOCKED_WAITING_FOR_HARDWARE`",
+        "Guide state: `SOFTWARE_AND_BOUNDED_HARDWARE_DEMO_READY`",
+        "Hardware demo: `PASS_BOUNDED / NOT_PUBLISHED`",
         "Current executable software demo",
-        "Future hardware demo（NOT_RUN）",
+        "Reviewed bounded hardware demo",
         "does not represent a transceiver, physical ACK or MCU frame exchange",
     )))
     errors.extend(marker_errors("claim ledger", claim_text, (
         "Ledger schema: `P5_RECRUITMENT_CLAIMS_V1`",
         "Publication: `NOT_PUBLISHED`",
-        "Hardware claims: `INELIGIBLE_WHILE_NOT_RUN`",
+        "Hardware claims: `BOUNDED_CLAIMS_ONLY / NOT_PUBLISHED`",
     )))
     errors.extend(marker_errors("T05 tutorial", tutorial_text, (
         "教程状态：`FROZEN`",
-        "UNRELEASED + SOFTWARE_CANDIDATE_READY_FOR_HARDWARE",
-        "BLOCKED_WAITING_FOR_HARDWARE",
+        "UNRELEASED + BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW",
+        "PASS_BOUNDED_HARDWARE_EVIDENCE",
     )))
     errors.extend(marker_errors("release ledger", release_text, (
         "Learning documentation gate: `PASS_35_FROZEN`",
-        "Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`",
+        "Candidate collateral gate: `PASS_BOUNDED_RELEASE_REVIEW_READY`",
         "Binary reproduction gate: `PASS_CURRENT_CLEAN_REPRODUCTION`",
-        "Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`",
+        "Hardware Release gate: `PASS_BOUNDED_HARDWARE_EVIDENCE`",
         "Tag / remote Release: `NOT_AUTHORIZED / NOT_RUN`",
     )))
 
@@ -320,6 +327,8 @@ def run_self_test() -> int:
         ["CLM-EMB-02", "EMBEDDED", "Build evidence", "FW-01", "SOFTWARE_CANDIDATE", "NOT_PUBLISHED"],
         ["CLM-IOT-01", "IOT", "Protocol evidence", "SW-01", "HOST+CROSS_BUILD", "NOT_PUBLISHED"],
         ["CLM-IOT-02", "IOT", "Virtual evidence", "FW-01", "HOST+VIRTUAL_BUS", "NOT_PUBLISHED"],
+        ["CLM-IOT-03", "IOT", "Bounded hardware integration", "SW-01", "BOUNDED_HARDWARE_INTEGRATION", "NOT_PUBLISHED"],
+        ["CLM-IOT-04", "IOT", "Bounded hardware soak 8 hours", "FW-01", "BOUNDED_HARDWARE_SOAK", "NOT_PUBLISHED"],
         ["CLM-ROB-01", "ROBOTICS_LOW_LEVEL", "Runtime evidence", "SW-01", "HOST+CROSS_BUILD", "NOT_PUBLISHED"],
         ["CLM-ROB-02", "ROBOTICS_LOW_LEVEL", "Bounded evidence", "FW-01", "SOFTWARE_CANDIDATE", "NOT_PUBLISHED"],
     ]
@@ -344,6 +353,10 @@ def run_self_test() -> int:
     metric = [row.copy() for row in valid]
     metric[0][2] = "20 ms measured timing"
     assert any("unqualified" in item for item in validate_claim_rows(metric, evidence))
+    checks += 1
+    bounded_metric = [row.copy() for row in valid]
+    bounded_metric[5][2] = "Bounded hardware soak 8 hours"
+    assert not validate_claim_rows(bounded_metric, evidence)
     checks += 1
     short = valid[:-1]
     assert validate_claim_rows(short, evidence)
@@ -399,7 +412,7 @@ def main() -> int:
         return 1
     print(
         "P5 RELEASE CANDIDATE: PASS "
-        f"(6 candidate claims, {eligible} eligible evidence rows, "
+        f"(8 candidate claims, {eligible} eligible evidence rows, "
         f"{restricted} restricted rows)"
     )
     return 0

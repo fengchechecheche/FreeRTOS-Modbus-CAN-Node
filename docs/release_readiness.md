@@ -7,8 +7,8 @@
 > Binary reproduction gate: `PASS_CURRENT_CLEAN_REPRODUCTION`
 > Evidence matrix gate: `PASS_SCHEMA_REFERENCE_CHECK`
 > Learning documentation gate: `PASS_35_FROZEN`
-> Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`
-> Hardware Release evidence gate: `PASS_BOUNDED_HARDWARE_EVIDENCE`
+> Candidate collateral gate: `PASS_BOUNDED_RELEASE_REVIEW_READY`
+> Hardware Release gate: `PASS_BOUNDED_HARDWARE_EVIDENCE`
 > Tag / remote Release: `NOT_AUTHORIZED / NOT_RUN`
 
 ## Gate interpretation
@@ -90,17 +90,15 @@ repeatable as a procedure, but bit-for-bit output across differently named
 directories is `NOT_CLAIMED`; no CMake or firmware flags were changed in T02.
 REPRO-002 repeated the same bounded comparison and retained that limitation.
 
-One hardware blocker remains open; `HW-001`, `HW-002` and `HW-003` are closed. NUCLEO-F446RE supplements passed the
-narrow `BSP-02` board-admission row and `WDG-01`, including normal health feed,
-one controlled IWDG reset and reset-only `.noinit` retention. P5-HW-SNS-00 also
-passed narrow BME280/VEML7700 presence and final-topology ADXL345 identity probes,
-and `[066]` subsequently closed the listed ADXL345 functional boundary through
-the production bounded-polling route. Physical CAN,
-fixed-address-4 RS485 and one bounded simultaneous-bus fault-isolation run now
-have separate PASS rows. Project Three `[039]` completed bounded real STM32 JSONL, RESET recovery and
-local MQTT projection on Ubuntu-24.04-Gateway x86_64; `[040]` repeated those paths on a physical
-Raspberry Pi 4B/ARM64 and added a short active-RS485/passive-CAN concurrency supplement. The
-10-minute/60-minute/8-hour soak is not inferred from those results.
+All four bounded hardware blockers are closed. NUCLEO-F446RE supplements passed
+the `BSP-02` board-admission row, three bounded sensor routes and `WDG-01`.
+Physical CAN, fixed-address-4 RS485, Project Three interoperability and one
+bounded simultaneous-bus fault-isolation run have separate PASS rows. A clean
+diagnostic build subsequently passed the formal eight-hour soak, and the
+restored default firmware passed an independent approximately ten-minute
+Modbus/VCP/CAN regression. These results remain bounded by their domain reports
+and do not authorize a tag, remote Release, publication, metrology, MTBF or
+production deployment.
 
 ## Evidence matrix result
 
@@ -113,39 +111,40 @@ The matrix schema, result counts, public references, full Git identities, and
 hardware-claim restrictions pass `tools/check_evidence_matrix.py`. `BSP-02`
 passes only at the bounded board-admission layer. Physical RS485 and CAN each
 pass only on their documented admitted routes; ADXL345 passes only through the
-documented default bounded-polling route. Project Three interoperability passes only on the documented
-Ubuntu-24.04-Gateway x86_64 and physical Raspberry Pi 4B/ARM64 read-only/local-MQTT routes; Host-active
-CAN and production deployment remain excluded. Only the 10-minute/60-minute/8-hour sessions remain open
-exactly as listed above.
+documented default bounded-polling route. Project Three interoperability passes
+only on the documented Ubuntu-24.04-Gateway x86_64 and physical Raspberry Pi
+4B/ARM64 read-only/local-MQTT routes; Host-active CAN and production deployment
+remain excluded. `SOAK-02` is closed only by the diagnostic-firmware formal
+eight-hour run and the separate restored-default approximately ten-minute
+regression; the historical sixty-minute pre-run remains `REVIEW_REQUIRED` and
+is not promoted to an independent PASS.
 
 ## Learning documentation result
 
-P5-S7-T04 establishes one 35-entry S1-to-S7 route, restores four reviewed S1
-tutorials that were absent from the independent repository, and leaves only
-P5-S7-T05 as `PLANNED` without creating an empty file. At the T04 content-review
-gate, all 34 available tutorials through T04 are `FROZEN`; T05 remains the only
-`PLANNED` route entry and has no tutorial file.
+P5-S7-T04 established one 35-entry S1-to-S7 route and restored four reviewed S1
+tutorials that were absent from the independent repository. P5-S7-T05 was then
+implemented and reviewed; all 35 tutorials now exist and are `FROZEN`.
 
 `docs/learning/problem_ledger.md` retains 12 actual, evidence-linked engineering
-problems. Hardware and integration `NOT_RUN` items remain in the evidence
-matrix rather than being represented as fixed problems. This documentation
-gate closes no HW blocker and does not authorize T05, a tag, or a Release.
+problems. Evidence exclusions remain in the matrix and claim ledger rather than
+being represented as fixed problems. This documentation gate does not authorize
+a tag or remote Release.
 
 ## Software candidate and recruitment result
 
-P5-S7-T05 keeps intended version `v0.1.0` in `UNRELEASED` state and preserves
-the historical `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE` collateral. The
-candidate note preserves `[039]` as the original documentation baseline while
-using `[047]` as the current software-test and clean-replay source. The
-separate `[046]` watchdog evidence remains a bounded hardware result rather
-than being inferred from the clean build.
+P5-S7-T05 keeps intended version `v0.1.0` in `UNRELEASED` state and advances
+the collateral to `BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW`. The
+candidate note preserves `[039]` as the original documentation baseline and
+`[047]` as the clean software replay source; later hardware evidence remains
+separately bound to its recorded commits and firmware hashes rather than being
+inferred from that clean build.
 
-`docs/demo_guide.md` provides one software-only demonstration path and a
-separate hardware sequence marked `NOT_RUN`. The six role-specific candidate
-sentences in `docs/recruitment_claim_ledger.md` cite only matrix `PASS` rows and
-remain `NOT_PUBLISHED`; incomplete sensor boundaries, Project Three,
-simultaneous physical buses and hardware soak stay ineligible.
+`docs/demo_guide.md` provides separate software and reviewed bounded-hardware
+paths. The eight role-specific candidate sentences in
+`docs/recruitment_claim_ledger.md` cite only matrix `PASS` rows and remain
+`NOT_PUBLISHED`; all hardware wording retains its sensor, integration, soak and
+production exclusions.
 
 All 35 tutorials now exist and are `FROZEN` after user content review. This
-collateral gate closes no hardware blocker and does not create a
-tag, binary attachment, final v0.1.0 release note or remote Release.
+collateral gate does not create a tag, binary attachment, final v0.1.0 release
+note or remote Release.

@@ -2,19 +2,20 @@
 
 > Intended version: `v0.1.0`
 > Release state: `UNRELEASED`
-> Candidate state: `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`
+> Candidate state: `BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW`
 > Original T05 documentation baseline: `[039] e878e379ed499b51961eff12443869f1bb7f32f4`
 > Current software-test baseline: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
 > Clean replay source: `[047] 26411d2b627fd67654479f5a97a2066e47deafb5`
-> Evidence matrix: `24 = 20 PASS + 0 FAIL + 3 NOT_RUN + 1 NOT_CLAIMED`
-> Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`
-> Tag / remote Release: `ABSENT / NOT_RUN`
+> Evidence matrix: `24 = 23 PASS + 0 FAIL + 0 NOT_RUN + 1 NOT_CLAIMED`
+> Hardware Release evidence: `PASS_BOUNDED_HARDWARE_EVIDENCE`
+> Tag / remote Release: `ABSENT / NOT_AUTHORIZED`
 
 ## Purpose
 
-This document describes the current software candidate plus its separately
-bounded bare-board evidence. It is not final v0.1.0 release notes and does not
-promote the remaining sensor, Project Three interoperability or soak gaps.
+This document describes the current source candidate plus its separately
+bounded board, sensor, RS485, CAN, Project Three and soak evidence. It is not
+final v0.1.0 release notes and does not authorize a tag, binary attachment,
+remote Release or publication.
 
 The candidate keeps its identities separate. `[036]`/`[037]` remain the
 historical T02 source/evidence pair, `[039]` is the original T05 documentation
@@ -56,28 +57,41 @@ The current Release BIN identity is
 `8eae8b92b0d9cdf4af3ad938d881fb124f682e9f2e8435b02dbb7a4685ff986c`;
 the manifest records hashes but does not attach firmware binaries.
 
-## Bounded hardware evidence already available
+## Bounded hardware evidence
 
-- `BSP-02`: ST-LINK, default Debug flash/verify/reset, VCP boot, runtime clock,
-  GPIO register state, limited scheduler smoke and one power cycle passed;
-- `WDG-01`: normal health feed, one controlled IWDG reset, reset-reason decode
-  and reset-only `.noinit` retention passed.
+- `BSP-02`, `SNS-01..03` and `WDG-01` passed within the documented board,
+  three-sensor, bounded-polling and reset-only routes;
+- `RS485-03` and `P3-01` passed fixed-address-4 physical Modbus plus bounded
+  read-only JSONL/RESET/local-MQTT interoperability;
+- `CAN-03` and `BUS-02` passed the admitted common-ground candleLight route and
+  one bounded physical dual-bus interruption/recovery run;
+- `SOAK-02` passed a hash-bound diagnostic-firmware formal eight-hour run and
+  a separate restored-default approximately ten-minute regression.
 
-These results are not a complete hardware Release and do not imply sensor or
-physical-bus operation.
+These rows close the four bounded hardware evidence blockers. They do not
+authorize publication or expand the explicit exclusions below.
 
 ## Explicitly excluded
 
-The following remain incomplete and are not candidate accomplishments:
+The following remain outside the candidate claim despite all matrix execution
+rows having completed:
 
-- BME280 bounded sampling/reset and VEML7700 light-response/range checks passed without metrology claims; ADXL345 interrupt/axis checks remain `NOT_RUN`;
-- a reference CH340 USB-RS485 passed the fixed-address-4 physical H01～H07 matrix, one post-reset H01 and one post-reconnect H01; valid address migration H08/H09 and Project Three interoperability remain `NOT_RUN`;
-- the admitted common-GND candleLight route passed periodic telemetry, physical ACK in both directions and one bounded read-only `0x540/0x541` application round trip at 500 kbit/s with Host sample point `0.75`; arbitrary-adapter interoperability, physical bus-off recovery and simultaneous RS485+CAN remain unclaimed;
-- simultaneous physical RS485/CAN behavior;
-- the 10-minute, 60-minute and formal 8-hour hardware sessions.
+- sensor metrology/calibration accuracy, physical ADXL345 INT1/INT2, exact
+  sampling rate and standalone-module SPI robustness;
+- valid Modbus address migration H08/H09, multiple production slaves,
+  production MQTT and repeated RS485 fault endurance;
+- arbitrary CAN-adapter interoperability, Host-active production commands,
+  repeated physical bus-off recovery and arbitrary interruption duration;
+- MTBF, production-grade reliability, functional safety and unrestricted fault
+  recovery;
+- bit-for-bit BIN/HEX equality across differently named clean source paths.
 
-Use [`demo_guide.md`](demo_guide.md) for the software-only demonstration and
-the deferred hardware order. Use
+The historical 60-minute pre-run remains `REVIEW_REQUIRED`. The accepted soak
+claim is specifically the diagnostic-firmware eight-hour run plus the separate
+default-firmware approximately ten-minute regression.
+
+Use [`demo_guide.md`](demo_guide.md) for the software route and reviewed bounded
+hardware evidence order. Use
 [`recruitment_claim_ledger.md`](recruitment_claim_ledger.md) for bounded public
 wording.
 
@@ -105,5 +119,5 @@ Final release notes may be created only after all of the following are true:
 Until then the only valid state is:
 
 ```text
-UNRELEASED + SOFTWARE_CANDIDATE_READY_FOR_HARDWARE
+UNRELEASED + BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW
 ```

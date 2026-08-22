@@ -21,7 +21,7 @@ bxCAN 初始化时设置 `CAN_MCR_NART`。补丁只使 Linux `gs_usb` 驱动能�
 在 Ubuntu-24.04-STM32 中执行：
 
 ```bash
-cd /home/stm32/project/freertos_modbus_can_node
+cd <freertos_modbus_can_node-repository>
 
 ./tools/candlelight_one_shot/build.sh \
   "/path/to/clean/candleLight_fw"

@@ -71,7 +71,7 @@
 | Modbus | zero-based；default slave 4；19200 8E1 | `protocol/register_map.json`、`.ioc` |
 | CAN | 500000 bit/s；0x140/240/241/340/341/342/440/540/541 | `protocol/can_message_map.json` |
 | Host regression | Debug/Release 23 tests | `CMakeLists.txt`、`docs/modbus_hil_report.md` |
-| Evidence matrix | 13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED | `artifacts/release/p5_s7_t03_evidence_matrix.json` |
+| Evidence matrix | 23 PASS + 0 NOT_RUN + 1 NOT_CLAIMED | `artifacts/release/p5_s7_t03_evidence_matrix.json` |
 
 历史教程中的较小测试计数是当时结果，不表示当前回归规模。上述锚点用于发现教程漂移，不把软件
 结果提升为硬件通过。

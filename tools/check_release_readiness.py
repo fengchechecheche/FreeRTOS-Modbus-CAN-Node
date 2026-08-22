@@ -78,6 +78,11 @@ def read_text(path: pathlib.Path) -> str:
     return path.read_text(encoding="utf-8", errors="strict")
 
 
+def write_text_lf(path: pathlib.Path, content: str) -> None:
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
+        stream.write(content)
+
+
 def validate_project_license(text: str) -> list[str]:
     errors: list[str] = []
     required = (
@@ -127,7 +132,7 @@ def validate_readme(text: str) -> list[str]:
         "REPRO-002 update",
         "docs/reproduction_report_repro_002.md",
         "bit-for-bit reproducibility",
-        "WAITING_FOR_HARDWARE",
+        "BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW",
     )
     for marker in required:
         if marker not in text:
@@ -173,8 +178,8 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
             {
                 "FAIL": 0,
                 "NOT_CLAIMED": 1,
-                "NOT_RUN": 1,
-                "PASS": 22,
+                "NOT_RUN": 0,
+                "PASS": 23,
                 "REVIEW_REQUIRED": 0,
             },
         ),
@@ -227,8 +232,8 @@ def validate_evidence_projection(root: pathlib.Path, ledger_text: str) -> list[s
     matrix_doc = read_text(matrix_doc_path)
     for marker in (
         "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`",
-        "Row summary: `24 = 22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`",
-        "BLOCKED_WAITING_FOR_HARDWARE",
+        "Row summary: `24 = 23 PASS + 0 FAIL + 0 NOT_RUN + 1 NOT_CLAIMED`",
+        "RELEASE_NOT_AUTHORIZED",
     ):
         if marker not in matrix_doc:
             errors.append(f"evidence matrix document missing marker: {marker}")
@@ -255,7 +260,7 @@ def validate_learning_projection(root: pathlib.Path, ledger_text: str) -> list[s
         "当前可用教程：35",
         "当前候选：P5-S7-T05",
         "problem_ledger.md",
-        "13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED",
+        "23 PASS + 0 NOT_RUN + 1 NOT_CLAIMED",
     )
     for marker in route_markers:
         if marker not in route_text:
@@ -296,18 +301,22 @@ def validate_candidate_projection(root: pathlib.Path, ledger_text: str) -> list[
         (
             "software candidate",
             candidate_text,
-            "Candidate state: `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`",
+            "Candidate state: `BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW`",
         ),
         (
             "software candidate",
             candidate_text,
-            "Hardware Release: `BLOCKED_WAITING_FOR_HARDWARE`",
+            "Hardware Release evidence: `PASS_BOUNDED_HARDWARE_EVIDENCE`",
         ),
-        ("demo guide", demo_text, "Guide state: `SOFTWARE_DEMO_READY`"),
         (
             "demo guide",
             demo_text,
-            "Hardware demo: `NOT_RUN / BLOCKED_WAITING_FOR_HARDWARE`",
+            "Guide state: `SOFTWARE_AND_BOUNDED_HARDWARE_DEMO_READY`",
+        ),
+        (
+            "demo guide",
+            demo_text,
+            "Hardware demo: `PASS_BOUNDED / NOT_PUBLISHED`",
         ),
         ("claim ledger", claim_text, "Publication: `NOT_PUBLISHED`"),
         (
@@ -319,8 +328,8 @@ def validate_candidate_projection(root: pathlib.Path, ledger_text: str) -> list[
     for label, text, marker in markers:
         if marker not in text:
             errors.append(f"{label} missing marker: {marker}")
-    if "Software candidate collateral gate: `PASS_READY_FOR_HARDWARE`" not in ledger_text:
-        errors.append("release ledger software candidate collateral gate is not PASS")
+    if "Candidate collateral gate: `PASS_BOUNDED_RELEASE_REVIEW_READY`" not in ledger_text:
+        errors.append("release ledger candidate collateral gate is not PASS")
     return errors
 
 
@@ -653,8 +662,8 @@ def check_repository(root: pathlib.Path) -> list[str]:
                 errors.append("closed REPRO-002 ledger has incorrect binary gate")
     if "Software source candidate gate: `PASS`" not in ledger_text:
         errors.append("ledger software source candidate gate is not PASS")
-    if "Hardware Release gate: `BLOCKED_WAITING_FOR_HARDWARE`" not in ledger_text:
-        errors.append("ledger hardware Release gate is not blocked for hardware")
+    if "Hardware Release gate: `PASS_BOUNDED_HARDWARE_EVIDENCE`" not in ledger_text:
+        errors.append("ledger hardware Release evidence gate is not PASS")
 
     public_items = (
         (str(path.relative_to(root)), read_text(path))
@@ -699,7 +708,7 @@ def run_self_test() -> int:
         "REPRO-002 update\n"
         "docs/reproduction_report_repro_002.md\n"
         "bit-for-bit reproducibility\n"
-        "WAITING_FOR_HARDWARE\n"
+        "BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW\n"
     )
     assert not validate_readme(valid_readme)
     checks += 1
@@ -707,7 +716,7 @@ def run_self_test() -> int:
     valid_learning_route = (
         "路线状态：`FROZEN`\n"
         "路线总数：35\n当前可用教程：35\n当前候选：P5-S7-T05\n"
-        "problem_ledger.md\n13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED\n"
+        "problem_ledger.md\n23 PASS + 0 NOT_RUN + 1 NOT_CLAIMED\n"
     )
     assert all(
         marker in valid_learning_route
@@ -717,7 +726,7 @@ def run_self_test() -> int:
             "当前可用教程：35",
             "当前候选：P5-S7-T05",
             "problem_ledger.md",
-            "13 PASS + 10 NOT_RUN + 1 NOT_CLAIMED",
+            "23 PASS + 0 NOT_RUN + 1 NOT_CLAIMED",
         )
     )
     checks += 1
@@ -726,15 +735,15 @@ def run_self_test() -> int:
 
     valid_projection_doc = (
         "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`\n"
-        "Row summary: `24 = 22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`\n"
-        "BLOCKED_WAITING_FOR_HARDWARE\n"
+        "Row summary: `24 = 23 PASS + 0 FAIL + 0 NOT_RUN + 1 NOT_CLAIMED`\n"
+        "RELEASE_NOT_AUTHORIZED\n"
     )
     assert all(
         marker in valid_projection_doc
         for marker in (
             "Matrix status: `FROZEN_SCHEMA / UPDATED_EVIDENCE`",
-            "Row summary: `24 = 22 PASS + 0 FAIL + 1 NOT_RUN + 1 NOT_CLAIMED`",
-            "BLOCKED_WAITING_FOR_HARDWARE",
+            "Row summary: `24 = 23 PASS + 0 FAIL + 0 NOT_RUN + 1 NOT_CLAIMED`",
+            "RELEASE_NOT_AUTHORIZED",
         )
     )
     checks += 1
@@ -761,9 +770,7 @@ def run_self_test() -> int:
         manifest_copy.write_bytes(historical_manifest.read_bytes())
         manifest_text = read_text(manifest_copy)
         replacement = "0" if manifest_text[0] != "0" else "1"
-        manifest_copy.write_text(
-            replacement + manifest_text[1:], encoding="utf-8", newline="\n"
-        )
+        write_text_lf(manifest_copy, replacement + manifest_text[1:])
         assert any(
             "historical replay manifest hash mismatch" in item
             for item in validate_historical_replay_bundle(root)
@@ -774,11 +781,9 @@ def run_self_test() -> int:
         root = pathlib.Path(directory)
         release_dir = root / "artifacts/release"
         release_dir.mkdir(parents=True)
-        (root / "CMakePresets.json").write_text(
-            "presets\n", encoding="utf-8", newline="\n"
-        )
+        write_text_lf(root / "CMakePresets.json", "presets\n")
         ioc_path = root / "freertos_modbus_can_node.ioc"
-        ioc_path.write_text("ioc\n", encoding="utf-8", newline="\n")
+        write_text_lf(ioc_path, "ioc\n")
         assert not validate_current_replay_bundle(root, required=False)
         assert validate_current_replay_bundle(root, required=True)
         checks += 2
@@ -826,46 +831,42 @@ def run_self_test() -> int:
             },
         }
         replay_path = release_dir / CURRENT_REPLAY_NAME
-        replay_path.write_text(
-            json.dumps(replay, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-            newline="\n",
+        write_text_lf(
+            replay_path, json.dumps(replay, indent=2, sort_keys=True) + "\n"
         )
         manifest_entries = dict(digests)
         manifest_entries[f"evidence/{CURRENT_REPLAY_NAME}"] = sha256_file(
             replay_path
         )
         manifest_path = release_dir / CURRENT_MANIFEST_NAME
-        manifest_path.write_text(
+        write_text_lf(
+            manifest_path,
             "\n".join(
                 f"{manifest_entries[label]}  {label}"
                 for label in sorted(manifest_entries)
             )
             + "\n",
-            encoding="utf-8",
-            newline="\n",
         )
         assert not validate_current_replay_bundle(root, required=True)
         checks += 1
 
-        ioc_path.write_text("mutated\n", encoding="utf-8", newline="\n")
+        write_text_lf(ioc_path, "mutated\n")
         assert any(
             "current source hash mismatch" in item
             for item in validate_current_replay_bundle(root, required=True)
         )
         checks += 1
-        ioc_path.write_text("ioc\n", encoding="utf-8", newline="\n")
+        write_text_lf(ioc_path, "ioc\n")
 
         manifest_lines = read_text(manifest_path).splitlines()
-        manifest_path.write_text(
+        write_text_lf(
+            manifest_path,
             "\n".join(
                 line
                 for line in manifest_lines
                 if not line.endswith("  build/release/freertos_modbus_can_node.bin")
             )
             + "\n",
-            encoding="utf-8",
-            newline="\n",
         )
         assert any(
             "manifest missing label" in item
@@ -915,7 +916,7 @@ def main() -> int:
     closed = sum(row["status"] == "CLOSED" for row in rows)
     opened = sum(row["status"] == "OPEN" for row in rows)
     print(
-        "P5 RELEASE READINESS: PASS_SOFTWARE_CANDIDATE "
+        "P5 RELEASE READINESS: PASS_BOUNDED_RELEASE_REVIEW_CANDIDATE "
         f"({closed} closed, {opened} open for later gates)"
     )
     return 0

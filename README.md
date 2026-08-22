@@ -79,12 +79,13 @@
 > and [`docs/health_recovery_report.md`](docs/health_recovery_report.md).
 
 > P5-S7-T05 update: intended version `v0.1.0` remains `UNRELEASED`. The current
-> result is a `SOFTWARE_CANDIDATE_READY_FOR_HARDWARE`, with a software demo and
-> matrix-bound recruitment wording that are not published. `HW-003` is now
-> closed by bounded CAN and physical dual-bus evidence, and `HW-001` is closed
-> by the bounded sensor/watchdog routes. `HW-002` is closed by the reference
-> RS485 route and bounded Project Three interoperability; only the soak blocker
-> remains open. No tag, binary attachment or remote Release exists. See
+> result is `BOUNDED_HARDWARE_CANDIDATE_READY_FOR_RELEASE_REVIEW`: all four
+> matrix-bound hardware evidence blockers are closed, while metrology, physical
+> ADXL345 INT, address migration, production MQTT, repeated-fault endurance,
+> MTBF and bit-for-bit cross-path reproduction remain outside the claim. The
+> software/hardware demo and eight evidence-bound recruitment sentences remain
+> `NOT_PUBLISHED`; no tag, binary attachment or remote Release exists or is
+> authorized. See
 > [`docs/v0_1_0_software_candidate.md`](docs/v0_1_0_software_candidate.md),
 > [`docs/demo_guide.md`](docs/demo_guide.md), and
 > [`docs/recruitment_claim_ledger.md`](docs/recruitment_claim_ledger.md).

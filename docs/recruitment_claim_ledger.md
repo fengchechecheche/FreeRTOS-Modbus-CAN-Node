@@ -29,13 +29,10 @@ matrix results currently marked `PASS`.
 These sentences may be shortened for a specific job, but their evidence IDs,
 qualification and exclusion boundaries must remain intact.
 
-## Ineligible claims
+## Ineligible matrix claim
 
 | Restriction ID | Matrix rows | Boundary | Eligibility |
 |---|---|---|---|
-| LIM-HW-01 | BSP-02,SNS-01,SNS-02,SNS-03,WDG-01 | Board startup, bounded watchdog and three sensor routes passed; metrology, physical ADXL345 INT and full hardware release remain outside the claims. | NOT_ELIGIBLE |
-| LIM-RS485-01 | RS485-03,P3-01 | Fixed-address-4 physical USB-RS485 and bounded Project Three read-only interoperability passed; valid address migration, Raspberry Pi hardware, production MQTT and repeated-fault endurance were not run. | NOT_ELIGIBLE |
-| LIM-SOAK-01 | SOAK-02 | 8 小时结论只适用于绑定哈希的诊断固件；默认固件只完成约 10 分钟回归。历史 60 分钟预跑仍为 REVIEW_REQUIRED，不据此声明 MTBF、生产级可靠性或任意故障恢复。 | NOT_ELIGIBLE |
 | LIM-REPRO-01 | REP-02 | Bit-for-bit BIN/HEX equality across differently named clean paths is not claimed. | NOT_ELIGIBLE |
 
 ## Wording rules
@@ -46,5 +43,6 @@ qualification and exclusion boundaries must remain intact.
 - Do not replace “software fault matrix” with an unqualified physical dual-bus claim; any physical claim must cite the single bounded `BUS-02` route and its exclusions.
 - Do not extend `P3-01` to Raspberry Pi hardware, multiple real slaves, production MQTT, address writes or long-run reliability.
 - Soak wording must distinguish the diagnostic-firmware 8-hour run from the restored-default approximately 10-minute regression and retain the historical 60-minute REVIEW_REQUIRED boundary.
+- Hardware PASS rows remain bounded: do not claim metrology, physical ADXL345 INT, valid address migration, production MQTT, arbitrary-adapter interoperability, repeated-fault endurance, MTBF, production-grade reliability or functional safety.
 - Do not use “industrial grade”, “production ready”, “functional safety” or equivalent language.
 - Any actual CV, portfolio or recruitment-platform update requires a separate review and authorization.

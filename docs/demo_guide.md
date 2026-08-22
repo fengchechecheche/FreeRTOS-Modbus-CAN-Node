@@ -1,14 +1,16 @@
-# Software and deferred-hardware demo guide
+# Software and bounded-hardware demo guide
 
-> Guide state: `SOFTWARE_DEMO_READY`
-> Hardware demo: `NOT_RUN / BLOCKED_WAITING_FOR_HARDWARE`
+> Guide state: `SOFTWARE_AND_BOUNDED_HARDWARE_DEMO_READY`
+> Hardware demo: `PASS_BOUNDED / NOT_PUBLISHED`
 > Publication: `NOT_PUBLISHED`
 
 ## Boundary
 
-The current demo proves Host behavior, ARM cross-build and bounded documentation
-contracts. It does not require a board and does not demonstrate physical
-sensor, RS485 or CAN behavior.
+The software route proves Host behavior, ARM cross-build and bounded
+documentation contracts without requiring a board. Separate reviewed evidence
+now covers the admitted board, three sensors, RS485, CAN, Project Three
+interoperability, one bounded dual-bus route and the formal soak. Neither route
+authorizes publication or removes the documented exclusions.
 
 Run commands from the repository root in the frozen Ubuntu development
 environment. Build output remains under ignored `out/`; do not stage it.
@@ -61,8 +63,8 @@ python3 tools/check_evidence_matrix.py
 python3 tools/check_learning_docs.py
 ```
 
-Expected result: the candidate is ready for hardware while the hardware Release
-gate remains blocked.
+Expected result: the bounded hardware candidate is ready for release review,
+while tag, remote Release and publication remain unauthorized.
 
 ### 5. Optional virtual-bus routes
 
@@ -85,10 +87,10 @@ The Modbus self-test, dry-run and PTY boundaries are in
 [`modbus_hil_report.md`](modbus_hil_report.md). Self-test/dry-run must not be
 described as PTY evidence, and PTY must not be described as USB-RS485 evidence.
 
-## Future hardware demo（NOT_RUN）
+## Reviewed bounded hardware demo
 
-Run this sequence only after the corresponding hardware admission gate is
-authorized:
+The reviewed evidence was acquired in this order; use the linked reports for a
+future live demonstration rather than treating this list as new evidence:
 
 1. board/ST-LINK admission and minimal startup — [`bsp_validation.md`](bsp_validation.md);
 2. device identity and representative samples — [`bme280_report.md`](bme280_report.md),
@@ -98,9 +100,10 @@ authorized:
 5. physical dual-bus faults — [`dual_bus_fault_matrix.md`](dual_bus_fault_matrix.md);
 6. hardware smoke/pre-run/formal soak — [`soak_trend_report.md`](soak_trend_report.md).
 
-Do not skip directly to a long soak before board, bus and safety admission. A
-failed hardware step stays at its own evidence layer and does not invalidate a
-qualified Host result.
+The recorded sequence did not skip directly to long soak before board, bus and
+safety admission. A future live demonstration failure stays at its own evidence
+layer and does not erase the reviewed historical PASS or a qualified Host
+result; it must instead be recorded and investigated separately.
 
 ## Minimal evidence policy
 
